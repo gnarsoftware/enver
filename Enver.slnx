@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Enver/Enver.csproj" />
+    <Project Path="src/Enver.InMemory/Enver.InMemory.csproj" />
+    <Project Path="src/Enver.SystemEnvironment/Enver.SystemEnvironment.csproj" />
+  </Folder>
+</Solution>

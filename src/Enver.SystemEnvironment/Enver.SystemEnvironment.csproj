@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../build/Library.props" />
+
+  <PropertyGroup>
+    <RootNamespace>Enver</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Enver/Enver.csproj" />
+  </ItemGroup>
+</Project>
