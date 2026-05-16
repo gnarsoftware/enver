@@ -1,0 +1,30 @@
+# build
+bin/
+obj/
+artifacts/
+
+# NuGet Packages
+*.nupkg
+# NuGet Symbol Packages
+*.snupkg
+
+# IDE
+.vs/
+.idea/
+.vscode/*
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+
+# Node
+node_modules
+
+# Python
+.venv
+
+# Others
+~$*
+*~
+.DS_Store
+.env
