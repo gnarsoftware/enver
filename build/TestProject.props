@@ -1,0 +1,23 @@
+<Project>
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+
+    <!-- IDE0005 (unused-usings) only runs at build time when XML-doc
+         generation is enabled. Keep it on so the analyzer can fire, then
+         silence CS1591 (missing XML comment) -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit.Analyzers" />
+    <PackageReference Include="NUnit3TestAdapter" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+  </ItemGroup>
+</Project>
