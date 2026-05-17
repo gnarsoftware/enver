@@ -71,8 +71,8 @@ public class EnvValueReaderTests
             Assert.That(captured, Has.Count.EqualTo(1));
             var (key, spanLength, str) = captured[0];
             Assert.That(key, Is.EqualTo("KEY"));
-            Assert.That(spanLength, Is.EqualTo(0));
-            Assert.That(str, Is.EqualTo(""));
+            Assert.That(spanLength, Is.Zero);
+            Assert.That(str, Is.Empty);
         }
     }
 

@@ -169,7 +169,7 @@ public class EnvReaderExtensionsTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(src.TryGet<int>("PORT", out var value), Is.False);
-            Assert.That(value, Is.EqualTo(0));
+            Assert.That(value, Is.Zero);
         }
     }
 

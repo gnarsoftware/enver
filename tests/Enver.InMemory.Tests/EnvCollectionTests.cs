@@ -192,7 +192,7 @@ public class EnvCollectionTests
                 OnMissingInterpolation = MissingInterpolationBehavior.EmptyString,
             }
         );
-        Assert.That(values["KEY"], Is.EqualTo(""));
+        Assert.That(values["KEY"], Is.Empty);
     }
 
     [Test]
@@ -526,7 +526,7 @@ public class EnvCollectionTests
     public void EmptyDoubleQuotedValueParses()
     {
         var values = Parse("KEY=\"\"");
-        Assert.That(values["KEY"], Is.EqualTo(""));
+        Assert.That(values["KEY"], Is.Empty);
     }
 
     [Test]
