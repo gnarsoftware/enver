@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <Import Project="../../build/Library.props" />
 
+  <PropertyGroup>
+    <Description>Microsoft.Extensions.Configuration integration for Enver. Provides AddDotEnvFiles for IConfigurationBuilder and AsEnvReader for typed access over any IConfiguration.</Description>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="../Enver/Enver.csproj" />
     <ProjectReference Include="../Enver.InMemory/Enver.InMemory.csproj" />
@@ -14,5 +18,9 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Enver.Extensions.Configuration.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>

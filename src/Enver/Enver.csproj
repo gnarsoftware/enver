@@ -1,7 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <Import Project="../../build/Library.props" />
 
+  <PropertyGroup>
+    <Description>Core lexer and parser for the Enver .env library. Reference one of the consumer packages (Enver.InMemory, Enver.SystemEnvironment) for typical use cases.</Description>
+  </PropertyGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Enver.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>

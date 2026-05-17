@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <Import Project="../../build/Library.props" />
 
+  <PropertyGroup>
+    <Description>Source generator and attributes for binding .env values to strongly-typed config classes.</Description>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="../Enver/Enver.csproj" />
     <ProjectReference
@@ -8,6 +12,10 @@
       ReferenceOutputAssembly="false"
       PrivateAssets="all"
     />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <PropertyGroup>
