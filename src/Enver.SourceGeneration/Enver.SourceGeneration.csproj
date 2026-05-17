@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../build/Library.props" />
+
+  <ItemGroup>
+    <ProjectReference Include="../Enver/Enver.csproj" />
+    <ProjectReference
+      Include="../Enver.SourceGeneration.Generator/Enver.SourceGeneration.Generator.csproj"
+      ReferenceOutputAssembly="false"
+      PrivateAssets="all"
+    />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <_GeneratorAssemblyPath>$(ArtifactsPath)/bin/Enver.SourceGeneration.Generator/$(Configuration.ToLowerInvariant())_netstandard2.0/Enver.SourceGeneration.Generator.dll</_GeneratorAssemblyPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <None
+      Include="$(_GeneratorAssemblyPath)"
+      Pack="true"
+      PackagePath="analyzers/dotnet/cs"
+      Visible="false"
+    />
+  </ItemGroup>
+</Project>
