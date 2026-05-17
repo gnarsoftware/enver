@@ -1,0 +1,43 @@
+using Enver.SourceGeneration;
+#pragma warning disable CA1050 // Declare types in namespaces
+// The source generator adds static Bind* factory methods directly to each
+// [EnverBindable] type, so binding is a single method call per config class.
+var app = AppConfig.BindFromAppDirectory();
+var db = DbConfig.BindFromAppDirectory();
+var api = ApiConfig.BindFromAppDirectory();
+
+Console.WriteLine($"Starting {app.Name}  [{app.Env}]  (debug={app.Debug})");
+Console.WriteLine($"  Database : {db.Host}:{db.Port}/{db.Name}");
+Console.WriteLine(
+    $"  API      : {api.Url}  timeout={api.TimeoutSeconds}s  retries={api.MaxRetries}"
+);
+
+// [EnverConfig] sets a key prefix and naming convention (default: UPPER_SNAKE_CASE).
+// [EnverBindable] triggers the source generator.
+// The type must be partial so the generator can augment it with the Bind* methods.
+
+[EnverConfig("APP")]
+[EnverBindable]
+public partial record AppConfig(
+    string Name, // APP_NAME - required
+    string Env, // APP_ENV - required
+    bool Debug // APP_DEBUG - required
+);
+
+[EnverConfig("DB")]
+[EnverBindable]
+public partial class DbConfig
+{
+    public required string Host { get; init; } // DB_HOST - required
+    public required int Port { get; init; } // DB_PORT - required
+    public required string Name { get; init; } // DB_NAME - required
+}
+
+[EnverConfig("API")]
+[EnverBindable]
+public partial class ApiConfig
+{
+    public required Uri Url { get; init; } // API_URL - requred
+    public int TimeoutSeconds { get; init; } = 30; // API_TIMEOUT_SECONDS - optional, default 30
+    public int MaxRetries { get; init; } = 3; // API_MAX_RETRIES - optional, default 3
+}

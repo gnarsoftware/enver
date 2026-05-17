@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="../../src/Enver.Extensions.Configuration/Enver.Extensions.Configuration.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update=".env;.env.development" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

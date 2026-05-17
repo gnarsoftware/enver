@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Enver.Sample.InMemory/Enver.Sample.InMemory.csproj" />
+  <Project Path="Enver.Sample.SystemEnvironment/Enver.Sample.SystemEnvironment.csproj" />
+  <Project Path="Enver.Sample.SourceGeneration/Enver.Sample.SourceGeneration.csproj" />
+  <Project Path="Enver.Sample.AspNetCore/Enver.Sample.AspNetCore.csproj" />
+</Solution>

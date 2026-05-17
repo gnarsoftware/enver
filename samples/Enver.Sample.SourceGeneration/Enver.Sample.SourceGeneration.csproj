@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Enver.SourceGeneration/Enver.SourceGeneration.csproj" />
+    <ProjectReference
+      Include="../../src/Enver.SourceGeneration.Generator/Enver.SourceGeneration.Generator.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false"
+    />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update=".env" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

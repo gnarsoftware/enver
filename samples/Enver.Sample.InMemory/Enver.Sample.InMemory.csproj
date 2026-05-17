@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Enver.InMemory/Enver.InMemory.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update=".env;.env.local" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
