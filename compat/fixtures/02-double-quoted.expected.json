@@ -1,0 +1,6 @@
+{
+  "SIMPLE": "hello",
+  "WITH_SPACE": "hello world",
+  "EMPTY": "",
+  "LEADING_TRAILING": " padded "
+}

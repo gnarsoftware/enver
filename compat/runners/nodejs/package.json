@@ -1,0 +1,10 @@
+{
+  "name": "enver-compat-nodejs",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cross-parser compat runner: invokes Node's dotenv against a fixture and emits parsed JSON.",
+  "dependencies": {
+    "dotenv": "17.4.2",
+    "dotenv-expand": "13.0.0"
+  }
+}

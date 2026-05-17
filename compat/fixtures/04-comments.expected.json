@@ -1,0 +1,5 @@
+{
+  "KEY": "value",
+  "OTHER": "42",
+  "NOT_A_COMMENT": "this#is#not#a#comment"
+}
