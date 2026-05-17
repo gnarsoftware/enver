@@ -4,4 +4,9 @@
     <Project Path="src/Enver.InMemory/Enver.InMemory.csproj" />
     <Project Path="src/Enver.SystemEnvironment/Enver.SystemEnvironment.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Enver.Tests/Enver.Tests.csproj" />
+    <Project Path="tests/Enver.InMemory.Tests/Enver.InMemory.Tests.csproj" />
+    <Project Path="tests/Enver.SystemEnvironment.Tests/Enver.SystemEnvironment.Tests.csproj" />
+  </Folder>
 </Solution>

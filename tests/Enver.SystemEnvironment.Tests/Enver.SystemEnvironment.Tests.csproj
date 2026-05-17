@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../build/TestProject.props" />
+
+  <PropertyGroup>
+    <RootNamespace>Enver.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Enver.SystemEnvironment/Enver.SystemEnvironment.csproj" />
+  </ItemGroup>
+</Project>
