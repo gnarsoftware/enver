@@ -3,10 +3,12 @@
     <Project Path="src/Enver/Enver.csproj" />
     <Project Path="src/Enver.InMemory/Enver.InMemory.csproj" />
     <Project Path="src/Enver.SystemEnvironment/Enver.SystemEnvironment.csproj" />
+    <Project Path="src/Enver.Extensions.Configuration/Enver.Extensions.Configuration.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Enver.Tests/Enver.Tests.csproj" />
     <Project Path="tests/Enver.InMemory.Tests/Enver.InMemory.Tests.csproj" />
     <Project Path="tests/Enver.SystemEnvironment.Tests/Enver.SystemEnvironment.Tests.csproj" />
+    <Project Path="tests/Enver.Extensions.Configuration.Tests/Enver.Extensions.Configuration.Tests.csproj" />
   </Folder>
 </Solution>
