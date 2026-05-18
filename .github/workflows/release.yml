@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    name: Build, pack, and publish
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Verify formatting (csharpier)
+        run: dotnet csharpier check .
+
+      - name: Restore
+        run: dotnet restore Enver.slnx
+
+      - name: Build
+        run: dotnet build Enver.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test Enver.slnx --configuration Release --no-build --logger "console;verbosity=normal"
+
+      - name: Pack
+        run: dotnet pack Enver.slnx --configuration Release --no-build
+
+      - name: Login to NuGet (OIDC trusted publishing)
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: gnarsoftware
+
+      - name: Push to NuGet
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push 'artifacts/packages/*.nupkg' \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+      - name: Upload release assets
+        run: gh release upload ${{ github.event.release.tag_name }} artifacts/packages/*.nupkg artifacts/packages/*.snupkg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
