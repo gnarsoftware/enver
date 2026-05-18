@@ -230,6 +230,23 @@ public class EnvCollectionTests
     }
 
     [Test]
+    public void CommentLineFollowedByBlankLineIsIgnored()
+    {
+        var values = Parse(
+            """
+            # KEY1=
+
+            KEY2=val
+            """
+        );
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(values["KEY2"], Is.EqualTo("val"));
+            Assert.That(values.ContainsKey("KEY1"), Is.False);
+        }
+    }
+
+    [Test]
     public void UnquotedCombinedInterpolatorsParse()
     {
         var values = Parse(
