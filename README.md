@@ -74,19 +74,42 @@ EnvironmentExtensions.LoadDotEnvFromAppDirectory();
 var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
 ```
 
-### Chain-load multiple files
+### Load `.env` into ASP.NET Core configuration
 
-The directory-based loaders accept a `variant` parameter for
-`.env.{variant}` overrides and a `maxAncestors` parameter to walk up
-parent directories.
+```sh
+dotnet add package Gnar.Enver.Extensions.Configuration
+```
 
 ```csharp
-// Looks for .env then .env.local in every parent directory up to the root.
-// Closer files override farther files; variants override bare .env
-var values = EnvCollection.FromAppDirectory(
-    variant: "local",
-    maxAncestors: int.MaxValue
-);
+using Enver.Extensions.Configuration;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddDotEnvFiles();
+// loads .env, .env.{environment}, .env.local, .env.{environment}.local
+// in precedence order; every file is optional
+
+string? dbHost = builder.Configuration["DB_HOST"];
+int port = builder.Configuration.AsEnvReader().GetInt32("DB_PORT", 5432);
+```
+
+### Bind `.env` to a typed class
+
+```sh
+dotnet add package Gnar.Enver.SourceGeneration
+```
+
+```csharp
+using Enver;
+using Enver.SourceGeneration;
+
+[EnverBindable]
+public partial record DatabaseConfig(string Host, int Port)
+{
+    public bool UseSsl { get; init; } = true;
+}
+
+var cfg = DatabaseConfig.BindFromAppDirectory();
+// property names map to UPPER_SNAKE_CASE: Host -> HOST, UseSsl -> USE_SSL
 ```
 
 ## Typed accessors

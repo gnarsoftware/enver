@@ -8,6 +8,10 @@ broader ecosystem.
 
 ## Quick start
 
+```sh
+dotnet add package Gnar.Enver.InMemory
+```
+
 ```csharp
 using Enver;
 

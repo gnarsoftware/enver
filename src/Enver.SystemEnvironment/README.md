@@ -11,6 +11,10 @@ broader ecosystem.
 
 ## Quick start
 
+```sh
+dotnet add package Gnar.Enver.SystemEnvironment
+```
+
 ```csharp
 using Enver;
 

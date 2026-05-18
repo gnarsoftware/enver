@@ -9,6 +9,10 @@ broader ecosystem.
 
 ## Quick start
 
+```sh
+dotnet add package Gnar.Enver.SourceGeneration
+```
+
 Mark a `partial` type with `[EnverBindable]` and the generator emits a
 `Bind` family of static methods on it:
 

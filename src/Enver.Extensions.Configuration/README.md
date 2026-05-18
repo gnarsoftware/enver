@@ -16,6 +16,10 @@ broader ecosystem.
 
 ## Quick start
 
+```sh
+dotnet add package Gnar.Enver.Extensions.Configuration
+```
+
 The drop-in replacement for `appsettings.json` / `appsettings.{Environment}.json`:
 
 ```csharp
