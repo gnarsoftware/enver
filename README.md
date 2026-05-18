@@ -1,5 +1,9 @@
 # Enver
 
+[![CI](https://github.com/gnarsoftware/enver/actions/workflows/ci.yml/badge.svg)](https://github.com/gnarsoftware/enver/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/v/Gnar.Enver)](https://www.nuget.org/packages/Gnar.Enver)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 A fast, strict, opinionated `.env` file parser for .NET.
 
 ---
