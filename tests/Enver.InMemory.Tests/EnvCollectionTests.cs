@@ -103,15 +103,7 @@ public class EnvCollectionTests
             value`
             """
         );
-        Assert.That(
-            values["KEY"],
-            Is.EqualTo(
-                """
-                value
-                value
-                """
-            )
-        );
+        Assert.That(values["KEY"], Is.EqualTo("value\nvalue"));
     }
 
     [Test]
@@ -293,11 +285,7 @@ public class EnvCollectionTests
         Assert.That(
             values["KEY"],
             Is.EqualTo(
-                """
-                This is a multi-line
-                value with the next line starting with # and is the odd case
-                # this text is included in the value
-                """
+                "This is a multi-line\nvalue with the next line starting with # and is the odd case\n# this text is included in the value"
             )
         );
     }
