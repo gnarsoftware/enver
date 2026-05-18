@@ -88,14 +88,22 @@ internal ref struct EnvLexer(
         switch (_state)
         {
             case LexerState.Key:
-                var trimmed = _text.TrimStart(Constants.KeyTrivia);
-                int diff = _text.Length - trimmed.Length;
-                if (diff > 0)
+                while (true)
                 {
-                    Position += diff;
-                    _text = trimmed;
+                    var trimmed = _text.TrimStart(Constants.KeyTrivia);
+                    int diff = _text.Length - trimmed.Length;
+                    if (diff > 0)
+                    {
+                        Position += diff;
+                        _text = trimmed;
+                    }
+                    if (_text.IsEmpty || _text[0] != (byte)'#')
+                    {
+                        break;
+                    }
+
+                    SkipComment();
                 }
-                SkipComment();
                 return;
             case LexerState.Value:
                 var index = _text.IndexOfAnyExcept((byte)' ', (byte)'\t');
