@@ -91,10 +91,12 @@ public static class EnverConfigurationExtensions
     /// Configures the <see cref="EnverDotEnvFilesSource"/>.
     /// </param>
     /// <param name="environmentName">
-    /// The environment name suffix to load (<c>.env.{environmentName}</c>,
-    /// lowercased). If <see langword="null" />, the name is read from the configuration's
-    /// <c>ASPNETCORE_ENVIRONMENT</c> or <c>DOTNET_ENVIRONMENT</c> keys, falling
-    /// back to <c>"Production"</c>, matching <c>IHostEnvironment.EnvironmentName</c>.
+    /// The environment name suffix to load (<c>.env.{environmentName}</c>).
+    /// Used as-is; supply a lowercase value to match the dotenv ecosystem
+    /// convention. If <see langword="null" />, the name is auto-discovered from
+    /// the configuration's <c>ASPNETCORE_ENVIRONMENT</c> or
+    /// <c>DOTNET_ENVIRONMENT</c> keys (lowercased), falling back to
+    /// <c>"production"</c>.
     /// </param>
     /// <param name="baseFileName">
     /// The base filename. Defaults to <c>.env</c>

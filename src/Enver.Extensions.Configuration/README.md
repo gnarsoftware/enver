@@ -63,16 +63,16 @@ environment name is auto-discovered from the configuration tree (reading
 builder.Configuration.AddDotEnvFiles();
 ```
 
-The variant filename is **always lowercased**, so
+Auto-discovered environment names are lowercased, so
 `ASPNETCORE_ENVIRONMENT=Development` resolves to `.env.development` (not
-`.env.Development`). This matches the universal dotenv ecosystem
-convention (`.env.development`, `.env.production`, `.env.test`) even
-though `appsettings.{Environment}.json` preserves case. Override when
+`.env.Development`). This matches the dotenv ecosystem convention
+(`.env.development`, `.env.production`, `.env.test`) even though
+`appsettings.{Environment}.json` preserves case. Override when
 needed:
 
 ```csharp
-builder.Configuration.AddDotEnvFiles(environmentName: "Local");
-// loads .env.local (lowercased)
+builder.Configuration.AddDotEnvFiles(environmentName: "Development");
+// loads .env.Development
 ```
 
 ### Precedence: where in the source list

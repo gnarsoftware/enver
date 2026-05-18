@@ -122,7 +122,7 @@ public class AddDotEnvFilesTests
         config.AddInMemoryCollection([
             new KeyValuePair<string, string?>("ASPNETCORE_ENVIRONMENT", "Staging"),
         ]);
-        config.AddDotEnvFiles(s => s.ReloadOnChange = false, environmentName: "Custom");
+        config.AddDotEnvFiles(s => s.ReloadOnChange = false, environmentName: "custom");
         Assert.That(config["KEY"], Is.EqualTo("custom"));
     }
 
