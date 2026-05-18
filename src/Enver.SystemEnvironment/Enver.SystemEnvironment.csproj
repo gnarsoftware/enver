@@ -2,6 +2,7 @@
   <Import Project="../../build/Library.props" />
 
   <PropertyGroup>
+    <PackageId>Gnar.Enver.SystemEnvironment</PackageId>
     <Description>Loads .env files into the process environment block via Environment.SetEnvironmentVariable.</Description>
     <RootNamespace>Enver</RootNamespace>
   </PropertyGroup>

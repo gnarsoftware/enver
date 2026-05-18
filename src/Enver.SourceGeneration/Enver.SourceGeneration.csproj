@@ -2,6 +2,7 @@
   <Import Project="../../build/Library.props" />
 
   <PropertyGroup>
+    <PackageId>Gnar.Enver.SourceGeneration</PackageId>
     <Description>Source generator and attributes for binding .env values to strongly-typed config classes.</Description>
   </PropertyGroup>
 

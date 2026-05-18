@@ -2,6 +2,7 @@
   <Import Project="../../build/Library.props" />
 
   <PropertyGroup>
+    <PackageId>Gnar.Enver.Extensions.Configuration</PackageId>
     <Description>Microsoft.Extensions.Configuration integration for Enver. Provides AddDotEnvFiles for IConfigurationBuilder and AsEnvReader for typed access over any IConfiguration.</Description>
   </PropertyGroup>
 

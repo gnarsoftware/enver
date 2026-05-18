@@ -43,7 +43,7 @@ The base package contains the core parser. Pick an integration package based on 
 ### Load `.env` into a dictionary
 
 ```sh
-dotnet add package Enver.InMemory
+dotnet add package Gnar.Enver.InMemory
 ```
 
 ```csharp
@@ -60,7 +60,7 @@ var dbHost = values["DB_HOST"];
 ### Load `.env` into the process environment
 
 ```sh
-dotnet add package Enver.SystemEnvironment
+dotnet add package Gnar.Enver.SystemEnvironment
 ```
 
 ```csharp

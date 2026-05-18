@@ -2,6 +2,7 @@
   <Import Project="../../build/Library.props" />
 
   <PropertyGroup>
+    <PackageId>Gnar.Enver.InMemory</PackageId>
     <Description>Loads .env files into an in-memory dictionary.</Description>
     <RootNamespace>Enver</RootNamespace>
   </PropertyGroup>

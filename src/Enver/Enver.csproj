@@ -2,7 +2,8 @@
   <Import Project="../../build/Library.props" />
 
   <PropertyGroup>
-    <Description>Core lexer and parser for the Enver .env library. Reference one of the consumer packages (Enver.InMemory, Enver.SystemEnvironment) for typical use cases.</Description>
+    <PackageId>Gnar.Enver</PackageId>
+    <Description>Core lexer and parser for the Enver .env library. Reference one of the consumer packages (Gnar.Enver.InMemory, Gnar.Enver.SystemEnvironment) for typical use cases.</Description>
   </PropertyGroup>
 
   <ItemGroup>
