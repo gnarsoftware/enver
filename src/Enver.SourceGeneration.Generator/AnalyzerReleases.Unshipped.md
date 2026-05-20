@@ -18,6 +18,5 @@ ENVR0013 | EnverSourceGeneration | Error | Type implements IUtf8SpanParsable but
 ENVR0014 | EnverSourceGeneration | Info | [EnverFormatProvider] has no effect on this member
 ENVR0015 | EnverSourceGeneration | Warning | [EnverKey] member is not accessible from the binding host
 ENVR0016 | EnverSourceGeneration | Warning | [EnverKey] on getter-only property has no effect
-ENVR0017 | EnverSourceGeneration | Warning | [EnverKey] name/prefix is ignored on a subsection property
 ENVR0018 | EnverSourceGeneration | Warning | Member skipped in generated Populate
 ENVR0019 | EnverSourceGeneration | Error | No mutable members for Populate
