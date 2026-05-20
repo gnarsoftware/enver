@@ -558,9 +558,9 @@ public class GeneratorDriverTests
             Assert.That(src, Does.Contain("_val_Nested_Addr"));
             Assert.That(src, Does.Contain("_set_Nested_Port"));
             Assert.That(src, Does.Contain("_set_Nested_Addr"));
-            // OnNext routes subsection keys to the prefixed fields.
-            Assert.That(src, Does.Contain("\"PORT\"u8"));
-            Assert.That(src, Does.Contain("\"HOST\"u8"));
+            // Keys inherit the subsection property name as a prefix segment.
+            Assert.That(src, Does.Contain("\"NESTED_PORT\"u8"));
+            Assert.That(src, Does.Contain("\"NESTED_HOST\"u8"));
             // Build() checks required sub-members, builds a local, assigns it.
             Assert.That(src, Does.Contain("_set_Nested_Port"));
             Assert.That(src, Does.Contain("var _built_Nested"));
@@ -571,7 +571,7 @@ public class GeneratorDriverTests
     }
 
     [Test]
-    public void SubSectionWithIgnorePrefixKeyBindsCorrectly()
+    public void SubSectionLeafIgnorePrefixDropsWholeChain()
     {
         var result = GeneratorTestHarness.RunExpectingSuccess(
             """
@@ -599,7 +599,7 @@ public class GeneratorDriverTests
         var src = result.SingleSource().Text;
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(src, Does.Contain("\"DB_HOST\"u8"));
+            Assert.That(src, Does.Contain("\"APP_DB_DB_HOST\"u8"));
             Assert.That(src, Does.Contain("\"ABSOLUTE_KEY\"u8"));
             Assert.That(src, Does.Contain("_val_Db_Host"));
             Assert.That(src, Does.Contain("_val_Db_Absolute"));
@@ -628,7 +628,11 @@ public class GeneratorDriverTests
         );
 
         var src = result.SingleSource().Text;
-        Assert.That(src, Does.Contain("_val_Section_Val"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(src, Does.Contain("_val_Section_Val"));
+            Assert.That(src, Does.Contain("\"SECTION_VAL\"u8"));
+        }
     }
 
     [Test]
@@ -662,9 +666,10 @@ public class GeneratorDriverTests
         using (Assert.EnterMultipleScope())
         {
             // MaxConnections has no [EnverKey], so the name is transformed.
-            // With inherited SnakeCase it becomes "max_connections", not "MAX_CONNECTIONS".
-            Assert.That(src, Does.Contain("\"max_connections\"u8"));
-            Assert.That(src, Does.Not.Contain("\"MAX_CONNECTIONS\"u8"));
+            // With inherited SnakeCase it becomes "max_connections", not "MAX_CONNECTIONS",
+            // prefixed by the subsection property name ("database").
+            Assert.That(src, Does.Contain("\"database_max_connections\"u8"));
+            Assert.That(src, Does.Not.Contain("\"database_MAX_CONNECTIONS\"u8"));
         }
     }
 
@@ -695,12 +700,14 @@ public class GeneratorDriverTests
         var src = result.SingleSource().Text;
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(src, Does.Contain("\"MAX_CONNECTIONS\"u8"));
-            Assert.That(src, Does.Not.Contain("\"max_connections\"u8"));
+            // Property segment "database" uses the parent's SnakeCase; the leaf
+            // member uses the subsection's own UpperSnakeCase.
+            Assert.That(src, Does.Contain("\"database_MAX_CONNECTIONS\"u8"));
+            Assert.That(src, Does.Not.Contain("\"database_max_connections\"u8"));
         }
     }
 
-    // --- ENVR0016 / ENVR0017 diagnostics ---
+    // --- ENVR0016 diagnostics ---
 
     [Test]
     public void ReportsEnvr0016WhenKeyOnGetterOnlyProperty()
@@ -724,12 +731,136 @@ public class GeneratorDriverTests
         Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Contain("ENVR0016"));
     }
 
+    // --- Subsection prefix composition ---
+
     [Test]
-    public void ReportsEnvr0017WhenKeyNameSpecifiedOnSubSectionProperty()
+    public void SubSectionPropertyNameBecomesPrefix()
     {
-        // [EnverKey] with a name override on a subsection property has no effect
-        // because subsections don't use a key name for dispatch.
-        var result = GeneratorTestHarness.Run(
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            namespace Test;
+
+            public record Sub(string Val);
+
+            [Enver.SourceGeneration.EnverBindable]
+            public partial record Base([property: Enver.SourceGeneration.EnverKey] Sub Sub);
+            """
+        );
+
+        var src = result.SingleSource().Text;
+        Assert.That(src, Does.Contain("\"SUB_VAL\"u8"));
+    }
+
+    [Test]
+    public void SubSectionTypeConfigPrefixComposed()
+    {
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            namespace Test;
+
+            [Enver.SourceGeneration.EnverConfig("INNER")]
+            public record Sub(string Val);
+
+            [Enver.SourceGeneration.EnverBindable]
+            public partial record Base([property: Enver.SourceGeneration.EnverKey] Sub Sub);
+            """
+        );
+
+        var src = result.SingleSource().Text;
+        Assert.That(src, Does.Contain("\"SUB_INNER_VAL\"u8"));
+    }
+
+    [Test]
+    public void SubSectionParentConfigPrefixComposed()
+    {
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            namespace Test;
+
+            public record Sub(string Val);
+
+            [Enver.SourceGeneration.EnverBindable]
+            [Enver.SourceGeneration.EnverConfig("OUTER")]
+            public partial record Base([property: Enver.SourceGeneration.EnverKey] Sub Sub);
+            """
+        );
+
+        var src = result.SingleSource().Text;
+        Assert.That(src, Does.Contain("\"OUTER_SUB_VAL\"u8"));
+    }
+
+    [Test]
+    public void SubSectionParentAndTypeConfigPrefixComposed()
+    {
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            namespace Test;
+
+            [Enver.SourceGeneration.EnverConfig("INNER")]
+            public record Sub(string Val);
+
+            [Enver.SourceGeneration.EnverBindable]
+            [Enver.SourceGeneration.EnverConfig("OUTER")]
+            public partial record Base([property: Enver.SourceGeneration.EnverKey] Sub Sub);
+            """
+        );
+
+        var src = result.SingleSource().Text;
+        Assert.That(src, Does.Contain("\"OUTER_SUB_INNER_VAL\"u8"));
+    }
+
+    [Test]
+    public void SubSectionEmptyKeyOptsOutOfPropertyPrefix()
+    {
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            namespace Test;
+
+            public record Sub(string Val);
+
+            [Enver.SourceGeneration.EnverBindable]
+            public partial record Base([property: Enver.SourceGeneration.EnverKey("")] Sub Sub);
+            """
+        );
+
+        var src = result.SingleSource().Text;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(src, Does.Contain("\"VAL\"u8"));
+            Assert.That(src, Does.Not.Contain("\"SUB_VAL\"u8"));
+        }
+    }
+
+    [Test]
+    public void SubSectionKeyIgnorePrefixDropsInheritedOnly()
+    {
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            namespace Test;
+
+            [Enver.SourceGeneration.EnverConfig("INNER")]
+            public record Sub(string Val);
+
+            [Enver.SourceGeneration.EnverBindable]
+            [Enver.SourceGeneration.EnverConfig("OUTER")]
+            public partial record Base(
+                [property: Enver.SourceGeneration.EnverKey(IgnorePrefix = true)] Sub Sub
+            );
+            """
+        );
+
+        var src = result.SingleSource().Text;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(src, Does.Contain("\"SUB_INNER_VAL\"u8"));
+            Assert.That(src, Does.Not.Contain("\"OUTER_SUB_INNER_VAL\"u8"));
+        }
+    }
+
+    [Test]
+    public void SubSectionKeyOnPropertyOptsInWithoutTypeMarker()
+    {
+        var result = GeneratorTestHarness.RunExpectingSuccess(
             """
             namespace Test;
 
@@ -738,11 +869,10 @@ public class GeneratorDriverTests
             {
                 public string AppName { get; init; } = "";
 
-                [Enver.SourceGeneration.EnverKey("IGNORED_NAME")]
+                [Enver.SourceGeneration.EnverKey]
                 public Sub Database { get; init; } = new();
             }
 
-            [Enver.SourceGeneration.EnverConfig("DB")]
             public class Sub
             {
                 public string Host { get; init; } = "";
@@ -750,42 +880,18 @@ public class GeneratorDriverTests
             """
         );
 
-        Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Contain("ENVR0017"));
+        var src = result.SingleSource().Text;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(src, Does.Contain("_val_Database_Host"));
+            Assert.That(src, Does.Contain("\"DATABASE_HOST\"u8"));
+        }
     }
 
     [Test]
-    public void ReportsEnvr0017WhenIgnorePrefixSpecifiedOnSubSectionProperty()
+    public void SubSectionRequiredViaEnverKey()
     {
-        // [EnverKey(IgnorePrefix = true)] on a subsection property also has no effect.
-        var result = GeneratorTestHarness.Run(
-            """
-            namespace Test;
-
-            [Enver.SourceGeneration.EnverBindable]
-            [Enver.SourceGeneration.EnverConfig("APP")]
-            public partial class Config
-            {
-                [Enver.SourceGeneration.EnverKey(IgnorePrefix = true)]
-                public Sub Database { get; init; } = new();
-            }
-
-            [Enver.SourceGeneration.EnverConfig("DB")]
-            public class Sub
-            {
-                public string Host { get; init; } = "";
-            }
-            """
-        );
-
-        Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Contain("ENVR0017"));
-    }
-
-    [Test]
-    public void ReportsEnvr0017WhenEnverKeyWithOnlyRequiredOnSubSectionProperty()
-    {
-        // [EnverKey] is now entirely disallowed on subsection properties,
-        // even if only Required is set.
-        var result = GeneratorTestHarness.Run(
+        var result = GeneratorTestHarness.RunExpectingSuccess(
             """
             namespace Test;
 
@@ -806,102 +912,8 @@ public class GeneratorDriverTests
             """
         );
 
-        Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Contain("ENVR0017"));
-    }
-
-    // --- [EnverSubsection] attribute ---
-
-    [Test]
-    public void EnverSubsectionOnTypeMarksCandidateWithoutOtherMarkers()
-    {
-        // A type with only [EnverSubsection] (no [EnverConfig], no [EnverKey] on members)
-        // is detected as a subsection candidate.
-        var result = GeneratorTestHarness.RunExpectingSuccess(
-            """
-            namespace Test;
-
-            [Enver.SourceGeneration.EnverBindable]
-            public partial class Config
-            {
-                public string AppName { get; init; } = "";
-                public Sub Database { get; init; } = new();
-            }
-
-            [Enver.SourceGeneration.EnverSubsection]
-            public class Sub
-            {
-                public string Host { get; init; } = "";
-                public int Port { get; init; }
-            }
-            """
-        );
-
-        var src = result.SingleSource().Text;
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(src, Does.Contain("_val_Database_Host"));
-            Assert.That(src, Does.Contain("_val_Database_Port"));
-            Assert.That(src, Does.Contain("\"HOST\"u8"));
-            Assert.That(src, Does.Contain("\"PORT\"u8"));
-        }
-    }
-
-    [Test]
-    public void EnverSubsectionOnPropertyExplicitlyOptsInWithoutTypeMarker()
-    {
-        // [EnverSubsection] on the property binds it as a subsection even though
-        // the type has no [EnverConfig], [EnverSubsection], or [EnverKey] markers.
-        var result = GeneratorTestHarness.RunExpectingSuccess(
-            """
-            namespace Test;
-
-            [Enver.SourceGeneration.EnverBindable]
-            public partial class Config
-            {
-                public string AppName { get; init; } = "";
-
-                [Enver.SourceGeneration.EnverSubsection]
-                public Sub Database { get; init; } = new();
-            }
-
-            public class Sub
-            {
-                public string Host { get; init; } = "";
-            }
-            """
-        );
-
         var src = result.SingleSource().Text;
         Assert.That(src, Does.Contain("_val_Database_Host"));
-    }
-
-    [Test]
-    public void EnverSubsectionRequiredOnPropertyControlsRequirement()
-    {
-        // [EnverSubsection(Required = ...)] is the valid way to control requirement on a
-        // subsection property. No ENVR0017 should fire.
-        var result = GeneratorTestHarness.RunExpectingSuccess(
-            """
-            namespace Test;
-
-            [Enver.SourceGeneration.EnverBindable]
-            public partial class Config
-            {
-                public string AppName { get; init; } = "";
-
-                [Enver.SourceGeneration.EnverSubsection(Required = Enver.SourceGeneration.EnverRequirementBehavior.Required)]
-                public Sub Database { get; init; } = new();
-            }
-
-            [Enver.SourceGeneration.EnverConfig("DB")]
-            public class Sub
-            {
-                public string Host { get; init; } = "";
-            }
-            """
-        );
-
-        Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Not.Contain("ENVR0017"));
     }
 
     // --- GeneratePopulate ---
