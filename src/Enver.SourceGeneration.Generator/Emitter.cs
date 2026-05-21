@@ -698,9 +698,9 @@ internal static class Emitter
             {
                 // Optional non-nullable value types are stored as Nullable<T> (see
                 // StorageTypeOf), so the conditional would be T? against a T target.
-                // Cast the parsed value back to T; the _set guard guarantees it is
-                // non-null on that branch.
-                return $"_set_{fieldPrefix}{memberName} ? ({m.TypeFullyQualifiedName}){field} : {defaultExpr}";
+                // Unwrap to T; the _set guard guarantees it is non-null on that
+                // branch.
+                return $"_set_{fieldPrefix}{memberName} ? {field}!.Value : {defaultExpr}";
             }
             return $"_set_{fieldPrefix}{memberName} ? {field} : {defaultExpr}";
         }

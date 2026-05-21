@@ -132,15 +132,6 @@ internal static class DiagnosticDescriptors
         isEnabledByDefault: true
     );
 
-    public static readonly DiagnosticDescriptor KeyNameIgnoredOnSubSection = new(
-        id: "ENVR0017",
-        title: "[EnverKey] is not allowed on subsection properties",
-        messageFormat: "[EnverKey] on member '{0}' has no effect; subsection properties do not use key names or prefixes. Use [EnverSubsection] to control binding behavior.",
-        category: Category,
-        defaultSeverity: DiagnosticSeverity.Warning,
-        isEnabledByDefault: true
-    );
-
     public static readonly DiagnosticDescriptor PopulateMemberSkipped = new(
         id: "ENVR0018",
         title: "Member skipped in generated Populate",

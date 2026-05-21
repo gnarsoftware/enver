@@ -138,6 +138,62 @@ public partial class AppConfig
 > `[property: EnverKey(...)]` target so the attribute lands on the generated
 > property rather than the parameter.
 
+## Subsections
+
+A property whose type is itself a bindable config type is bound as a
+**subsection**: its members are read from the same flat key space, under a
+prefix derived from the outer property. A property is treated as a subsection
+when any of these hold:
+
+- the property is annotated with `[EnverKey]`
+- the property's type carries `[EnverConfig]`
+- the property's type has a member annotated with `[EnverKey]`
+
+A subsection key is composed, in order, of:
+
+1. the outer type's prefix (its `[EnverConfig]` prefix plus anything inherited
+   from further-out subsections)
+2. the subsection property's segment (its `[EnverKey]` name, or the property
+   name run through the naming convention)
+3. the subsection type's own `[EnverConfig]` prefix
+4. the member's key
+
+```csharp
+record Sub(string Val);
+
+[EnverBindable]
+partial class Base
+{
+    [EnverKey]
+    public required Sub Sub { get; init; }
+}
+// Sub.Val -> SUB_VAL
+```
+
+| Attributes | Key for `Sub.Val` |
+|---|---|
+| (as above) | `SUB_VAL` |
+| `Sub` has `[EnverConfig("K1")]` | `SUB_K1_VAL` |
+| `Base` has `[EnverConfig("K2")]` | `K2_SUB_VAL` |
+| both of the above | `K2_SUB_K1_VAL` |
+
+Opt out of the property-name segment with an empty key:
+
+```csharp
+[EnverBindable]
+partial class Base
+{
+    [EnverKey("")]
+    public required Sub Sub { get; init; }
+}
+// Sub.Val -> VAL
+```
+
+`[EnverKey(IgnorePrefix = true)]` on a subsection property drops the inherited
+(ancestor) prefix but keeps the property's own segment and the subsection
+type's `[EnverConfig]` prefix. Requiredness is controlled the same way as a
+leaf member, with `[EnverKey(Required = ...)]`.
+
 ## Other attributes
 
 | Attribute | Effect |

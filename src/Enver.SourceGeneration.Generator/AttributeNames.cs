@@ -9,5 +9,4 @@ internal static class AttributeNames
     public const string EnverIgnore = "Enver.SourceGeneration.EnverIgnoreAttribute";
     public const string EnverUri = "Enver.SourceGeneration.EnverUriAttribute";
     public const string EnverFormatProvider = "Enver.SourceGeneration.EnverFormatProviderAttribute";
-    public const string EnverSubsection = "Enver.SourceGeneration.EnverSubsectionAttribute";
 }

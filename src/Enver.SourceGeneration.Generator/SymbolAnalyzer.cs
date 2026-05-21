@@ -108,13 +108,16 @@ internal static class SymbolAnalyzer
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
         EnverKeyNamingConvention parentNaming = EnverKeyNamingConvention.UpperSnakeCase,
-        bool generatePopulate = false
+        bool generatePopulate = false,
+        string? accumulatedPrefix = null
     )
     {
         var configAttr = FindAttribute(targetSymbol, AttributeNames.EnverConfig);
         var (prefix, keyNaming) = ReadConfig(configAttr);
         var resolvedNaming =
             keyNaming == EnverKeyNamingConvention.Inherit ? parentNaming : keyNaming;
+
+        var effectivePrefix = CombineKey(accumulatedPrefix, prefix);
 
         // A literal [EnverConfig] Prefix that the KeyNaming convention would
         // re-case produces keys with inconsistent casing (e.g. "Db_HOST_NAME").
@@ -210,37 +213,22 @@ internal static class SymbolAnalyzer
             }
 
             // check whether the member type qualifies as a subsection
-            bool hasSubsectionAttr = HasAttribute(prop, AttributeNames.EnverSubsection);
+            bool propHasKey = HasAttribute(prop, AttributeNames.EnverKey);
             if (
                 TypeDispatch.Resolve(prop.Type) == TypeDispatchKind.Unsupported
                 && !prop.Type.IsNullable()
                 && prop.Type is INamedTypeSymbol namedPropType
-                && (hasSubsectionAttr || IsSubSectionCandidate(namedPropType))
+                && (propHasKey || IsSubSectionCandidate(namedPropType))
             )
             {
-                // [EnverKey] is not allowed on subsection properties.
-                var keyAttrOnSubsection = FindAttribute(prop, AttributeNames.EnverKey);
-                if (keyAttrOnSubsection is not null)
-                {
-                    diags.Add(
-                        new DiagnosticInfo(
-                            DiagnosticDescriptors.KeyNameIgnoredOnSubSection,
-                            keyAttrOnSubsection
-                                .ApplicationSyntaxReference?.GetSyntax()
-                                .GetLocation()
-                                ?? prop.Locations.FirstOrDefault(),
-                            new(ImmutableArray.Create(prop.Name))
-                        )
-                    );
-                }
-
                 var subSection = TryAnalyzeSubSection(
                     prop,
                     namedPropType,
                     hostSymbol,
                     compilation,
                     diags,
-                    resolvedNaming
+                    resolvedNaming,
+                    effectivePrefix
                 );
                 if (subSection is not null)
                 {
@@ -267,7 +255,7 @@ internal static class SymbolAnalyzer
 
             var member = AnalyzeMember(
                 prop,
-                prefix,
+                effectivePrefix,
                 resolvedNaming,
                 hostSymbol,
                 compilation,
@@ -615,20 +603,17 @@ internal static class SymbolAnalyzer
         return (name, ignorePrefix, requirement);
     }
 
-    private static EnverRequirementBehavior ReadSubsectionRequired(AttributeData? attr)
+    private static string CombineKey(string? left, string? right)
     {
-        if (attr is null)
+        if (string.IsNullOrEmpty(left))
         {
-            return EnverRequirementBehavior.Inferred;
+            return right ?? string.Empty;
         }
-        foreach (var named in attr.NamedArguments)
+        if (string.IsNullOrEmpty(right))
         {
-            if (named.Key == "Required" && named.Value.Value is int rv)
-            {
-                return (EnverRequirementBehavior)rv;
-            }
+            return left!;
         }
-        return EnverRequirementBehavior.Inferred;
+        return $"{left}_{right}";
     }
 
     private static bool ReadGeneratePopulate(AttributeData? attr)
@@ -649,10 +634,7 @@ internal static class SymbolAnalyzer
 
     private static bool IsSubSectionCandidate(INamedTypeSymbol type)
     {
-        if (
-            HasAttribute(type, AttributeNames.EnverConfig)
-            || HasAttribute(type, AttributeNames.EnverSubsection)
-        )
+        if (HasAttribute(type, AttributeNames.EnverConfig))
         {
             return true;
         }
@@ -672,19 +654,30 @@ internal static class SymbolAnalyzer
         INamedTypeSymbol hostSymbol,
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
-        EnverKeyNamingConvention parentNaming
+        EnverKeyNamingConvention parentNaming,
+        string parentEffectivePrefix
     )
     {
-        var target = AnalyzeTarget(nestedType, hostSymbol, compilation, diags, parentNaming);
+        var (explicitName, ignorePrefix, requirement) = ReadKey(
+            FindAttribute(prop, AttributeNames.EnverKey)
+        );
+
+        var target = AnalyzeTarget(
+            nestedType,
+            hostSymbol,
+            compilation,
+            diags,
+            parentNaming,
+            accumulatedPrefix: CombineKey(
+                ignorePrefix ? null : parentEffectivePrefix,
+                explicitName ?? KeyNameTransformer.Transform(prop.Name, parentNaming)
+            )
+        );
 
         if (target is null)
         {
             return null;
         }
-
-        var requirement = ReadSubsectionRequired(
-            FindAttribute(prop, AttributeNames.EnverSubsection)
-        );
 
         return new SubSection(
             MemberName: prop.Name,

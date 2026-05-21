@@ -6,6 +6,13 @@ namespace Enver.SourceGeneration;
 /// When using record types with a default constructor, attach this attribute
 /// to the property and not the parameter by using <c>[property: EnverKey]</c>
 /// </para>
+/// <para>
+/// When placed on a property whose type is itself a bindable config type, the
+/// property is bound as a subsection and <paramref name="name"/> becomes the
+/// prefix segment prepended to every key in that subsection. The property name
+/// (run through the naming convention) is used when no explicit name is given;
+/// an empty name (<c>[EnverKey("")]</c>) drops the segment entirely.
+/// </para>
 /// </summary>
 /// <param name="name">
 /// Sets an explicit name for the key to map to this member.
@@ -27,6 +34,11 @@ public sealed class EnverKeyAttribute(string? name = null) : Attribute
     /// <summary>
     /// When <see langword="true"/>, the key for this member will not
     /// prepend any prefixes to the name of the key to map.
+    /// <para>
+    /// On a subsection property this drops only the inherited (ancestor)
+    /// prefix; the property's own segment and the subsection type's
+    /// <see cref="EnverConfigAttribute"/> prefix are still applied.
+    /// </para>
     /// </summary>
     public bool IgnorePrefix { get; init; }
 
