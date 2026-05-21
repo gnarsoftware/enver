@@ -8,6 +8,7 @@ var api = ApiConfig.BindFromAppDirectory();
 
 Console.WriteLine($"Starting {app.Name}  [{app.Env}]  (debug={app.Debug})");
 Console.WriteLine($"  Database : {db.Host}:{db.Port}/{db.Name}");
+Console.WriteLine($"  Pool     : {db.Pool.MinSize}-{db.Pool.MaxSize} connections");
 Console.WriteLine(
     $"  API      : {api.Url}  timeout={api.TimeoutSeconds}s  retries={api.MaxRetries}"
 );
@@ -31,6 +32,15 @@ public partial class DbConfig
     public required string Host { get; init; } // DB_HOST - required
     public required int Port { get; init; } // DB_PORT - required
     public required string Name { get; init; } // DB_NAME - required
+
+    [EnverKey("POOL")]
+    public required PoolConfig Pool { get; init; }
+}
+
+public class PoolConfig
+{
+    public int MinSize { get; init; } = 1; // DB_POOL_MIN_SIZE - optional, default 1
+    public int MaxSize { get; init; } = 10; // DB_POOL_MAX_SIZE - optional, default 10
 }
 
 [EnverConfig("API")]
