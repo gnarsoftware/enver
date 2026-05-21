@@ -1,5 +1,7 @@
 {
   "KEY": "value",
   "OTHER": "42",
-  "NOT_A_COMMENT": "this#is#not#a#comment"
+  "NOT_A_COMMENT": "this#is#not#a#comment",
+  "EMPTY_WITH_COMMENT": "",
+  "VALUE_WITH_HASHTAG": "#value"
 }

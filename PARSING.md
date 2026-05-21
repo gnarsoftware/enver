@@ -268,6 +268,7 @@ produces a per-fixture matrix.
 |---|---|---|---|---|---|---|
 | Single-quoted literal `${VAR}` references | `KEY='${VALUE}'` | Literal | **Expanded** | **Expanded** | Literal | Literal |
 | Comment delimiter without a space | `KEY=#VALUE` | Value | **Comment** | Value | Value | Value |
+| Empty value before a spaced comment | `KEY= # note` | Empty | Empty | **Value** | **Value** | **Value** |
 | Backtick-quoted values | `` KEY=`VALUE` `` | Supported | Supported | **Unsupported** | **Unsupported** | **Unsupported** |
 | `\$` escapes interpolation | `KEY="\${VALUE}"` | Literal | Literal | **Expanded** | Literal | Literal <sup>1</sup> |
 | Bare `$IDENTIFIER` interpolation | `KEY=$VALUE` | Error <sup>2</sup> | **Expanded** | **Expanded** | **Expanded** | **Expanded** |

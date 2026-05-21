@@ -111,6 +111,16 @@ internal ref struct EnvLexer(
                 {
                     Position += index;
                     _text = _text.Slice(index);
+                    if (!_text.IsEmpty && _text[0] == (byte)'#')
+                    {
+                        // `KEY= # comment`: the whitespace we just skipped makes
+                        // the `#` an inline comment, so the value is empty.
+                        // Consume the comment and hand back to the key state; the
+                        // parser sees EOF (or the next line's key) and records an
+                        // empty value.
+                        SkipComment();
+                        _state = LexerState.Key;
+                    }
                 }
                 return;
         }
@@ -198,13 +208,7 @@ internal ref struct EnvLexer(
                         TokenType.ValuePart
                     );
                 case (byte)'#':
-                    if (sigIndex == 0)
-                    {
-                        // KEY=#
-                        _state = LexerState.Key;
-                        return new(1, TokenType.ValuePart);
-                    }
-                    else if (_text[sigIndex - 1] is (byte)' ' or (byte)'\t')
+                    if (sigIndex > 0 && _text[sigIndex - 1] is (byte)' ' or (byte)'\t')
                     {
                         // KEY=something #comment
                         _state = LexerState.Key;
@@ -213,11 +217,12 @@ internal ref struct EnvLexer(
                             TokenType.ValuePart
                         );
                     }
-                    else
-                    {
-                        // Key=some#thing
-                        break;
-                    }
+                    // No whitespace before the `#` (including the value-start
+                    // case `KEY=#...`): the `#` is part of the value, not a
+                    // comment. Keep scanning. A `#` that *is* preceded by
+                    // whitespace at value start is consumed as a comment in
+                    // SkipTrivia before we ever get here.
+                    break;
                 case (byte)'$':
                     if (sigIndex + 1 < _text.Length && _text[sigIndex + 1] == (byte)'{')
                     {

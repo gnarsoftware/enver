@@ -247,6 +247,27 @@ public class EnvCollectionTests
     }
 
     [Test]
+    public void HashWithNoPrecedingSpaceIsLiteral()
+    {
+        var values = Parse("KEY=#FFFFFF");
+        Assert.That(values["KEY"], Is.EqualTo("#FFFFFF"));
+    }
+
+    [Test]
+    public void LoneHashValueIsLiteral()
+    {
+        var values = Parse("KEY=#");
+        Assert.That(values["KEY"], Is.EqualTo("#"));
+    }
+
+    [Test]
+    public void WhitespaceBeforeHashAtValueStartIsComment()
+    {
+        var values = Parse("KEY=   #FFFFFF");
+        Assert.That(values["KEY"], Is.Empty);
+    }
+
+    [Test]
     public void UnquotedCombinedInterpolatorsParse()
     {
         var values = Parse(
