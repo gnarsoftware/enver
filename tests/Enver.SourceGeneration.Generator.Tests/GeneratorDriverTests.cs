@@ -104,8 +104,9 @@ public class GeneratorDriverTests
     {
         // Optional members exercise GetOptional* / GetOptionalRef<T> selection:
         // char? is a value type (GetOptional<char>), IPAddress? a reference
-        // type (GetOptionalRef<IPAddress>). A defaulted member takes the
-        // Get*(key, defaultValue) overload.
+        // type (GetOptionalRef<IPAddress>). Defaulted members fall back to their
+        // C# initializer; a non-nullable value type with a default (Retries) is
+        // stored as a nullable and must round-trip back to its declared type.
         GeneratorTestHarness.RunExpectingSuccess(
             """
             namespace Test;
@@ -118,9 +119,40 @@ public class GeneratorDriverTests
                 public int? MaybeInt { get; init; }
                 public System.Version? MaybeVersion { get; init; }
                 public string Defaulted { get; init; } = "fallback";
+                public int Retries { get; init; } = 3;
+                public int? MaybeWithDefault { get; init; } = 7;
             }
             """
         );
+    }
+
+    [Test]
+    public void OptionalNonNullableValueTypeWithDefaultRoundTripsToDeclaredType()
+    {
+        // An optional non-nullable value type with a C# initializer
+        // is stored as Nullable<T>. Both the Binder.Build() path and the
+        // Bind(IEnvReader) path must yield T (not T?) and honor the default.
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            namespace Test;
+
+            [Enver.SourceGeneration.EnverBindable]
+            public partial class Config
+            {
+                public required string Name { get; init; }
+                public int Retries { get; init; } = 3;
+            }
+            """
+        );
+
+        var src = result.SingleSource().Text;
+        using (Assert.EnterMultipleScope())
+        {
+            // Build() path: cast the stored Nullable<int> back to int.
+            Assert.That(src, Does.Contain("_set_Retries ? (int)_val_Retries : 3"));
+            // Bind(IEnvReader) path: GetOptional* coalesced with the default.
+            Assert.That(src, Does.Contain("?? 3"));
+        }
     }
 
     [Test]
