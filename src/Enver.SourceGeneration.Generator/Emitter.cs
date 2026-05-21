@@ -243,6 +243,15 @@ internal static class Emitter
             );
         }
         w.Write(")");
+
+        // GetOptional* returns T?. When the target member is non-nullable (an
+        // optional value type) or declares a C# initializer, fall back to the
+        // declared default so the result is the member's type and the default
+        // is honored.
+        if (isOptional && (m.CSharpInitializerExpression is not null || !m.TypeIsNullable))
+        {
+            w.Write($" ?? {m.CSharpInitializerExpression ?? "default"}");
+        }
     }
 
     private static string ReaderMethod(BindingMember m, bool isOptional)
@@ -684,7 +693,16 @@ internal static class Emitter
             {
                 return field;
             }
-            return $"_set_{fieldPrefix}{memberName} ? {field} : {m.CSharpInitializerExpression ?? "default"}";
+            var defaultExpr = m.CSharpInitializerExpression ?? "default";
+            if (!m.TypeIsNullable && m.UnderlyingIsValueType)
+            {
+                // Optional non-nullable value types are stored as Nullable<T> (see
+                // StorageTypeOf), so the conditional would be T? against a T target.
+                // Cast the parsed value back to T; the _set guard guarantees it is
+                // non-null on that branch.
+                return $"_set_{fieldPrefix}{memberName} ? ({m.TypeFullyQualifiedName}){field} : {defaultExpr}";
+            }
+            return $"_set_{fieldPrefix}{memberName} ? {field} : {defaultExpr}";
         }
         else
         {
