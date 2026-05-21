@@ -1,4 +1,5 @@
 using System.CodeDom.Compiler;
+using Enver.SourceGeneration.Generator.Model;
 
 namespace Enver.SourceGeneration.Generator;
 
