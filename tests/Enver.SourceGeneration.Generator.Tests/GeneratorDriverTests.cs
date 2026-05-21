@@ -148,8 +148,8 @@ public class GeneratorDriverTests
         var src = result.SingleSource().Text;
         using (Assert.EnterMultipleScope())
         {
-            // Build() path: cast the stored Nullable<int> back to int.
-            Assert.That(src, Does.Contain("_set_Retries ? (int)_val_Retries : 3"));
+            // Build() path: unwrap the stored Nullable<int> back to int.
+            Assert.That(src, Does.Contain("_set_Retries ? _val_Retries!.Value : 3"));
             // Bind(IEnvReader) path: GetOptional* coalesced with the default.
             Assert.That(src, Does.Contain("?? 3"));
         }
