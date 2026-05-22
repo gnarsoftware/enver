@@ -76,8 +76,7 @@ GREETING="Hello, ${NAME}!"
 PEM_HEADER="-----BEGIN CERTIFICATE-----"
 ```
 
-- Multi-line capable. A literal newline inside the quotes is preserved as
-  `\n` in the resulting string.
+- Multi-line capable.
 - `${VAR}` interpolation is resolved.
 - Backslash escapes: `\"`, `\\`, `\$` (to suppress interpolation).
 - **This is the form to reach for when in doubt.**
@@ -88,8 +87,9 @@ PEM_HEADER="-----BEGIN CERTIFICATE-----"
 PATTERN='^[a-z]+\d+$'
 ```
 
-- Same as double-quoted, **except no interpolation** (`${VAR}` is literal)
-  and **no multi-line values**.
+- Multi-line capable.
+- **No interpolation** (`${VAR}` is literal).
+- Backslash escapes: `\'` and `\\`.
 - Use when the value contains a literal `${…}`, a regex with `$`, or anything
   else where dollar-sign substitution would be wrong.
 
@@ -101,20 +101,24 @@ MIIEpAIBAAKCAQEA...
 -----END RSA PRIVATE KEY-----`
 ```
 
-- Always multi-line in intent.
-- No interpolation, no backslash escapes inside.
-- For values that should be byte-for-byte literal: PEM-encoded keys,
-  multi-line JSON blobs, anything pasted from elsewhere.
+- Multi-line capable.
+- Verbatim content: no interpolation and no escape processing. A backslash is
+  an ordinary value byte. Newlines are still normalized to LF like all
+  multi-line values (see below).
+- Because there is no escape mechanism, a backtick value **cannot contain a
+  backtick**. Use single or double quotes for values that include one.
+- For values that should be taken as-is: PEM-encoded keys, multi-line JSON
+  blobs, anything pasted from elsewhere.
 
 ### Multi-line values
 
-Only double-quotes and backticks support newlines inside the value:
+All three quote forms support newlines inside the value; only bare values do not:
 
 | Form | Multi-line | Interpolation | Best for |
 |---|---|---|---|
 | `"…"` | yes | yes | text where you might still want `${VAR}` substitution |
-| `` `…` `` | yes | no | secrets, PEM keys, JSON blobs - pasted-in literal text |
-| `'…'` | no (errors) | no | short literals containing `${…}` or `$` |
+| `` `…` `` | yes | no | secrets, PEM keys, JSON blobs - pasted-in verbatim text |
+| `'…'` | yes | no | literals containing `${…}` or `$` |
 | bare | no | yes | short alphanumeric values |
 
 **Newlines are normalized to LF (`\n`).** Whether the file was authored on

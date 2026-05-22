@@ -292,10 +292,17 @@ internal ref struct EnvLexer(
             return new(_text.Length, TokenType.ValuePart);
         }
         var c = _text[endIndex];
-        if (c is (byte)'\n' or (byte)'\r')
+        if (c == (byte)'\r')
         {
-            _state = LexerState.Key;
-            return new(endIndex, TokenType.ValuePart);
+            // CR or CRLF inside a single-quoted multi-line value: emit any
+            // accumulated bytes first, then collapse the line ending to a
+            // single NormalizedNewline token on the next call.
+            if (endIndex > 0)
+            {
+                return new(endIndex, TokenType.ValuePart);
+            }
+            int consume = _text.Length > 1 && _text[1] == (byte)'\n' ? 2 : 1;
+            return new(consume, TokenType.NormalizedNewline);
         }
         if (c == (byte)'\\')
         {
@@ -389,10 +396,6 @@ internal ref struct EnvLexer(
 
     private TokenInfo GetTokenInfoBackticked()
     {
-        if (_text.Length > 1 && _text[0] == (byte)'\\' && _text[1] is (byte)'`' or (byte)'\\')
-        {
-            return new(1, TokenType.ValuePart, 1);
-        }
         var endIndex = _text.IndexOfAny(s_backtickedSignificants);
         if (endIndex == -1)
         {
@@ -400,10 +403,6 @@ internal ref struct EnvLexer(
             return new(_text.Length, TokenType.ValuePart);
         }
         var c = _text[endIndex];
-        if (c == (byte)'\\')
-        {
-            return endIndex == 0 ? new(1, TokenType.ValuePart) : new(endIndex, TokenType.ValuePart);
-        }
         if (c == (byte)'\r')
         {
             // CR or CRLF inside a backtick-quoted multi-line value: same

@@ -1,4 +1,6 @@
 {
   "SIMPLE": "hello world",
-  "MULTILINE": "line1\nline2"
+  "MULTILINE": "line1\nline2",
+  "BACKSLASH": "a\\b",
+  "DOUBLE_BACKSLASH": "a\\\\b"
 }
