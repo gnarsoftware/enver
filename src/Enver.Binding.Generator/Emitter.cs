@@ -724,13 +724,13 @@ internal static class Emitter
     private static EffectiveRequirement ResolveRequirement(BindingMember m)
     {
         // Explicit attribute
-        if (m.Requirement == EnvRequirementBehavior.Required)
+        if (m.Requirement == EnvRequirement.Required)
         {
             return EffectiveRequirement.Required;
         }
 
         // Explicit attribute
-        if (m.Requirement == EnvRequirementBehavior.Optional)
+        if (m.Requirement == EnvRequirement.Optional)
         {
             return EffectiveRequirement.Optional;
         }

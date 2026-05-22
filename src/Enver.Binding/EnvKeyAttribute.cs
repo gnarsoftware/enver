@@ -44,12 +44,12 @@ public sealed class EnvKeyAttribute(string? name = null) : Attribute
 
     /// <summary>
     /// Controls how the source generator determines whether a member
-    /// is required or not. Defaults to <see cref="EnvRequirementBehavior.Inferred"/>.
+    /// is required or not. Defaults to <see cref="EnvRequirement.Inferred"/>.
     /// <br />
     /// If you are running the source generator in a non null-aware
     /// context (eg. #nullable disable) then the source generator will
     /// treat all reference types as nullable. Use this property to
     /// change this behavior.
     /// </summary>
-    public EnvRequirementBehavior Required { get; init; }
+    public EnvRequirement Requirement { get; init; }
 }

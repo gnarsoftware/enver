@@ -511,10 +511,10 @@ internal static class SymbolAnalyzer
         var hasRequiredKw = prop.IsRequired;
         var initializer = GetInitializerExpression(prop);
 
-        // An explicit Required = Optional on a non-nullable member with no C#
+        // An explicit Requirement = Optional on a non-nullable member with no C#
         // initializer means a missing env-var silently yields default(T).
         if (
-            requirement == EnvRequirementBehavior.Optional
+            requirement == EnvRequirement.Optional
             && !typeIsNullable
             && initializer is null
         )
@@ -573,20 +573,20 @@ internal static class SymbolAnalyzer
         return (prefix, naming);
     }
 
-    private static (string? Name, bool IgnorePrefix, EnvRequirementBehavior Requirement) ReadKey(
+    private static (string? Name, bool IgnorePrefix, EnvRequirement Requirement) ReadKey(
         AttributeData? attr
     )
     {
         if (attr is null)
         {
-            return (null, false, EnvRequirementBehavior.Inferred);
+            return (null, false, EnvRequirement.Inferred);
         }
         string? name =
             attr.ConstructorArguments.Length > 0
                 ? attr.ConstructorArguments[0].Value as string
                 : null;
         bool ignorePrefix = false;
-        var requirement = EnvRequirementBehavior.Inferred;
+        var requirement = EnvRequirement.Inferred;
         foreach (var named in attr.NamedArguments)
         {
             switch (named.Key)
@@ -594,8 +594,8 @@ internal static class SymbolAnalyzer
                 case "IgnorePrefix" when named.Value.Value is bool ig:
                     ignorePrefix = ig;
                     break;
-                case "Required" when named.Value.Value is int rv:
-                    requirement = (EnvRequirementBehavior)rv;
+                case "Requirement" when named.Value.Value is int rv:
+                    requirement = (EnvRequirement)rv;
                     break;
             }
         }

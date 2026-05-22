@@ -83,7 +83,7 @@ public class SystemEnvParserTests
             $"{K1}=${{ENVER_NOT_SET_999}}",
             new EnvParseOptions
             {
-                OnMissingInterpolation = MissingInterpolationBehavior.EmptyString,
+                AllowMissingInterpolation = true,
             }
         );
         // SystemEnvParser calls Environment.SetEnvironmentVariable(K1, "").

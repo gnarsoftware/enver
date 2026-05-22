@@ -181,7 +181,7 @@ public class EnvCollectionTests
             "KEY=${THIS_VAR_DEFINITELY_DOES_NOT_EXIST_8675309}",
             new EnvParseOptions
             {
-                OnMissingInterpolation = MissingInterpolationBehavior.EmptyString,
+                AllowMissingInterpolation = true,
             }
         );
         Assert.That(values["KEY"], Is.Empty);
@@ -911,7 +911,7 @@ public class EnvCollectionTests
         // "Allow" flips the in-file dedup off
         var values = Parse(
             "KEY=first\nKEY=second",
-            new EnvParseOptions { OnDuplicate = DuplicateKeyBehavior.Allow }
+            new EnvParseOptions { AllowDuplicateKeys = true }
         );
         Assert.That(values["KEY"], Is.EqualTo("second"));
     }
@@ -950,7 +950,7 @@ public class EnvCollectionTests
             KEY=second
             DOWNSTREAM=${KEY}
             """,
-            new EnvParseOptions { OnDuplicate = DuplicateKeyBehavior.Allow }
+            new EnvParseOptions { AllowDuplicateKeys = true }
         );
         Assert.That(values["DOWNSTREAM"], Is.EqualTo("second"));
     }
@@ -966,7 +966,7 @@ public class EnvCollectionTests
             DOWNSTREAM=${KEY}
             KEY=second
             """,
-            new EnvParseOptions { OnDuplicate = DuplicateKeyBehavior.Allow }
+            new EnvParseOptions { AllowDuplicateKeys = true }
         );
         using (Assert.EnterMultipleScope())
         {

@@ -227,8 +227,8 @@ builder.Configuration.AddDotEnvFile(source =>
     source.ReloadOnChange = true;
     source.ParseOptions = new EnvParseOptions
     {
-        OnDuplicate = DuplicateKeyBehavior.Allow,
-        OnMissingInterpolation = MissingInterpolationBehavior.EmptyString,
+        AllowDuplicateKeys = true,
+        AllowMissingInterpolation = true,
     };
 });
 ```

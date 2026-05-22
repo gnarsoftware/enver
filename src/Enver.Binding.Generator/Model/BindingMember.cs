@@ -9,7 +9,7 @@ internal sealed record BindingMember(
     bool TypeIsNullable,
     bool UnderlyingIsValueType,
     TypeDispatchKind Dispatch,
-    EnvRequirementBehavior Requirement,
+    EnvRequirement Requirement,
     UriKind? UriKind,
     FormatProviderRef? FormatProvider,
     string? CSharpInitializerExpression,

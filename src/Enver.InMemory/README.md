@@ -94,7 +94,7 @@ To allow duplicates within a file:
 
 ```csharp
 EnvCollection.FromAppDirectory(
-    parseOptions: new EnvParseOptions { OnDuplicate = DuplicateKeyBehavior.Allow });
+    parseOptions: new EnvParseOptions { AllowDuplicateKeys = true });
 ```
 
 ---

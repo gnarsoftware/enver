@@ -135,7 +135,7 @@ public class DotEnvFilesProviderTests
         var config = new ConfigurationBuilder()
             .AddDotEnvFile(
                 path,
-                parseOptions: new EnvParseOptions { OnDuplicate = DuplicateKeyBehavior.Allow }
+                parseOptions: new EnvParseOptions { AllowDuplicateKeys = true }
             )
             .Build();
         Assert.That(config["KEY"], Is.EqualTo("second"));

@@ -4,7 +4,7 @@ internal sealed record SubSection(
     string MemberName,
     string TypeFullyQualifiedName,
     bool HasRequiredKeyword,
-    EnvRequirementBehavior Requirement,
+    EnvRequirement Requirement,
     string? CSharpInitializerExpression,
     BindingTarget Target,
     bool IsInitOnly

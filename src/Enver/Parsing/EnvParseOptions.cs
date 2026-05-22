@@ -6,17 +6,21 @@ namespace Enver.Parsing;
 public readonly record struct EnvParseOptions
 {
     /// <summary>
-    /// How to respond when the same key is defined more than once within a
-    /// single input. Defaults to <see cref="DuplicateKeyBehavior.Error"/>.
+    /// When <see langword="true"/>, a key defined more than once within a single
+    /// input is allowed and the later definition overwrites the earlier one. When
+    /// <see langword="false"/> (the default), a duplicate key throws
+    /// <see cref="EnvException"/>. Duplicates across files in a chain load are
+    /// always permitted regardless of this option.
     /// </summary>
-    public DuplicateKeyBehavior OnDuplicate { get; init; }
+    public bool AllowDuplicateKeys { get; init; }
 
     /// <summary>
-    /// How to respond when a <c>${KEY}</c> interpolation reference resolves
-    /// to no value in any source (the consumer's context or the process
-    /// environment). Defaults to <see cref="MissingInterpolationBehavior.Error"/>.
+    /// When <see langword="true"/>, a <c>${KEY}</c> interpolation reference that
+    /// resolves to no value in any source (the consumer's context or the process
+    /// environment) is substituted with an empty string. When <see langword="false"/>
+    /// (the default), it throws <see cref="EnvInterpolationException"/>.
     /// </summary>
-    public MissingInterpolationBehavior OnMissingInterpolation { get; init; }
+    public bool AllowMissingInterpolation { get; init; }
 
     /// <summary>
     /// How the lexer handles a bare <c>$IDENTIFIER</c> in a bare or
@@ -39,8 +43,8 @@ public readonly record struct EnvParseOptions
     public static EnvParseOptions Loose =>
         new()
         {
-            OnDuplicate = DuplicateKeyBehavior.Allow,
-            OnMissingInterpolation = MissingInterpolationBehavior.EmptyString,
+            AllowDuplicateKeys = true,
+            AllowMissingInterpolation = true,
             OnUnbracedInterpolation = UnbracedInterpolationBehavior.Interpolate,
         };
 }

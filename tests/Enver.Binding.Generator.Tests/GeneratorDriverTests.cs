@@ -503,7 +503,7 @@ public class GeneratorDriverTests
             [Enver.Binding.EnvBindable]
             public partial class OptionalConfig
             {
-                [Enver.Binding.EnvKey(Required = Enver.Binding.EnvRequirementBehavior.Optional)]
+                [Enver.Binding.EnvKey(Requirement = Enver.Binding.EnvRequirement.Optional)]
                 public int Count { get; init; }
             }
             """
@@ -932,7 +932,7 @@ public class GeneratorDriverTests
             {
                 public string AppName { get; init; } = "";
 
-                [Enver.Binding.EnvKey(Required = Enver.Binding.EnvRequirementBehavior.Required)]
+                [Enver.Binding.EnvKey(Requirement = Enver.Binding.EnvRequirement.Required)]
                 public Sub Database { get; init; } = new();
             }
 

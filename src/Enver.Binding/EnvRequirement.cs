@@ -3,7 +3,7 @@ namespace Enver.Binding;
 /// <summary>
 /// Defines how the source generator marks a member as required or optional.
 /// </summary>
-public enum EnvRequirementBehavior
+public enum EnvRequirement
 {
     /// <summary>
     /// Infer from C# language signals, in order:

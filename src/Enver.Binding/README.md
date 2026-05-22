@@ -124,11 +124,11 @@ public partial class AppConfig
     public string GlobalSetting { get; init; } = "";
 
     // Force optional
-    [EnvKey(Required = EnvRequirementBehavior.Optional)]
+    [EnvKey(Requirement = EnvRequirement.Optional)]
     public int Port { get; init; }
 
     // Force required
-    [EnvKey(Required = EnvRequirementBehavior.Required)]
+    [EnvKey(Requirement = EnvRequirement.Required)]
     public string? Tag { get; init; }
 }
 ```
@@ -192,7 +192,7 @@ partial class Base
 `[EnvKey(IgnorePrefix = true)]` on a subsection property drops the inherited
 (ancestor) prefix but keeps the property's own segment and the subsection
 type's `[EnvConfig]` prefix. Requiredness is controlled the same way as a
-leaf member, with `[EnvKey(Required = ...)]`.
+leaf member, with `[EnvKey(Requirement = ...)]`.
 
 ## Other attributes
 
@@ -218,7 +218,7 @@ with the failing key. Optional members fall back to `default(T)` or the
 declared initializer.
 
 Override the inferred classification with
-`[EnvKey(Required = EnvRequirementBehavior.Required | .Optional)]`.
+`[EnvKey(Requirement = EnvRequirement.Required | .Optional)]`.
 
 ## External host: `[EnvBindable<T>]`
 

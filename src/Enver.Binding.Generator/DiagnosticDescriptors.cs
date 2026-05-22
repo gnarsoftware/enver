@@ -44,7 +44,7 @@ internal static class DiagnosticDescriptors
 
     public static readonly DiagnosticDescriptor RequiredOptionalOnNonNullableNoDefault = new(
         id: "ENVR0006",
-        title: "Required = Optional on non-nullable member with no initializer",
+        title: "Requirement = Optional on non-nullable member with no initializer",
         messageFormat: "Member '{0}' is Optional but is non-nullable '{1}' with no C# initializer (will receive default({1}) if the env-var is missing)",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,

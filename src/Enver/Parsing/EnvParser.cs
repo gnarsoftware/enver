@@ -9,7 +9,7 @@ namespace Enver.Parsing;
 /// </summary>
 public abstract class EnvParser
 {
-    private MissingInterpolationBehavior _onMissingInterpolation;
+    private bool _allowMissingInterpolation;
 
     /// <summary>
     /// Drive this parser against UTF-8 <paramref name="input"/>. Uses default parse options.
@@ -34,8 +34,8 @@ public abstract class EnvParser
     /// </summary>
     internal void Parse(ReadOnlySpan<byte> input, EnvParseOptions options, EnvParseView scope)
     {
-        _onMissingInterpolation = options.OnMissingInterpolation;
-        scope.BeginSegment(options.OnDuplicate == DuplicateKeyBehavior.Allow);
+        _allowMissingInterpolation = options.AllowMissingInterpolation;
+        scope.BeginSegment(options.AllowDuplicateKeys);
         if (input.IsEmpty)
         {
             return;
@@ -104,9 +104,9 @@ public abstract class EnvParser
         if (input.IsEmpty)
         {
             // Still reset per-call state when the input is empty so a stale
-            // OnMissingInterpolation from a previous call can't leak in.
-            _onMissingInterpolation = options.OnMissingInterpolation;
-            scope.BeginSegment(options.OnDuplicate == DuplicateKeyBehavior.Allow);
+            // AllowMissingInterpolation from a previous call can't leak in.
+            _allowMissingInterpolation = options.AllowMissingInterpolation;
+            scope.BeginSegment(options.AllowDuplicateKeys);
             return;
         }
         int maxByteCount = Encoding.UTF8.GetMaxByteCount(input.Length);
@@ -305,7 +305,7 @@ public abstract class EnvParser
             return;
         }
 
-        if (_onMissingInterpolation == MissingInterpolationBehavior.Error)
+        if (!_allowMissingInterpolation)
         {
             EnvInterpolationException.ThrowMissingInterpolationKey(
                 variable: Encoding.UTF8.GetString(targetKey),

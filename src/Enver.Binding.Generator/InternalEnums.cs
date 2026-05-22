@@ -9,8 +9,8 @@ internal enum EnvKeyNamingConvention
     SnakeCase = 3,
 }
 
-// copy of ../Enver.Binding/EnvRequirementBehavior.cs
-internal enum EnvRequirementBehavior
+// copy of ../Enver.Binding/EnvRequirement.cs
+internal enum EnvRequirement
 {
     Inferred = 0,
     Required = 1,
