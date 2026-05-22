@@ -179,10 +179,7 @@ public class EnvCollectionTests
     {
         var values = Parse(
             "KEY=${THIS_VAR_DEFINITELY_DOES_NOT_EXIST_8675309}",
-            new EnvParseOptions
-            {
-                AllowMissingInterpolation = true,
-            }
+            new EnvParseOptions { AllowMissingInterpolation = true }
         );
         Assert.That(values["KEY"], Is.Empty);
     }

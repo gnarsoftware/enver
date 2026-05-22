@@ -513,11 +513,7 @@ internal static class SymbolAnalyzer
 
         // An explicit Requirement = Optional on a non-nullable member with no C#
         // initializer means a missing env-var silently yields default(T).
-        if (
-            requirement == EnvRequirement.Optional
-            && !typeIsNullable
-            && initializer is null
-        )
+        if (requirement == EnvRequirement.Optional && !typeIsNullable && initializer is null)
         {
             diags.Add(
                 new DiagnosticInfo(

@@ -81,10 +81,7 @@ public class SystemEnvParserTests
     {
         _parser.Parse(
             $"{K1}=${{ENVER_NOT_SET_999}}",
-            new EnvParseOptions
-            {
-                AllowMissingInterpolation = true,
-            }
+            new EnvParseOptions { AllowMissingInterpolation = true }
         );
         // SystemEnvParser calls Environment.SetEnvironmentVariable(K1, "").
         // .NET 8 documents and implements that as "delete the variable" (Get

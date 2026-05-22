@@ -133,10 +133,7 @@ public class DotEnvFilesProviderTests
     {
         var path = WriteFixture("KEY=first\nKEY=second\n");
         var config = new ConfigurationBuilder()
-            .AddDotEnvFile(
-                path,
-                parseOptions: new EnvParseOptions { AllowDuplicateKeys = true }
-            )
+            .AddDotEnvFile(path, parseOptions: new EnvParseOptions { AllowDuplicateKeys = true })
             .Build();
         Assert.That(config["KEY"], Is.EqualTo("second"));
     }
