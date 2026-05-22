@@ -44,9 +44,7 @@ internal static class GeneratorTestHarness
             assemblyName: "EnverGeneratorTestAssembly",
             syntaxTrees: [syntaxTree],
             references: tpa.Split(Path.PathSeparator)
-                .Where(p =>
-                    Path.GetFileNameWithoutExtension(p) != "Enver.Binding.Generator"
-                )
+                .Where(p => Path.GetFileNameWithoutExtension(p) != "Enver.Binding.Generator")
                 .Select(p => MetadataReference.CreateFromFile(p))
                 .ToImmutableArray(),
             options: new CSharpCompilationOptions(
