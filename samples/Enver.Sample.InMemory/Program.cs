@@ -6,7 +6,7 @@ using Enver;
 
 var env = EnvCollection.FromAppDirectory(variant: "local");
 
-// Required values. EnverException is thrown if a key is missing or cannot be parsed.
+// Required values. EnvException is thrown if a key is missing or cannot be parsed.
 string appName = env.GetString("APP_NAME");
 string dbHost = env.GetString("DB_HOST");
 int dbPort = env.GetInt32("DB_PORT");

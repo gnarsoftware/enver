@@ -1,4 +1,4 @@
-using Enver.Lexer;
+using Enver.Parsing;
 
 namespace Enver.Tests;
 
@@ -161,7 +161,7 @@ public class EnvCollectionTests
     [Test]
     public void MissingInterpolationThrowsByDefault()
     {
-        var ex = Assert.Throws<EnverInterpolationException>(() =>
+        var ex = Assert.Throws<EnvInterpolationException>(() =>
             Parse("TARGET=${THIS_VAR_DEFINITELY_DOES_NOT_EXIST_8675309}")
         );
         using (Assert.EnterMultipleScope())
@@ -179,10 +179,7 @@ public class EnvCollectionTests
     {
         var values = Parse(
             "KEY=${THIS_VAR_DEFINITELY_DOES_NOT_EXIST_8675309}",
-            new EnvParseOptions
-            {
-                OnMissingInterpolation = MissingInterpolationBehavior.EmptyString,
-            }
+            new EnvParseOptions { AllowMissingInterpolation = true }
         );
         Assert.That(values["KEY"], Is.Empty);
     }
@@ -793,7 +790,7 @@ public class EnvCollectionTests
     [Test]
     public void BareInterpolationMissingThrowsByDefault()
     {
-        Assert.Throws<EnverInterpolationException>(() =>
+        Assert.Throws<EnvInterpolationException>(() =>
             Parse("KEY=$UNDEFINED_NAME_XYZ", s_bareInterp)
         );
     }
@@ -901,7 +898,7 @@ public class EnvCollectionTests
     [Test]
     public void DuplicateKeyThrowsByDefault()
     {
-        var ex = Assert.Throws<EnverException>(() => Parse("KEY=first\nKEY=second"));
+        var ex = Assert.Throws<EnvException>(() => Parse("KEY=first\nKEY=second"));
         Assert.That(ex!.Variable, Is.EqualTo("KEY"));
     }
 
@@ -911,7 +908,7 @@ public class EnvCollectionTests
         // "Allow" flips the in-file dedup off
         var values = Parse(
             "KEY=first\nKEY=second",
-            new EnvParseOptions { OnDuplicate = DuplicateKeyBehavior.Allow }
+            new EnvParseOptions { AllowDuplicateKeys = true }
         );
         Assert.That(values["KEY"], Is.EqualTo("second"));
     }
@@ -950,7 +947,7 @@ public class EnvCollectionTests
             KEY=second
             DOWNSTREAM=${KEY}
             """,
-            new EnvParseOptions { OnDuplicate = DuplicateKeyBehavior.Allow }
+            new EnvParseOptions { AllowDuplicateKeys = true }
         );
         Assert.That(values["DOWNSTREAM"], Is.EqualTo("second"));
     }
@@ -966,7 +963,7 @@ public class EnvCollectionTests
             DOWNSTREAM=${KEY}
             KEY=second
             """,
-            new EnvParseOptions { OnDuplicate = DuplicateKeyBehavior.Allow }
+            new EnvParseOptions { AllowDuplicateKeys = true }
         );
         using (Assert.EnterMultipleScope())
         {

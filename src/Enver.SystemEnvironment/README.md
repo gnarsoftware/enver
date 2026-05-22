@@ -47,7 +47,7 @@ IPAddress bindIp = Environment.Variables.Get<IPAddress>("BIND_ADDRESS");
 
 The four patterns:
 
-- `Get*(key)`: throws `EnverException` on missing or unparseable.
+- `Get*(key)`: throws `EnvException` on missing or unparseable.
 - `Get*(key, default)`: returns `default` on missing; throws on unparseable.
 - `GetOptional*(key)`: returns `null` on missing; throws on unparseable.
 - `TryGet*(key, out value)`: returns `false` on missing **or** unparseable.

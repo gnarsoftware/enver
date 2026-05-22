@@ -1,3 +1,5 @@
+using Enver.Parsing;
+
 namespace Enver.Tests;
 
 public class SystemEnvParserTests
@@ -64,7 +66,7 @@ public class SystemEnvParserTests
     [Test]
     public void MissingInterpolationThrowsByDefault()
     {
-        var ex = Assert.Throws<EnverInterpolationException>(() =>
+        var ex = Assert.Throws<EnvInterpolationException>(() =>
             _parser.Parse($"{K1}=${{ENVER_NOT_SET_999}}")
         );
         using (Assert.EnterMultipleScope())
@@ -79,10 +81,7 @@ public class SystemEnvParserTests
     {
         _parser.Parse(
             $"{K1}=${{ENVER_NOT_SET_999}}",
-            new EnvParseOptions
-            {
-                OnMissingInterpolation = MissingInterpolationBehavior.EmptyString,
-            }
+            new EnvParseOptions { AllowMissingInterpolation = true }
         );
         // SystemEnvParser calls Environment.SetEnvironmentVariable(K1, "").
         // .NET 8 documents and implements that as "delete the variable" (Get

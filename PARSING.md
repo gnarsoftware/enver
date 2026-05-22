@@ -190,13 +190,13 @@ Key properties:
 - **Works in bare and double-quoted values.** Single-quoted and backtick
   values treat `${VAR}` as literal.
 - **Missing keys throw by default.** A `${KEY}` that resolves to nothing in any
-  source raises `EnverInterpolationException`. This is the typo-catching path.
+  source raises `EnvInterpolationException`. This is the typo-catching path.
   A stray `${LOG_DR}` should fail at parse time, not silently become `""`. The
   process-env fallback means legitimate references like
   `CONFIG_PATH=${HOME}/.config/myapp` work as expected when `HOME` is set
   in the environment, even if the file itself doesn't define it.
 - **Opt-in silent-empty for ecosystem compat.** Pass
-  `EnvParseOptions { OnMissingInterpolation = MissingInterpolationBehavior.EmptyString }`
+  `EnvParseOptions { AllowMissingInterpolation = true }`
   to match the prevailing convention of substituting empty on miss.
 - **Malformed syntax throws.** `${KEY` (unterminated), `${` (incomplete),
   `${BAD-NAME}` (invalid key character), and `${}` (empty key) all raise
@@ -226,7 +226,7 @@ Key properties:
 ## Duplicate keys
 
 **One definition per key per file.** A second `KEY=` line in the same file
-raises `EnverException` by default. The intent is that a single file is
+raises `EnvException` by default. The intent is that a single file is
 self-consistent, so a reader scanning it linearly never has to track which
 later line silently overrode something earlier.
 
@@ -242,8 +242,8 @@ named choice in your code:
 
 | Behavior | How to opt out |
 |---|---|
-| Duplicate-key throws | `EnvParseOptions { OnDuplicate = DuplicateKeyBehavior.Allow }` (later definition silently overwrites earlier) |
-| Missing interpolation throws | `EnvParseOptions { OnMissingInterpolation = MissingInterpolationBehavior.EmptyString }` |
+| Duplicate-key throws | `EnvParseOptions { AllowDuplicateKeys = true }` (later definition silently overwrites earlier) |
+| Missing interpolation throws | `EnvParseOptions { AllowMissingInterpolation = true }` |
 | Bare `$VAR` throws | `EnvParseOptions { OnUnbracedInterpolation = UnbracedInterpolationBehavior.Literal }` (keep `$` literal) or `… = UnbracedInterpolationBehavior.Interpolate` (expand variable) |
 | Process env preserves existing values | `LoadDotEnv*(overrideExisting: true)` |
 | Missing file throws | `LoadDotEnv*(throwIfMissing: false)` (already the default for directory variants) |

@@ -1,14 +1,14 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
-using Enver.Utils;
+using Enver.Parsing;
 
 namespace Enver;
 
 /// <summary>
 /// Typed accessors over any <see cref="IEnvReader"/>. Four patterns per type:
 /// <list type="bullet">
-/// <item><c>Get*(key)</c>: throws <see cref="EnverException"/> on missing or parse failure.</item>
+/// <item><c>Get*(key)</c>: throws <see cref="EnvException"/> on missing or parse failure.</item>
 /// <item><c>Get*(key, default)</c>: returns the supplied default on missing; throws on parse failure.</item>
 /// <item><c>GetOptional*(key)</c>: returns <see langword="null" /> on missing; throws on parse failure.</item>
 /// <item><c>TryGet*(key, out value)</c>: returns <see langword="false" /> on missing OR parse failure.</item>
@@ -20,14 +20,14 @@ public static class EnvReaderExtensions
 
     /// <summary>
     /// Returns the raw string for <paramref name="key"/>, throwing
-    /// <see cref="EnverException"/> if not present.
+    /// <see cref="EnvException"/> if not present.
     /// </summary>
     public static string GetString(this IEnvReader source, string key)
     {
         ArgumentNullException.ThrowIfNull(source);
         if (!source.TryGetValue(key, out var value))
         {
-            EnverException.ThrowMissingEnvironmentVariable(key);
+            EnvException.ThrowMissingEnvironmentVariable(key);
         }
         return value;
     }

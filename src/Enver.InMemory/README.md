@@ -48,7 +48,7 @@ IPAddress bindIp = values.Get<IPAddress>("BIND_ADDRESS");
 
 The four patterns:
 
-- `Get*(key)`: throws `EnverException` on missing or unparseable.
+- `Get*(key)`: throws `EnvException` on missing or unparseable.
 - `Get*(key, default)`: returns `default` on missing; throws on unparseable.
 - `GetOptional*(key)`: returns `null` on missing; throws on unparseable.
 - `TryGet*(key, out value)`: returns `false` on missing **or** unparseable.
@@ -85,7 +85,7 @@ await EnvCollection.FromAppDirectoryAsync();
 Within a single file, defining the same key twice throws by default:
 
 ```csharp
-// Throws EnverException: "Duplicate key 'DB_HOST' encountered in input."
+// Throws EnvException: "Duplicate key 'DB_HOST' encountered in input."
 var coll = new EnvCollection();
 new EnvDictionaryParser(coll).Parse("DB_HOST=a\nDB_HOST=b");
 ```
@@ -94,7 +94,7 @@ To allow duplicates within a file:
 
 ```csharp
 EnvCollection.FromAppDirectory(
-    parseOptions: new EnvParseOptions { OnDuplicate = DuplicateKeyBehavior.Allow });
+    parseOptions: new EnvParseOptions { AllowDuplicateKeys = true });
 ```
 
 ---
