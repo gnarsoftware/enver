@@ -292,10 +292,17 @@ internal ref struct EnvLexer(
             return new(_text.Length, TokenType.ValuePart);
         }
         var c = _text[endIndex];
-        if (c is (byte)'\n' or (byte)'\r')
+        if (c == (byte)'\r')
         {
-            _state = LexerState.Key;
-            return new(endIndex, TokenType.ValuePart);
+            // CR or CRLF inside a single-quoted multi-line value: emit any
+            // accumulated bytes first, then collapse the line ending to a
+            // single NormalizedNewline token on the next call.
+            if (endIndex > 0)
+            {
+                return new(endIndex, TokenType.ValuePart);
+            }
+            int consume = _text.Length > 1 && _text[1] == (byte)'\n' ? 2 : 1;
+            return new(consume, TokenType.NormalizedNewline);
         }
         if (c == (byte)'\\')
         {
