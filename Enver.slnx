@@ -4,14 +4,14 @@
     <Project Path="src/Enver.InMemory/Enver.InMemory.csproj" />
     <Project Path="src/Enver.SystemEnvironment/Enver.SystemEnvironment.csproj" />
     <Project Path="src/Enver.Extensions.Configuration/Enver.Extensions.Configuration.csproj" />
-    <Project Path="src/Enver.SourceGeneration/Enver.SourceGeneration.csproj" />
-    <Project Path="src/Enver.SourceGeneration.Generator/Enver.SourceGeneration.Generator.csproj" />
+    <Project Path="src/Enver.Binding/Enver.Binding.csproj" />
+    <Project Path="src/Enver.Binding.Generator/Enver.Binding.Generator.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Enver.Tests/Enver.Tests.csproj" />
     <Project Path="tests/Enver.InMemory.Tests/Enver.InMemory.Tests.csproj" />
     <Project Path="tests/Enver.SystemEnvironment.Tests/Enver.SystemEnvironment.Tests.csproj" />
     <Project Path="tests/Enver.Extensions.Configuration.Tests/Enver.Extensions.Configuration.Tests.csproj" />
-    <Project Path="tests/Enver.SourceGeneration.Generator.Tests/Enver.SourceGeneration.Generator.Tests.csproj" />
+    <Project Path="tests/Enver.Binding.Generator.Tests/Enver.Binding.Generator.Tests.csproj" />
   </Folder>
 </Solution>

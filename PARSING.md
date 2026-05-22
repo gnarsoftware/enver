@@ -190,7 +190,7 @@ Key properties:
 - **Works in bare and double-quoted values.** Single-quoted and backtick
   values treat `${VAR}` as literal.
 - **Missing keys throw by default.** A `${KEY}` that resolves to nothing in any
-  source raises `EnverInterpolationException`. This is the typo-catching path.
+  source raises `EnvInterpolationException`. This is the typo-catching path.
   A stray `${LOG_DR}` should fail at parse time, not silently become `""`. The
   process-env fallback means legitimate references like
   `CONFIG_PATH=${HOME}/.config/myapp` work as expected when `HOME` is set
@@ -226,7 +226,7 @@ Key properties:
 ## Duplicate keys
 
 **One definition per key per file.** A second `KEY=` line in the same file
-raises `EnverException` by default. The intent is that a single file is
+raises `EnvException` by default. The intent is that a single file is
 self-consistent, so a reader scanning it linearly never has to track which
 later line silently overrode something earlier.
 

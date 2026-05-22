@@ -1,4 +1,4 @@
-using Enver.Lexer;
+using Enver.Parsing;
 
 namespace Enver.Tests;
 
@@ -161,7 +161,7 @@ public class EnvCollectionTests
     [Test]
     public void MissingInterpolationThrowsByDefault()
     {
-        var ex = Assert.Throws<EnverInterpolationException>(() =>
+        var ex = Assert.Throws<EnvInterpolationException>(() =>
             Parse("TARGET=${THIS_VAR_DEFINITELY_DOES_NOT_EXIST_8675309}")
         );
         using (Assert.EnterMultipleScope())
@@ -793,7 +793,7 @@ public class EnvCollectionTests
     [Test]
     public void BareInterpolationMissingThrowsByDefault()
     {
-        Assert.Throws<EnverInterpolationException>(() =>
+        Assert.Throws<EnvInterpolationException>(() =>
             Parse("KEY=$UNDEFINED_NAME_XYZ", s_bareInterp)
         );
     }
@@ -901,7 +901,7 @@ public class EnvCollectionTests
     [Test]
     public void DuplicateKeyThrowsByDefault()
     {
-        var ex = Assert.Throws<EnverException>(() => Parse("KEY=first\nKEY=second"));
+        var ex = Assert.Throws<EnvException>(() => Parse("KEY=first\nKEY=second"));
         Assert.That(ex!.Variable, Is.EqualTo("KEY"));
     }
 

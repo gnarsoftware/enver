@@ -37,7 +37,7 @@ public class EnvironmentAccessorsTests
     [Test]
     public void GetStringThrowsWhenMissing()
     {
-        var ex = Assert.Throws<EnverException>(() => Environment.Variables.GetString(KMissing));
+        var ex = Assert.Throws<EnvException>(() => Environment.Variables.GetString(KMissing));
         Assert.That(ex!.Variable, Is.EqualTo(KMissing));
     }
 
@@ -75,7 +75,7 @@ public class EnvironmentAccessorsTests
     public void GetStrictBoolRejectsLooseTokens()
     {
         Environment.SetEnvironmentVariable(K, "yes");
-        Assert.Throws<EnverException>(() => Environment.Variables.Get<bool>(K));
+        Assert.Throws<EnvException>(() => Environment.Variables.Get<bool>(K));
     }
 
     [Test]
@@ -157,7 +157,7 @@ public class EnvironmentAccessorsTests
     public void GetEnumRejectsUndefinedNumericValue()
     {
         Environment.SetEnvironmentVariable(K, "99");
-        Assert.Throws<EnverException>(() => Environment.Variables.GetEnum<LogLevel>(K));
+        Assert.Throws<EnvException>(() => Environment.Variables.GetEnum<LogLevel>(K));
     }
 
     [Test]

@@ -1,3 +1,5 @@
+using Enver.Parsing;
+
 namespace Enver.Tests;
 
 public class SystemEnvParserTests
@@ -64,7 +66,7 @@ public class SystemEnvParserTests
     [Test]
     public void MissingInterpolationThrowsByDefault()
     {
-        var ex = Assert.Throws<EnverInterpolationException>(() =>
+        var ex = Assert.Throws<EnvInterpolationException>(() =>
             _parser.Parse($"{K1}=${{ENVER_NOT_SET_999}}")
         );
         using (Assert.EnterMultipleScope())

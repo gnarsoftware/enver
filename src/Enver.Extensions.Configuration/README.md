@@ -217,7 +217,7 @@ builder.Configuration.AddDotEnvFile(
     reloadOnChange: true);  // hot-reload on change (default)
 ```
 
-For more control, use the `Action<EnverConfigurationSource>` overload:
+For more control, use the `Action<DotEnvFilesSource>` overload:
 
 ```csharp
 builder.Configuration.AddDotEnvFile(source =>
@@ -279,7 +279,7 @@ If you want the same "env vars override `.env`" behavior as
 config-file tier:
 
 ```csharp
-builder.Configuration.Sources.Insert(0, new EnverConfigurationSource { Path = ".env", Optional = true });
+builder.Configuration.Sources.Insert(0, new DotEnvFilesSource { Path = ".env", Optional = true });
 ```
 
 ### Hot reload
@@ -295,7 +295,7 @@ trivial conversions but doesn't give you Enver's parsing layer:
 
 - `0x` / `0b` integer prefix support
 - Strict enum (named members only, rejects arbitrary numeric casts)
-- `GetRequired*` throws `EnverException` with the failing variable name
+- `GetRequired*` throws `EnvException` with the failing variable name
 - `Get*(key, default)` overloads that don't go through `Nullable<T>` boxing
 
 `AsEnvReader()` is a thin bridge that gives you all of that against any

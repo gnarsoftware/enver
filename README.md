@@ -37,7 +37,7 @@ The base package contains the core parser. Pick an integration package based on 
 | Package | Use case |
 |---|---|
 | **`Enver`** | Core lexer + parser. Reference directly only if you're writing a custom consumer. |
-| **`Enver.SourceGeneration`** | Strongly-typed configuration binding. |
+| **`Enver.Binding`** | Strongly-typed configuration binding. |
 | **`Enver.InMemory`** | Load `.env` files into an `EnvCollection` (a `Dictionary<string, string>` subclass with platform-appropriate key comparison). |
 | **`Enver.SystemEnvironment`** | Load `.env` files into the process environment block via `Environment.SetEnvironmentVariable`. Useful when downstream code already uses `Environment.GetEnvironmentVariable(...)` and you want to keep that flow. |
 | **`Enver.Extensions.Configuration`** | `IConfigurationSource` integration for ASP.NET Core / `Microsoft.Extensions.Configuration`. Plus `IConfiguration.AsEnvReader()` so Enver's typed accessors apply to any configuration source, not just `.env` files. |
@@ -99,14 +99,14 @@ int port = builder.Configuration.AsEnvReader().GetInt32("DB_PORT", 5432);
 ### Bind `.env` to a typed class
 
 ```sh
-dotnet add package Gnar.Enver.SourceGeneration
+dotnet add package Gnar.Enver.Binding
 ```
 
 ```csharp
 using Enver;
-using Enver.SourceGeneration;
+using Enver.Binding;
 
-[EnverBindable]
+[EnvBindable]
 public partial record DatabaseConfig(string Host, int Port)
 {
     public bool UseSsl { get; init; } = true;
@@ -121,7 +121,7 @@ var cfg = DatabaseConfig.BindFromAppDirectory();
 The `IEnvReader` interface provides typed accessors for a collection of environment
 variables. These come in four patterns:
 
-- `Get*(key)`: throws `EnverException` on missing or unparseable.
+- `Get*(key)`: throws `EnvException` on missing or unparseable.
 - `Get*(key, default)`: returns `default` on missing; throws on unparseable.
 - `GetOptional*(key)`: returns `null` on missing; throws on unparseable.
 - `TryGet*(key, out value)`: returns `false` on missing **or** unparseable.
@@ -161,7 +161,7 @@ IPAddress bindIp  = Environment.Variables.Get<IPAddress>("BIND_ADDRESS");
 
 ```csharp
 using System.Net;
-using Enver;
+using Enver.Extensions.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 

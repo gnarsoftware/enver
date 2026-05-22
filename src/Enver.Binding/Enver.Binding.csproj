@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../build/Library.props" />
+
+  <PropertyGroup>
+    <PackageId>Gnar.Enver.Binding</PackageId>
+    <Description>Source generator and attributes for binding .env values to strongly-typed config classes.</Description>
+    <PackageTags>$(PackageTags);binding;source-generator;aot;trimming</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Enver/Enver.csproj" />
+    <ProjectReference
+      Include="../Enver.Binding.Generator/Enver.Binding.Generator.csproj"
+      ReferenceOutputAssembly="false"
+      PrivateAssets="all"
+    />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <_GeneratorAssemblyPath>$(ArtifactsPath)/bin/Enver.Binding.Generator/$(Configuration.ToLowerInvariant())_netstandard2.0/Enver.Binding.Generator.dll</_GeneratorAssemblyPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <None
+      Include="$(_GeneratorAssemblyPath)"
+      Pack="true"
+      PackagePath="analyzers/dotnet/cs"
+      Visible="false"
+    />
+  </ItemGroup>
+</Project>
