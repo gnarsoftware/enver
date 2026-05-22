@@ -1,5 +1,6 @@
 {
   "LITERAL": "hello world",
   "NO_INTERP": "${NOT_RESOLVED}",
-  "DOLLAR_PRICE": "$5.99"
+  "DOLLAR_PRICE": "$5.99",
+  "MULTILINE": "line1\nline2"
 }
