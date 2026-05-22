@@ -295,7 +295,7 @@ trivial conversions but doesn't give you Enver's parsing layer:
 
 - `0x` / `0b` integer prefix support
 - Strict enum (named members only, rejects arbitrary numeric casts)
-- `GetRequired*` throws `EnvException` with the failing variable name
+- `GetRequired*` throws `EnvVariableException` with the failing variable name
 - `Get*(key, default)` overloads that don't go through `Nullable<T>` boxing
 
 `AsEnvReader()` is a thin bridge that gives you all of that against any

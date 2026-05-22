@@ -68,7 +68,7 @@ public abstract class EnvParser
                 }
                 else
                 {
-                    EnvLexerException.ThrowUnexpectedToken(ref lexer, TokenType.Key);
+                    EnvSyntaxException.ThrowUnexpectedToken(ref lexer, TokenType.Key);
                 }
             }
         }
@@ -147,18 +147,21 @@ public abstract class EnvParser
         // key
         if (lexer.Current.Type != TokenType.Key)
         {
-            EnvLexerException.ThrowUnexpectedToken(ref lexer, TokenType.Key);
+            EnvSyntaxException.ThrowUnexpectedToken(ref lexer, TokenType.Key);
         }
         ReadOnlySpan<byte> key = lexer.Current.Text;
 
         // sep
         if (!lexer.MoveNext())
         {
-            EnvLexerException.ThrowUnexpectedEndOfFile(lexer.Position, TokenType.KeyValueSeparator);
+            EnvSyntaxException.ThrowUnexpectedEndOfFile(
+                lexer.Position,
+                TokenType.KeyValueSeparator
+            );
         }
         if (lexer.Current.Type != TokenType.KeyValueSeparator)
         {
-            EnvLexerException.ThrowUnexpectedToken(ref lexer, TokenType.KeyValueSeparator);
+            EnvSyntaxException.ThrowUnexpectedToken(ref lexer, TokenType.KeyValueSeparator);
         }
 
         // value
@@ -186,7 +189,7 @@ public abstract class EnvParser
 
         if (quoteType.HasValue && !lexer.MoveNext())
         {
-            EnvLexerException.ThrowUnterminatedQuotedValue(lexer.Position, quoteType.Value);
+            EnvSyntaxException.ThrowUnterminatedQuotedValue(lexer.Position, quoteType.Value);
         }
 
         var reader = AccumulateValue(key, ref lexer, ref builder, scope);
@@ -195,7 +198,7 @@ public abstract class EnvParser
         {
             if (lexer.Current.Type != quoteType.Value)
             {
-                EnvLexerException.ThrowUnterminatedQuotedValue(lexer.Position, quoteType.Value);
+                EnvSyntaxException.ThrowUnterminatedQuotedValue(lexer.Position, quoteType.Value);
             }
             lexer.MoveNext();
         }
@@ -259,14 +262,14 @@ public abstract class EnvParser
                         var bracedKey = lexer.Current.Text;
                         if (!lexer.MoveNext() || lexer.Current.Type != TokenType.InterpolateEnd)
                         {
-                            EnvLexerException.ThrowMalformedInterpolation(interpolationStart);
+                            EnvSyntaxException.ThrowMalformedInterpolation(interpolationStart);
                         }
                         lexer.MoveNext();
                         ResolveInterpolation(targetKey, bracedKey, scope, ref builder);
                     }
                     else
                     {
-                        EnvLexerException.ThrowMalformedInterpolation(interpolationStart);
+                        EnvSyntaxException.ThrowMalformedInterpolation(interpolationStart);
                     }
                     break;
                 case TokenType.InterpolateBare:
@@ -277,7 +280,7 @@ public abstract class EnvParser
                 case TokenType.EndOfFile:
                     break;
                 default:
-                    EnvLexerException.ThrowUnexpectedToken(ref lexer, TokenType.ValuePart);
+                    EnvSyntaxException.ThrowUnexpectedToken(ref lexer, TokenType.ValuePart);
                     break;
             }
             partCount++;
@@ -307,7 +310,7 @@ public abstract class EnvParser
 
         if (!_allowMissingInterpolation)
         {
-            EnvInterpolationException.ThrowMissingInterpolationKey(
+            EnvInterpolationException.Throw(
                 variable: Encoding.UTF8.GetString(targetKey),
                 interpolationKey: Encoding.UTF8.GetString(interpolateKey)
             );

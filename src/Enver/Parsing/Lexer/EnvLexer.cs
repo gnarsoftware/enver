@@ -243,7 +243,7 @@ internal ref struct EnvLexer(
                     {
                         if (_onUnbracedInterp == UnbracedInterpolationBehavior.Error)
                         {
-                            EnvLexerException.ThrowAmbiguousUnbracedInterpolation(
+                            EnvSyntaxException.ThrowAmbiguousUnbracedInterpolation(
                                 Position + sigIndex
                             );
                         }
@@ -368,7 +368,7 @@ internal ref struct EnvLexer(
         {
             if (_onUnbracedInterp == UnbracedInterpolationBehavior.Error)
             {
-                EnvLexerException.ThrowAmbiguousUnbracedInterpolation(Position + endIndex);
+                EnvSyntaxException.ThrowAmbiguousUnbracedInterpolation(Position + endIndex);
             }
             if (_onUnbracedInterp == UnbracedInterpolationBehavior.Interpolate)
             {

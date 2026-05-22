@@ -5,32 +5,33 @@ using Enver.Parsing.Lexer;
 namespace Enver;
 
 /// <summary>
-/// Raised when the lexer encounters a syntactic error in the input.
+/// Raised when the input is syntactically malformed.
 /// </summary>
-public class EnvLexerException : Exception
+[Serializable]
+public sealed class EnvSyntaxException : EnvException
 {
     /// <summary>
-    /// Creates a lexer exception with no message.
+    /// Creates a syntax exception with no message.
     /// </summary>
-    public EnvLexerException() { }
+    public EnvSyntaxException() { }
 
     /// <summary>
-    /// Creates a lexer exception with the given message.
+    /// Creates a syntax exception with the given message.
     /// </summary>
-    public EnvLexerException(string? message)
+    public EnvSyntaxException(string? message)
         : base(message) { }
 
     /// <summary>
-    /// Creates a lexer exception with the given message and inner exception.
+    /// Creates a syntax exception with the given message and inner exception.
     /// </summary>
-    public EnvLexerException(string? message, Exception? innerException)
+    public EnvSyntaxException(string? message, Exception? innerException)
         : base(message, innerException) { }
 
     /// <summary>
-    /// Creates a lexer exception with a position, message and optional
+    /// Creates a syntax exception with a position, message and optional
     /// inner exception.
     /// </summary>
-    public EnvLexerException(int position, string? message, Exception? innerException = null)
+    public EnvSyntaxException(int position, string? message, Exception? innerException = null)
         : base(message, innerException)
     {
         Position = position;
@@ -47,12 +48,12 @@ public class EnvLexerException : Exception
         if (lexer.Current.Type == TokenType.Unknown)
         {
             var text = Encoding.UTF8.GetString(lexer.Current.Text);
-            throw new EnvLexerException(
+            throw new EnvSyntaxException(
                 lexer.Position,
                 $"Unexpected text at position {lexer.Position:N0}: '{text}'"
             );
         }
-        throw new EnvLexerException(
+        throw new EnvSyntaxException(
             lexer.Position,
             $"Unexpected token at position {lexer.Position:N0}: {lexer.Current.Type:G}. Expected {expected:G}."
         );
@@ -61,7 +62,7 @@ public class EnvLexerException : Exception
     [DoesNotReturn]
     internal static void ThrowUnexpectedEndOfFile(int position, TokenType expected)
     {
-        throw new EnvLexerException(
+        throw new EnvSyntaxException(
             position,
             $"Unexpected end of file when trying to read {expected:G}"
         );
@@ -70,7 +71,7 @@ public class EnvLexerException : Exception
     [DoesNotReturn]
     internal static void ThrowAmbiguousUnbracedInterpolation(int position)
     {
-        throw new EnvLexerException(
+        throw new EnvSyntaxException(
             position,
             $"Ambiguous unbraced `$IDENT` interpolation at position {position:N0}. "
                 + "Use `${IDENT}` to interpolate, escape with `\\$` for a literal `$`, "
@@ -81,7 +82,7 @@ public class EnvLexerException : Exception
     [DoesNotReturn]
     internal static void ThrowMalformedInterpolation(int position)
     {
-        throw new EnvLexerException(
+        throw new EnvSyntaxException(
             position,
             $"Malformed interpolation expression at position {position:N0}. Expected '${{KEY}}' syntax."
         );
@@ -97,7 +98,7 @@ public class EnvLexerException : Exception
             TokenType.Backtick => "backtick-quoted",
             _ => "quoted",
         };
-        throw new EnvLexerException(
+        throw new EnvSyntaxException(
             position,
             $"Unterminated {quoteName} value at position {position:N0}"
         );

@@ -200,14 +200,14 @@ Key properties:
   to match the prevailing convention of substituting empty on miss.
 - **Malformed syntax throws.** `${KEY` (unterminated), `${` (incomplete),
   `${BAD-NAME}` (invalid key character), and `${}` (empty key) all raise
-  `EnvLexerException` at parse time. A typo'd `${KEY}` should surface as an
+  `EnvSyntaxException` at parse time. A typo'd `${KEY}` should surface as an
   error, not produce a config value that mysteriously equals `KEY` or `${`.
   To include a literal `${`, escape with `\$` in a double-quoted value or use
   single quotes.
 - **Bare `$IDENTIFIER` is refused by default.** Only `${IDENTIFIER}` is
   recognized as a canonical interpolation. The bare form can easily be
   misinterpreted as an expansion when a literal `$` within a value is expected.
-  Rather than assuming one way or another, the lexer raises `EnvLexerException`
+  Rather than assuming one way or another, the lexer raises `EnvSyntaxException`
   at the `$` and asks you to disambiguate by default. `$` followed by anything
   that *isn't* an identifier-start character (digit, punctuation, end-of-line)
   is unambiguous and stays literal in every mode (so `PRICE="$9.99"`, regex
@@ -215,7 +215,7 @@ Key properties:
 
   | `EnvParseOptions.OnUnbracedInterpolation` | What `KEY=val$ue` does |
   |---|---|
-  | `Error` (default) | Raises `EnvLexerException` |
+  | `Error` (default) | Raises `EnvSyntaxException` |
   | `Interpolate` | Resolves `$ue` against the consumer + process env |
   | `Literal` | Parses to the literal `val$ue` |
 
@@ -226,7 +226,7 @@ Key properties:
 ## Duplicate keys
 
 **One definition per key per file.** A second `KEY=` line in the same file
-raises `EnvException` by default. The intent is that a single file is
+raises `EnvDuplicateKeyException` by default. The intent is that a single file is
 self-consistent, so a reader scanning it linearly never has to track which
 later line silently overrode something earlier.
 
