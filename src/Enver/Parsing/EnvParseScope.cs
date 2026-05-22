@@ -44,7 +44,7 @@ public sealed class EnvParseScope : IDisposable
             {
                 if (!_segmentAllowsDuplicates)
                 {
-                    EnvException.ThrowDuplicateKey(Encoding.UTF8.GetString(key));
+                    EnvDuplicateKeyException.Throw(Encoding.UTF8.GetString(key));
                 }
                 // Allow: fall through and append. Reverse-scan yields last-wins.
                 break;

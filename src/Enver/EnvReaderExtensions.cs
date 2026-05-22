@@ -27,7 +27,7 @@ public static class EnvReaderExtensions
         ArgumentNullException.ThrowIfNull(source);
         if (!source.TryGetValue(key, out var value))
         {
-            EnvException.ThrowMissingEnvironmentVariable(key);
+            EnvMissingVariableException.Throw(key);
         }
         return value;
     }

@@ -136,3 +136,6 @@ dotnet_diagnostic.IDE0005.severity = warning
 
 # IDE0042: Deconstruct variable declaration
 dotnet_diagnostic.IDE0042.severity = silent
+
+# RCS1194: Implement exception constructors
+dotnet_diagnostic.RCS1194.severity = none

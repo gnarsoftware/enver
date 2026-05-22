@@ -36,7 +36,7 @@ public class EnvReaderExtensionsTests
     public void GetStringThrowsWhenMissing()
     {
         var src = MakeReader();
-        var ex = Assert.Throws<EnvException>(() => src.GetString("MISSING"));
+        var ex = Assert.Throws<EnvMissingVariableException>(() => src.GetString("MISSING"));
         Assert.That(ex!.Variable, Is.EqualTo("MISSING"));
     }
 
@@ -118,7 +118,7 @@ public class EnvReaderExtensionsTests
     public void GetThrowsOnUnparseableValue()
     {
         var src = MakeReader(("ID", "not-a-guid"));
-        var ex = Assert.Throws<EnvException>(() => src.Get<Guid>("ID"));
+        var ex = Assert.Throws<EnvInvalidValueException>(() => src.Get<Guid>("ID"));
         Assert.That(ex!.Variable, Is.EqualTo("ID"));
     }
 
@@ -134,7 +134,7 @@ public class EnvReaderExtensionsTests
     {
         // Optional means "missing is ok"; it does NOT mean "parse failure is ok".
         var src = MakeReader(("ID", "garbage"));
-        Assert.Throws<EnvException>(() => src.GetOptional<Guid>("ID"));
+        Assert.Throws<EnvInvalidValueException>(() => src.GetOptional<Guid>("ID"));
     }
 
     [Test]
@@ -214,7 +214,7 @@ public class EnvReaderExtensionsTests
     {
         // Default applies on missing, NOT on present-but-invalid.
         var src = MakeReader(("ID", "not-a-guid"));
-        Assert.Throws<EnvException>(() => src.Get("ID", Guid.Empty));
+        Assert.Throws<EnvInvalidValueException>(() => src.Get("ID", Guid.Empty));
     }
 
     // --- Numbers ---
@@ -291,7 +291,9 @@ public class EnvReaderExtensionsTests
     public void GetEnumRespectsCaseWhenIgnoreCaseFalse()
     {
         var src = MakeReader(("LEVEL", "warning"));
-        Assert.Throws<EnvException>(() => src.GetEnum<LogLevel>("LEVEL", ignoreCase: false));
+        Assert.Throws<EnvInvalidValueException>(() =>
+            src.GetEnum<LogLevel>("LEVEL", ignoreCase: false)
+        );
     }
 
     [Test]
@@ -299,7 +301,7 @@ public class EnvReaderExtensionsTests
     {
         // 42 is not a declared LogLevel member.
         var src = MakeReader(("LEVEL", "42"));
-        Assert.Throws<EnvException>(() => src.GetEnum<LogLevel>("LEVEL"));
+        Assert.Throws<EnvInvalidValueException>(() => src.GetEnum<LogLevel>("LEVEL"));
     }
 
     [Test]
@@ -336,7 +338,7 @@ public class EnvReaderExtensionsTests
     public void GetUriRejectsRelativeUnderDefaultAbsoluteKind()
     {
         var src = MakeReader(("URL", "relative/path"));
-        Assert.Throws<EnvException>(() => src.GetUri("URL"));
+        Assert.Throws<EnvInvalidValueException>(() => src.GetUri("URL"));
     }
 
     [Test]
@@ -386,7 +388,7 @@ public class EnvReaderExtensionsTests
     public void GetVersionThrowsOnUnparseable()
     {
         var src = MakeReader(("VER", "not-a-version"));
-        Assert.Throws<EnvException>(() => src.GetVersion("VER"));
+        Assert.Throws<EnvInvalidValueException>(() => src.GetVersion("VER"));
     }
 
     [Test]
@@ -420,7 +422,7 @@ public class EnvReaderExtensionsTests
     public void GetBooleanRejectsLooseTokens()
     {
         var src = MakeReader(("FLAG", "yes"));
-        Assert.Throws<EnvException>(() => src.GetBoolean("FLAG"));
+        Assert.Throws<EnvInvalidValueException>(() => src.GetBoolean("FLAG"));
     }
 
     [Test]

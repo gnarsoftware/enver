@@ -85,7 +85,7 @@ await EnvCollection.FromAppDirectoryAsync();
 Within a single file, defining the same key twice throws by default:
 
 ```csharp
-// Throws EnvException: "Duplicate key 'DB_HOST' encountered in input."
+// Throws EnvDuplicateKeyException: "Duplicate key 'DB_HOST' encountered in input."
 var coll = new EnvCollection();
 new EnvDictionaryParser(coll).Parse("DB_HOST=a\nDB_HOST=b");
 ```

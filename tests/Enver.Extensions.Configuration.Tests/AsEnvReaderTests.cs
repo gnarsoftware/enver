@@ -30,7 +30,7 @@ public class AsEnvReaderTests
     public void GetStringThrowsWhenMissing()
     {
         var src = BuildFrom().AsEnvReader();
-        Assert.Throws<EnvException>(() => src.GetString("MISSING"));
+        Assert.Throws<EnvMissingVariableException>(() => src.GetString("MISSING"));
     }
 
     [Test]
@@ -50,7 +50,7 @@ public class AsEnvReaderTests
         // Enver's strict enum behavior must apply even though the value
         // came from IConfiguration rather than a .env file.
         var src = BuildFrom(("LEVEL", "42")).AsEnvReader();
-        Assert.Throws<EnvException>(() => src.GetEnum<LogLevel>("LEVEL"));
+        Assert.Throws<EnvInvalidValueException>(() => src.GetEnum<LogLevel>("LEVEL"));
     }
 
     [Test]

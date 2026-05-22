@@ -540,7 +540,7 @@ internal static class Emitter
         w.WriteLine("{");
         w.Indent++;
         w.WriteLine(
-            $"throw new global::Enver.EnvException(\"{m.ResolvedKey}\", \"invalid {m.UnderlyingTypeDisplayName} value\", __ex);"
+            $"throw new global::Enver.EnvInvalidValueException(\"{m.ResolvedKey}\", \"invalid {m.UnderlyingTypeDisplayName} value\", __ex);"
         );
         w.Indent--;
         w.WriteLine("}");
@@ -593,7 +593,7 @@ internal static class Emitter
             if (ResolveRequirement(m) == EffectiveRequirement.Required)
             {
                 w.WriteLine(
-                    $"if (!_set_{m.MemberName}) throw new global::Enver.EnvException(\"{m.ResolvedKey}\", \"missing required env variable '{m.ResolvedKey}'\");"
+                    $"if (!_set_{m.MemberName}) throw new global::Enver.EnvMissingVariableException(\"{m.ResolvedKey}\", \"missing required env variable '{m.ResolvedKey}'\");"
                 );
             }
         }
@@ -626,7 +626,7 @@ internal static class Emitter
             if (ResolveRequirement(m) == EffectiveRequirement.Required)
             {
                 w.WriteLine(
-                    $"if (!_set_{localFieldPrefix}{m.MemberName}) throw new global::Enver.EnvException(\"{m.ResolvedKey}\", \"missing required env variable '{m.ResolvedKey}'\");"
+                    $"if (!_set_{localFieldPrefix}{m.MemberName}) throw new global::Enver.EnvMissingVariableException(\"{m.ResolvedKey}\", \"missing required env variable '{m.ResolvedKey}'\");"
                 );
             }
         }

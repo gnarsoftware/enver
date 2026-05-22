@@ -7,7 +7,7 @@ namespace Enver.Parsing;
 public enum UnbracedInterpolationBehavior
 {
     /// <summary>
-    /// Throws <see cref="EnvLexerException"/>.
+    /// Throws <see cref="EnvSyntaxException"/>.
     /// </summary>
     Error = 0,
 

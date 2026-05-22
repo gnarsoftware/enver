@@ -213,7 +213,7 @@ Each member is classified as **required**, **optional**, or
 4. Non-nullable type -> required
 5. Reference type under `#nullable disable` -> optional
 
-Required members that are missing throw `EnvException` at `Bind()` time
+Required members that are missing throw `EnvMissingVariableException` at `Bind()` time
 with the failing key. Optional members fall back to `default(T)` or the
 declared initializer.
 

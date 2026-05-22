@@ -117,13 +117,13 @@ public class DotEnvFilesProviderTests
         // Enver's strict default applies, but FileConfigurationProvider wraps
         // load-time exceptions in InvalidDataException. That's the standard
         // IConfiguration error contract regardless of which provider failed.
-        // The original EnvException is preserved as InnerException so
+        // The original EnvVariableException is preserved as InnerException so
         // callers can still inspect the failing variable name.
         var path = WriteFixture("KEY=first\nKEY=second\n");
         var ex = Assert.Throws<InvalidDataException>(() =>
             new ConfigurationBuilder().AddDotEnvFile(path).Build()
         );
-        var inner = ex!.InnerException as EnvException;
+        var inner = ex!.InnerException as EnvVariableException;
         Assert.That(inner, Is.Not.Null);
         Assert.That(inner!.Variable, Is.EqualTo("KEY"));
     }

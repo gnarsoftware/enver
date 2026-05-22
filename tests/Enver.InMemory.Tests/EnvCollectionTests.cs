@@ -291,13 +291,13 @@ public class EnvCollectionTests
     [Test]
     public void ThrowsWhenKeyHasInvalidChars()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY*=value"));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY*=value"));
     }
 
     [Test]
     public void ThrowsWhenKeyStartsWithNumber()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("1KEY=value"));
+        Assert.Throws<EnvSyntaxException>(() => Parse("1KEY=value"));
     }
 
     [Test]
@@ -480,55 +480,55 @@ public class EnvCollectionTests
     [Test]
     public void ThrowsOnUnterminatedDoubleQuotedValueWithTrailingDollar()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY=\"abc$"));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=\"abc$"));
     }
 
     [Test]
     public void ThrowsOnUnterminatedDoubleQuotedValueOfJustDollar()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY=\"$"));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=\"$"));
     }
 
     [Test]
     public void ThrowsOnUnterminatedDoubleQuotedValue()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY=\"abc"));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=\"abc"));
     }
 
     [Test]
     public void ThrowsOnUnterminatedSingleQuotedValue()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY='abc"));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY='abc"));
     }
 
     [Test]
     public void ThrowsOnUnterminatedBacktickQuotedValue()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY=`abc"));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=`abc"));
     }
 
     [Test]
     public void ThrowsOnBareDoubleQuoteValue()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY=\""));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=\""));
     }
 
     [Test]
     public void ThrowsOnBareSingleQuoteValue()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY='"));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY='"));
     }
 
     [Test]
     public void ThrowsOnBareBacktickValue()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY=`"));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=`"));
     }
 
     [Test]
     public void ThrowsOnDoubleQuoteEndingInEscapedQuote()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY=\"abc\\\""));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=\"abc\\\""));
     }
 
     [Test]
@@ -586,31 +586,31 @@ public class EnvCollectionTests
     [Test]
     public void EmptyInterpolationKeyThrows()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY=${}"));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=${}"));
     }
 
     [Test]
     public void InterpolationWithInvalidCharInKeyThrows()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY=${BAD-NAME}"));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=${BAD-NAME}"));
     }
 
     [Test]
     public void UnclosedInterpolationAtEofThrows()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY=${KEY"));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=${KEY"));
     }
 
     [Test]
     public void UnclosedInterpolationStartAtEofThrows()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY=${"));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=${"));
     }
 
     [Test]
     public void UnclosedInterpolationFollowedByMoreContentThrows()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY=${BAD "));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=${BAD "));
     }
 
     // --- Bare $IDENTIFIER: Error / Literal / Interpolate modes ---
@@ -632,13 +632,13 @@ public class EnvCollectionTests
     {
         // Strict default: `$FROM_ENV` is ambiguous between a literal and a
         // shell-style reference, so the lexer refuses the file.
-        Assert.Throws<EnvLexerException>(() => Parse("KEY=prefix-$FROM_ENV"));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=prefix-$FROM_ENV"));
     }
 
     [Test]
     public void BareDollarIdentifierThrowsByDefaultInDoubleQuoted()
     {
-        Assert.Throws<EnvLexerException>(() => Parse("KEY=\"hello $FROM_ENV!\""));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=\"hello $FROM_ENV!\""));
     }
 
     [Test]
@@ -808,19 +808,19 @@ public class EnvCollectionTests
     [Test]
     public void ThrowsOnTrailingLoneBackslashInDoubleQuoted()
     {
-        Assert.Throws<EnvLexerException>(() => Parse(@"KEY=""\"));
+        Assert.Throws<EnvSyntaxException>(() => Parse(@"KEY=""\"));
     }
 
     [Test]
     public void ThrowsOnTrailingLoneBackslashInSingleQuoted()
     {
-        Assert.Throws<EnvLexerException>(() => Parse(@"KEY='\"));
+        Assert.Throws<EnvSyntaxException>(() => Parse(@"KEY='\"));
     }
 
     [Test]
     public void ThrowsOnTrailingLoneBackslashInBacktick()
     {
-        Assert.Throws<EnvLexerException>(() => Parse(@"KEY=`\"));
+        Assert.Throws<EnvSyntaxException>(() => Parse(@"KEY=`\"));
     }
 
     // --- BOM handling ---
@@ -844,7 +844,7 @@ public class EnvCollectionTests
     {
         // A BOM that isn't at the very start should be left alone. Only the
         // leading one is special per the spec.
-        Assert.Throws<EnvLexerException>(() => Parse("KEY=value\n\uFEFFKEY2=v"));
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=value\n\uFEFFKEY2=v"));
     }
 
     // --- Newline normalization inside multi-line quoted values ---
@@ -898,7 +898,7 @@ public class EnvCollectionTests
     [Test]
     public void DuplicateKeyThrowsByDefault()
     {
-        var ex = Assert.Throws<EnvException>(() => Parse("KEY=first\nKEY=second"));
+        var ex = Assert.Throws<EnvDuplicateKeyException>(() => Parse("KEY=first\nKEY=second"));
         Assert.That(ex!.Variable, Is.EqualTo("KEY"));
     }
 

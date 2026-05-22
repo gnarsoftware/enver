@@ -10,7 +10,7 @@ internal static class EnvParseHelpers
     {
         if (!T.TryParse(rawValue, provider, out var value))
         {
-            EnvException.ThrowInvalidEnvironmentVariable(key);
+            EnvInvalidValueException.Throw(key);
         }
         return value!;
     }
@@ -27,7 +27,7 @@ internal static class EnvParseHelpers
         NumberHelpers.ReadNumberPreamble(ref span, ref styles);
         if (!T.TryParse(span, styles, provider, out var value))
         {
-            EnvException.ThrowInvalidEnvironmentVariable(key);
+            EnvInvalidValueException.Throw(key);
         }
         return value!;
     }
@@ -37,7 +37,7 @@ internal static class EnvParseHelpers
     {
         if (!Enum.TryParse<T>(rawValue, ignoreCase, out var value) || !Enum.IsDefined(value))
         {
-            EnvException.ThrowInvalidEnvironmentVariable(key);
+            EnvInvalidValueException.Throw(key);
         }
         return value;
     }
@@ -46,7 +46,7 @@ internal static class EnvParseHelpers
     {
         if (!Uri.TryCreate(rawValue, kind, out var uri))
         {
-            EnvException.ThrowInvalidEnvironmentVariable(key);
+            EnvInvalidValueException.Throw(key);
         }
         return uri!;
     }
@@ -55,7 +55,7 @@ internal static class EnvParseHelpers
     {
         if (!Version.TryParse(rawValue, out var version))
         {
-            EnvException.ThrowInvalidEnvironmentVariable(key);
+            EnvInvalidValueException.Throw(key);
         }
         return version!;
     }
