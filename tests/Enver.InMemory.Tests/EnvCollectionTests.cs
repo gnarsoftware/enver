@@ -392,10 +392,16 @@ public class EnvCollectionTests
     }
 
     [Test]
-    public void InterpretsEscapeSequenceForBacktick()
+    public void BacktickBackslashIsLiteral()
     {
-        var values = Parse(@"KEY=`val\`ue`");
-        Assert.That(values["KEY"], Is.EqualTo("val`ue"));
+        var values = Parse(@"KEY=`a\b`");
+        Assert.That(values["KEY"], Is.EqualTo(@"a\b"));
+    }
+
+    [Test]
+    public void BacktickCannotContainBacktick()
+    {
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=`a`b`"));
     }
 
     [Test]
@@ -413,10 +419,11 @@ public class EnvCollectionTests
     }
 
     [Test]
-    public void BacktickQuotedTrailingEscapedBackslashIsLiteral()
+    public void BacktickQuotedTrailingBackslashesAreLiteral()
     {
+        // No escape processing: both backslashes survive verbatim.
         var values = Parse(@"KEY=`abc\\`");
-        Assert.That(values["KEY"], Is.EqualTo(@"abc\"));
+        Assert.That(values["KEY"], Is.EqualTo(@"abc\\"));
     }
 
     [Test]
@@ -434,10 +441,10 @@ public class EnvCollectionTests
     }
 
     [Test]
-    public void BacktickEscapedBackslashOnlyIsLiteral()
+    public void BacktickBackslashesOnlyAreLiteral()
     {
         var values = Parse(@"KEY=`\\`");
-        Assert.That(values["KEY"], Is.EqualTo(@"\"));
+        Assert.That(values["KEY"], Is.EqualTo(@"\\"));
     }
 
     [Test]
@@ -818,7 +825,7 @@ public class EnvCollectionTests
     }
 
     [Test]
-    public void ThrowsOnTrailingLoneBackslashInBacktick()
+    public void TrailingBackslashInBacktickIsUnterminated()
     {
         Assert.Throws<EnvSyntaxException>(() => Parse(@"KEY=`\"));
     }
@@ -891,6 +898,42 @@ public class EnvCollectionTests
     {
         var values = Parse("KEY=`line1\rline2`");
         Assert.That(values["KEY"], Is.EqualTo("line1\nline2"));
+    }
+
+    [Test]
+    public void SingleQuotedAllowsMultiline()
+    {
+        var values = Parse("KEY='line1\nline2'");
+        Assert.That(values["KEY"], Is.EqualTo("line1\nline2"));
+    }
+
+    [Test]
+    public void SingleQuotedCrLfNewlineNormalizesToLf()
+    {
+        var values = Parse("KEY='line1\r\nline2'");
+        Assert.That(values["KEY"], Is.EqualTo("line1\nline2"));
+    }
+
+    [Test]
+    public void SingleQuotedBareCrNewlineNormalizesToLf()
+    {
+        var values = Parse("KEY='line1\rline2'");
+        Assert.That(values["KEY"], Is.EqualTo("line1\nline2"));
+    }
+
+    [Test]
+    public void SingleQuotedBareLfNewlinePassesThrough()
+    {
+        var values = Parse("KEY='line1\nline2'");
+        Assert.That(values["KEY"], Is.EqualTo("line1\nline2"));
+    }
+
+    [Test]
+    public void SingleQuotedMultilineKeepsInterpolationLiteral()
+    {
+        // Single quotes never interpolate, even across multiple lines.
+        var values = Parse("KEY='line1\n${NOT_RESOLVED}\nline3'");
+        Assert.That(values["KEY"], Is.EqualTo("line1\n${NOT_RESOLVED}\nline3"));
     }
 
     // --- Duplicate-key handling ---
