@@ -378,10 +378,23 @@ public class EnvCollectionTests
     }
 
     [Test]
-    public void InterpretsEscapeSequenceForSingleQuotes()
+    public void SingleQuotedBackslashIsLiteral()
     {
-        var values = Parse(@"KEY='val\'ue'");
-        Assert.That(values["KEY"], Is.EqualTo("val'ue"));
+        var values = Parse(@"KEY='a\b'");
+        Assert.That(values["KEY"], Is.EqualTo(@"a\b"));
+    }
+
+    [Test]
+    public void SingleQuotedTrailingBackslashIsLiteral()
+    {
+        var values = Parse(@"KEY='C:\'");
+        Assert.That(values["KEY"], Is.EqualTo(@"C:\"));
+    }
+
+    [Test]
+    public void SingleQuotedCannotContainSingleQuote()
+    {
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY='a'b'"));
     }
 
     [Test]
@@ -405,10 +418,11 @@ public class EnvCollectionTests
     }
 
     [Test]
-    public void SingleQuotedTrailingEscapedBackslashIsLiteral()
+    public void SingleQuotedTrailingBackslashesAreLiteral()
     {
+        // No escape processing: both backslashes survive verbatim.
         var values = Parse(@"KEY='abc\\'");
-        Assert.That(values["KEY"], Is.EqualTo(@"abc\"));
+        Assert.That(values["KEY"], Is.EqualTo(@"abc\\"));
     }
 
     [Test]
@@ -427,10 +441,10 @@ public class EnvCollectionTests
     }
 
     [Test]
-    public void SingleQuotedEscapedBackslashOnlyIsLiteral()
+    public void SingleQuotedBackslashesOnlyAreLiteral()
     {
         var values = Parse(@"KEY='\\'");
-        Assert.That(values["KEY"], Is.EqualTo(@"\"));
+        Assert.That(values["KEY"], Is.EqualTo(@"\\"));
     }
 
     [Test]
@@ -445,6 +459,142 @@ public class EnvCollectionTests
     {
         var values = Parse(@"KEY=`\\`");
         Assert.That(values["KEY"], Is.EqualTo(@"\\"));
+    }
+
+    [Test]
+    public void DoubleQuotedNewlineEscapeBecomesLineFeed()
+    {
+        var values = Parse(@"KEY=""line1\nline2""");
+        Assert.That(values["KEY"], Is.EqualTo("line1\nline2"));
+    }
+
+    [Test]
+    public void DoubleQuotedCarriageReturnEscapeBecomesCarriageReturn()
+    {
+        var values = Parse(@"KEY=""a\rb""");
+        Assert.That(values["KEY"], Is.EqualTo("a\rb"));
+    }
+
+    [Test]
+    public void DoubleQuotedTabEscapeBecomesTab()
+    {
+        var values = Parse(@"KEY=""a\tb""");
+        Assert.That(values["KEY"], Is.EqualTo("a\tb"));
+    }
+
+    [Test]
+    public void DoubleQuotedMixedWhitespaceEscapesResolve()
+    {
+        var values = Parse(@"KEY=""a\tb\nc\rd""");
+        Assert.That(values["KEY"], Is.EqualTo("a\tb\nc\rd"));
+    }
+
+    [Test]
+    public void DoubleQuotedWhitespaceEscapeAtStartResolves()
+    {
+        var values = Parse(@"KEY=""\tindented""");
+        Assert.That(values["KEY"], Is.EqualTo("\tindented"));
+    }
+
+    [Test]
+    public void DoubleQuotedEscapedBackslashBeforeNIsLiteralBackslashN()
+    {
+        // `\\n` is an escaped backslash followed by a literal `n`, not a newline.
+        var values = Parse(@"KEY=""\\n""");
+        Assert.That(values["KEY"], Is.EqualTo(@"\n"));
+    }
+
+    [Test]
+    public void SingleQuotedWhitespaceEscapeStaysLiteral()
+    {
+        // Single quotes do no whitespace-escape processing.
+        var values = Parse(@"KEY='a\nb'");
+        Assert.That(values["KEY"], Is.EqualTo(@"a\nb"));
+    }
+
+    [Test]
+    public void BacktickWhitespaceEscapeStaysLiteral()
+    {
+        var values = Parse(@"KEY=`a\nb`");
+        Assert.That(values["KEY"], Is.EqualTo(@"a\nb"));
+    }
+
+    [Test]
+    public void UnquotedWhitespaceEscapeStaysLiteral()
+    {
+        var values = Parse(@"KEY=a\nb");
+        Assert.That(values["KEY"], Is.EqualTo(@"a\nb"));
+    }
+
+    [Test]
+    public void DoubleQuotedUnknownEscapeThrows()
+    {
+        // `\d` is not a defined escape; double-quoted values are strict about
+        // escapes rather than passing the backslash through literally.
+        Assert.Throws<EnvSyntaxException>(() => Parse(@"KEY=""a\db"""));
+    }
+
+    [Test]
+    public void DoubleQuotedUnknownEscapeAtStartThrows()
+    {
+        Assert.Throws<EnvSyntaxException>(() => Parse(@"KEY=""\d"""));
+    }
+
+    [Test]
+    public void DoubleQuotedBackslashBeforeNewlineThrows()
+    {
+        // A backslash immediately before a real newline in a multi-line
+        // double-quoted value is an undefined escape, not a line continuation.
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=\"abc\\\ndef\""));
+    }
+
+    [Test]
+    public void DoubleQuotedUnknownEscapeIsLiteralWhenOptedIn()
+    {
+        var values = Parse(@"KEY=""a\db""", new EnvParseOptions { AllowUnknownEscapes = true });
+        Assert.That(values["KEY"], Is.EqualTo(@"a\db"));
+    }
+
+    [Test]
+    public void LooseModePassesUnknownEscapeThroughLiterally()
+    {
+        var values = Parse(@"KEY=""a\db""", EnvParseOptions.Loose);
+        Assert.That(values["KEY"], Is.EqualTo(@"a\db"));
+    }
+
+    [Test]
+    public void DoubleQuotedDefinedEscapesStillResolveWhenInvalidEscapesAreLiteral()
+    {
+        // Opting into literal undefined escapes must not disable the defined
+        // ones: `\n` is still a newline, `\d` stays literal.
+        var values = Parse(@"KEY=""a\nb\dc""", new EnvParseOptions { AllowUnknownEscapes = true });
+        Assert.That(values["KEY"], Is.EqualTo("a\nb\\dc"));
+    }
+
+    [Test]
+    public void DoubleQuotedUnknownMultiByteEscapeIsLiteralWhenOptedIn()
+    {
+        // The whole escaped rune survives verbatim, not just its lead byte.
+        var values = Parse("KEY=\"a\\éb\"", new EnvParseOptions { AllowUnknownEscapes = true });
+        Assert.That(values["KEY"], Is.EqualTo("a\\éb"));
+    }
+
+    [Test]
+    public void DoubleQuotedUnknownEscapeErrorRendersFullCharacter()
+    {
+        // An astral-plane escaped char (surrogate pair in UTF-16) is rendered
+        // whole in the error message, not as a broken partial byte.
+        var ex = Assert.Throws<EnvSyntaxException>(() => Parse("KEY=\"\\\U0001F984\""));
+        Assert.That(ex!.Message, Does.Contain("\U0001F984"));
+    }
+
+    [Test]
+    public void DoubleQuotedUnknownControlEscapeRendersCodePoint()
+    {
+        // A backslash before a literal control character renders as a U+XXXX
+        // code point rather than an invisible/garbled glyph in the message.
+        var ex = Assert.Throws<EnvSyntaxException>(() => Parse("KEY=\"\\\u0001\""));
+        Assert.That(ex!.Message, Does.Contain("U+0001"));
     }
 
     [Test]
@@ -819,7 +969,7 @@ public class EnvCollectionTests
     }
 
     [Test]
-    public void ThrowsOnTrailingLoneBackslashInSingleQuoted()
+    public void TrailingBackslashInSingleQuotedIsUnterminated()
     {
         Assert.Throws<EnvSyntaxException>(() => Parse(@"KEY='\"));
     }

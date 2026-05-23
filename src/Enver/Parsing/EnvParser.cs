@@ -10,6 +10,7 @@ namespace Enver.Parsing;
 public abstract class EnvParser
 {
     private bool _allowMissingInterpolation;
+    private bool _allowUnknownEscapes;
 
     /// <summary>
     /// Drive this parser against UTF-8 <paramref name="input"/>. Uses default parse options.
@@ -35,6 +36,7 @@ public abstract class EnvParser
     internal void Parse(ReadOnlySpan<byte> input, EnvParseOptions options, EnvParseView scope)
     {
         _allowMissingInterpolation = options.AllowMissingInterpolation;
+        _allowUnknownEscapes = options.AllowUnknownEscapes;
         scope.BeginSegment(options.AllowDuplicateKeys);
         if (input.IsEmpty)
         {
@@ -103,9 +105,10 @@ public abstract class EnvParser
     {
         if (input.IsEmpty)
         {
-            // Still reset per-call state when the input is empty so a stale
-            // AllowMissingInterpolation from a previous call can't leak in.
+            // Still reset per-call state when the input is empty so stale
+            // per-call flags from a previous call can't leak in.
             _allowMissingInterpolation = options.AllowMissingInterpolation;
+            _allowUnknownEscapes = options.AllowUnknownEscapes;
             scope.BeginSegment(options.AllowDuplicateKeys);
             return;
         }
@@ -252,6 +255,46 @@ public abstract class EnvParser
                     else
                     {
                         builder.Append("\n"u8);
+                    }
+                    lexer.MoveNext();
+                    break;
+                case TokenType.EscapedChar:
+                    // Token text is the backslash followed by the whole escaped
+                    // rune. The lead byte selects a defined escape; this switch
+                    // is the single source of truth for the escape vocabulary.
+                    ReadOnlySpan<byte> escapeText = lexer.Current.Text;
+                    ReadOnlySpan<byte> escaped = escapeText[1] switch
+                    {
+                        (byte)'n' => "\n"u8,
+                        (byte)'r' => "\r"u8,
+                        (byte)'t' => "\t"u8,
+                        (byte)'"' => "\""u8,
+                        (byte)'$' => "$"u8,
+                        (byte)'\\' => "\\"u8,
+                        _ => default,
+                    };
+                    if (escaped.IsEmpty)
+                    {
+                        // Undefined escape. Throw unless the caller opted into
+                        // literal pass-through, in which case emit the backslash
+                        // and the escaped rune verbatim.
+                        if (!_allowUnknownEscapes)
+                        {
+                            Rune.DecodeFromUtf8(escapeText[1..], out var rune, out _);
+                            EnvSyntaxException.ThrowInvalidEscape(
+                                lexer.Position - escapeText.Length,
+                                rune
+                            );
+                        }
+                        escaped = escapeText;
+                    }
+                    if (partCount == 0)
+                    {
+                        firstPart = escaped;
+                    }
+                    else
+                    {
+                        builder.Append(escaped);
                     }
                     lexer.MoveNext();
                     break;

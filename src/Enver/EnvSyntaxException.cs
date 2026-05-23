@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Text;
 using Enver.Parsing.Lexer;
 
@@ -86,6 +87,45 @@ public sealed class EnvSyntaxException : EnvException
             position,
             $"Malformed interpolation expression at position {position:N0}. Expected '${{KEY}}' syntax."
         );
+    }
+
+    [DoesNotReturn]
+    internal static void ThrowInvalidEscape(int position, Rune escape)
+    {
+        throw new EnvSyntaxException(
+            position,
+            $"Invalid escape sequence: '\\{RuneDisplay(escape)}' at position {position:N0}. To include a literal backslash, write \\\\."
+        );
+    }
+
+    private static string RuneDisplay(Rune rune)
+    {
+        if (IsPrintable(rune))
+        {
+            return rune.ToString();
+        }
+        return rune.Value switch
+        {
+            ' ' => "<space>",
+            '\t' => "<tab>",
+            '\r' or '\n' => "<newline>",
+            _ => $"<U+{rune.Value:X4}>",
+        };
+    }
+
+    private static bool IsPrintable(Rune rune)
+    {
+        return Rune.GetUnicodeCategory(rune)
+            is not (
+                UnicodeCategory.Control
+                or UnicodeCategory.Format
+                or UnicodeCategory.Surrogate
+                or UnicodeCategory.PrivateUse
+                or UnicodeCategory.OtherNotAssigned
+                or UnicodeCategory.SpaceSeparator
+                or UnicodeCategory.LineSeparator
+                or UnicodeCategory.ParagraphSeparator
+            );
     }
 
     [DoesNotReturn]
