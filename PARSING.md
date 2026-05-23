@@ -78,7 +78,11 @@ PEM_HEADER="-----BEGIN CERTIFICATE-----"
 
 - Multi-line capable.
 - `${VAR}` interpolation is resolved.
-- Backslash escapes: `\"`, `\\`, `\$` (to suppress interpolation).
+- Backslash escapes: `\"`, `\\`, `\$` (to suppress interpolation), and the
+  whitespace escapes `\n` (LF), `\r` (CR), `\t` (tab). **Any other `\x` is an
+  error**. To include a literal backslash, write `\\`. (Set
+  `EnvParseOptions.AllowUnknownEscapes = true` to pass unknown escapes through
+  literally, matching most other parsers.)
 - **This is the form to reach for when in doubt.**
 
 ### Single-quoted: `KEY='value'`
@@ -88,10 +92,14 @@ PATTERN='^[a-z]+\d+$'
 ```
 
 - Multi-line capable.
-- **No interpolation** (`${VAR}` is literal).
-- Backslash escapes: `\'` and `\\`.
-- Use when the value contains a literal `${…}`, a regex with `$`, or anything
-  else where dollar-sign substitution would be wrong.
+- Verbatim content: no interpolation (`${VAR}` is literal) and no escape
+  processing. A backslash is an ordinary value byte. Newlines are normalized to
+  LF like all multi-line values (see below).
+- Because there is no escape mechanism, a single-quoted value **cannot contain a
+  single quote**. Use double or backtick quotes for values that include one.
+- Use when the value contains a literal `${…}`, a regex with `$` or `\`, a
+  Windows path, or anything else where interpolation or escape processing would
+  be wrong.
 
 ### Backtick-quoted: `` KEY=`value` ``
 
@@ -118,7 +126,7 @@ All three quote forms support newlines inside the value; only bare values do not
 |---|---|---|---|
 | `"…"` | yes | yes | text where you might still want `${VAR}` substitution |
 | `` `…` `` | yes | no | secrets, PEM keys, JSON blobs - pasted-in verbatim text |
-| `'…'` | yes | no | literals containing `${…}` or `$` |
+| `'…'` | yes | no | verbatim literals: regexes, Windows paths, `${…}` or `$` |
 | bare | no | yes | short alphanumeric values |
 
 **Newlines are normalized to LF (`\n`).** Whether the file was authored on
@@ -249,6 +257,7 @@ named choice in your code:
 | Duplicate-key throws | `EnvParseOptions { AllowDuplicateKeys = true }` (later definition silently overwrites earlier) |
 | Missing interpolation throws | `EnvParseOptions { AllowMissingInterpolation = true }` |
 | Bare `$VAR` throws | `EnvParseOptions { OnUnbracedInterpolation = UnbracedInterpolationBehavior.Literal }` (keep `$` literal) or `… = UnbracedInterpolationBehavior.Interpolate` (expand variable) |
+| Unknown escape in double quotes throws | `EnvParseOptions { AllowUnknownEscapes = true }` (pass the backslash and following char through literally) |
 | Process env preserves existing values | `LoadDotEnv*(overrideExisting: true)` |
 | Missing file throws | `LoadDotEnv*(throwIfMissing: false)` (already the default for directory variants) |
 | Missing key throws | `GetOptional*` (returns `null`) or `Get*(key, defaultValue)` |
@@ -276,6 +285,7 @@ produces a per-fixture matrix.
 | Backtick-quoted values | `` KEY=`VALUE` `` | Supported | Supported | **Unsupported** | **Unsupported** | **Unsupported** |
 | `\$` escapes interpolation | `KEY="\${VALUE}"` | Literal | Literal | **Expanded** | Literal | Literal <sup>1</sup> |
 | Bare `$IDENTIFIER` interpolation | `KEY=$VALUE` | Error <sup>2</sup> | **Expanded** | **Expanded** | **Expanded** | **Expanded** |
+| Unknown escape in double quotes | `KEY="a\db"` | Error <sup>3</sup> | **Literal** | **Literal** | **Literal** | **Literal** |
 
 <small>
 1. Compose also supports $$ to escape interpolation. This is unsupported by Enver.
@@ -285,6 +295,12 @@ produces a per-fixture matrix.
 2. By default Enver throws an error for KEY=$VALUE. This is intentional
   and diverges from every other tested parser. This behavior can be configured
   to match the rest of the ecosystem.
+</small>
+
+<small>
+3. Other parsers pass an unrecognized escape through as a literal backslash
+  plus the following character. Enver rejects it so that `\` stays unambiguous.
+  This behavior can be configured to match the rest of the ecosystem.
 </small>
 
 ### Why strictness still wins
