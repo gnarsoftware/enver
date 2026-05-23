@@ -202,11 +202,8 @@ Key properties:
 - **Works in bare and double-quoted values.** Single-quoted and backtick
   values treat `${VAR}` as literal.
 - **Missing keys throw by default.** A `${KEY}` that resolves to nothing in any
-  source raises `EnvInterpolationException`. This is the typo-catching path.
-  A stray `${LOG_DR}` should fail at parse time, not silently become `""`. The
-  process-env fallback means legitimate references like
-  `CONFIG_PATH=${HOME}/.config/myapp` work as expected when `HOME` is set
-  in the environment, even if the file itself doesn't define it.
+  source raises `EnvInterpolationException`. A stray `${TYPO}` should fail at
+  parse time, not silently become `""`.
 - **Opt-in silent-empty for ecosystem compat.** Pass
   `EnvParseOptions { AllowMissingInterpolation = true }`
   to match the prevailing convention of substituting empty on miss.
@@ -264,6 +261,26 @@ PORT=${PORT:-}                    # empty string when PORT is unset
   `AllowMissingInterpolation = true` or `:-` on the inner expression to allow
   a missing default.
 
+### Required values
+
+`${KEY:?message}` raises `EnvInterpolationException` when `KEY` resolves to
+**nothing or an empty string**, even when `AllowMissingInterpolation` is `true`:
+
+```
+API_KEY=${API_KEY:?set API_KEY before starting}
+DB_URL=${DB_URL:?}               # message is optional
+```
+
+- **`:?` with a value present is a no-op** - it just yields `KEY`'s value, like a
+  plain `${KEY}`.
+- **The message is optional.** `${KEY:?}` throws with a generated diagnostic
+  naming the variable; `${KEY:?text}` appends your `text`.
+- **The message is a full sub-expression** lexed exactly like a default - literal
+  text plus nested `${...}` (e.g. `${KEY:?ask ${ADMIN}}`) - and, like defaults,
+  it is evaluated eagerly.
+- Unset and empty are treated the same. As with defaults, the bare `${KEY?}` form
+  is not supported.
+
 ## Duplicate keys
 
 **One definition per key per file.** A second `KEY=` line in the same file
@@ -316,6 +333,7 @@ produces a per-fixture matrix.
 | Bare `$IDENTIFIER` interpolation | `KEY=$VALUE` | Error <sup>2</sup> | **Expanded** | **Expanded** | **Expanded** | **Expanded** |
 | Unknown escape in double quotes | `KEY="a\db"` | Error <sup>3</sup> | **Literal** | **Literal** | **Literal** | **Literal** |
 | Default values | `KEY=${VAR:-x}` | Supported | Supported | **Unsupported** | **Unsupported** | Supported |
+| Required values | `KEY=${VAR:?msg}` | Supported | **Unsupported** | **Unsupported** | **Unsupported** | Supported |
 
 <small>
 1. Compose also supports $$ to escape interpolation. This is unsupported by Enver.
