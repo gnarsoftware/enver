@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Text;
 
 namespace Enver.Parsing.Lexer;
 
@@ -281,10 +282,6 @@ internal ref struct EnvLexer(
 
     private TokenInfo GetTokenInfoSingleQuoted()
     {
-        if (_text.Length > 1 && _text[0] == (byte)'\\' && _text[1] is (byte)'\'' or (byte)'\\')
-        {
-            return new(1, TokenType.ValuePart, 1);
-        }
         var endIndex = _text.IndexOfAny(s_singleQuotedSignificants);
         if (endIndex == -1)
         {
@@ -304,12 +301,6 @@ internal ref struct EnvLexer(
             int consume = _text.Length > 1 && _text[1] == (byte)'\n' ? 2 : 1;
             return new(consume, TokenType.NormalizedNewline);
         }
-        if (c == (byte)'\\')
-        {
-            // Emit text before the backslash; the next call handles the escape pair
-            // (or treats the backslash as a literal if it starts no recognized pair).
-            return endIndex == 0 ? new(1, TokenType.ValuePart) : new(endIndex, TokenType.ValuePart);
-        }
         // c == '\''
         if (endIndex == 0)
         {
@@ -321,13 +312,19 @@ internal ref struct EnvLexer(
 
     private TokenInfo GetTokenInfoDoubleQuoted()
     {
-        if (
-            _text.Length > 1
-            && _text[0] == (byte)'\\'
-            && _text[1] is (byte)'"' or (byte)'$' or (byte)'\\'
-        )
+        if (_text.Length > 1 && _text[0] == (byte)'\\')
         {
-            return new(1, TokenType.ValuePart, 1);
+            byte next = _text[1];
+            if (next < 0x80)
+            {
+                // escape sequence pair '\n' '\t' etc
+                return new(2, TokenType.EscapedChar);
+            }
+            // We're given an escape over a non-ascii char. This will error out anyways
+            // as all valid escapes are ascii chars. Pull the full rune for cleaner
+            // error messages.
+            Rune.DecodeFromUtf8(_text[1..], out _, out int runeLength);
+            return new(1 + runeLength, TokenType.EscapedChar);
         }
         var endIndex = _text.IndexOfAny(s_doubleQuotedSignificants);
         if (endIndex == -1)
@@ -338,7 +335,11 @@ internal ref struct EnvLexer(
         var c = _text[endIndex];
         if (c == (byte)'\\')
         {
-            return endIndex == 0 ? new(1, TokenType.ValuePart) : new(endIndex, TokenType.ValuePart);
+            // Either text precedes the backslash (emit it; the next call re-enters
+            // with the backslash at position 0), or this is a lone trailing
+            // backslash with no following byte - emit it as a literal and let the
+            // parser raise the resulting unterminated-value error.
+            return new(endIndex == 0 ? 1 : endIndex, TokenType.ValuePart);
         }
         if (c == (byte)'"')
         {

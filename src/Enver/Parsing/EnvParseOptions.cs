@@ -30,6 +30,15 @@ public readonly record struct EnvParseOptions
     public UnbracedInterpolationBehavior OnUnbracedInterpolation { get; init; }
 
     /// <summary>
+    /// When <see langword="true"/>, an undefined backslash escape inside a
+    /// double-quoted value (anything other than <c>\"</c>, <c>\\</c>, <c>\$</c>,
+    /// <c>\n</c>, <c>\r</c>, or <c>\t</c>) passes the backslash and following
+    /// character through literally. When <see langword="false"/> (the default),
+    /// it throws <see cref="EnvSyntaxException"/>.
+    /// </summary>
+    public bool AllowUnknownEscapes { get; init; }
+
+    /// <summary>
     /// The default parser options. This throws on any form of ambiguous or potentially
     /// unindented input.
     /// </summary>
@@ -37,8 +46,9 @@ public readonly record struct EnvParseOptions
 
     /// <summary>
     /// Loose parser options. This allows duplicate keys in a single file, interprets
-    /// missing interpolated values as an empty string, and allows unbraced interpolation.
-    /// This is the common pattern for most other .env parsers.
+    /// missing interpolated values as an empty string, allows unbraced interpolation,
+    /// and passes undefined escapes through literally. This is the common pattern for
+    /// most other .env parsers.
     /// </summary>
     public static EnvParseOptions Loose =>
         new()
@@ -46,5 +56,6 @@ public readonly record struct EnvParseOptions
             AllowDuplicateKeys = true,
             AllowMissingInterpolation = true,
             OnUnbracedInterpolation = UnbracedInterpolationBehavior.Interpolate,
+            AllowUnknownEscapes = true,
         };
 }

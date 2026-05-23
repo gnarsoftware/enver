@@ -89,6 +89,15 @@ public sealed class EnvSyntaxException : EnvException
     }
 
     [DoesNotReturn]
+    internal static void ThrowInvalidEscape(int position, Rune escape)
+    {
+        throw new EnvSyntaxException(
+            position,
+            $"Invalid escape sequence '\\{escape}' at position {position:N0}. To include a literal backslash, write \\\\."
+        );
+    }
+
+    [DoesNotReturn]
     internal static void ThrowUnterminatedQuotedValue(int position, TokenType quoteType)
     {
         var quoteName = quoteType switch
