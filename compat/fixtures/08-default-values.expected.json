@@ -1,0 +1,6 @@
+{
+  "NAME": "World",
+  "WITH_DEFAULT": "fallback",
+  "USES_VALUE": "World",
+  "NESTED": "World"
+}

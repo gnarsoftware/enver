@@ -193,6 +193,265 @@ public class EnvCollectionTests
         Assert.That(coll["DEST"], Is.EqualTo("abcdef"));
     }
 
+    // --- Default values: ${VAR:-default} ---
+
+    [Test]
+    public void DefaultUsedWhenKeyUnset()
+    {
+        var values = Parse("KEY=${DNE:-fallback}");
+        Assert.That(values["KEY"], Is.EqualTo("fallback"));
+    }
+
+    [Test]
+    public void DefaultIgnoredWhenKeyResolves()
+    {
+        var values = Parse(
+            """
+            SET=value
+            KEY=${SET:-fallback}
+            """
+        );
+        Assert.That(values["KEY"], Is.EqualTo("value"));
+    }
+
+    [Test]
+    public void DefaultUsedWhenKeyEmpty()
+    {
+        // `:-` treats an empty value the same as unset.
+        var values = Parse(
+            """
+            EMPTY=
+            KEY=${EMPTY:-fallback}
+            """
+        );
+        Assert.That(values["KEY"], Is.EqualTo("fallback"));
+    }
+
+    [Test]
+    public void EmptyDefaultProducesEmptyString()
+    {
+        var values = Parse("KEY=${DNE:-}");
+        Assert.That(values["KEY"], Is.Empty);
+    }
+
+    [Test]
+    public void DefaultResolvesNestedInterpolation()
+    {
+        var values = Parse(
+            """
+            OTHER=x
+            KEY=${DNE:-${OTHER}}
+            """
+        );
+        Assert.That(values["KEY"], Is.EqualTo("x"));
+    }
+
+    [Test]
+    public void DefaultResolvesNestedDefault()
+    {
+        var values = Parse("KEY=${DNE:-${ALSO_DNE:-deep}}");
+        Assert.That(values["KEY"], Is.EqualTo("deep"));
+    }
+
+    [Test]
+    public void DefaultMixesLiteralAndInterpolation()
+    {
+        var values = Parse(
+            """
+            OTHER=mid
+            KEY=${DNE:-pre-${OTHER}-post}
+            """
+        );
+        Assert.That(values["KEY"], Is.EqualTo("pre-mid-post"));
+    }
+
+    [Test]
+    public void DefaultResolvesAgainstProcessEnvironment()
+    {
+        var values = Parse("KEY=${DNE:-${FROM_ENV}}");
+        Assert.That(values["KEY"], Is.EqualTo("from env"));
+    }
+
+    [Test]
+    public void DefaultWorksWithSurroundingLiteral()
+    {
+        var values = Parse("KEY=prefix-${DNE:-d}-suffix");
+        Assert.That(values["KEY"], Is.EqualTo("prefix-d-suffix"));
+    }
+
+    [Test]
+    public void DefaultWorksInDoubleQuotedValue()
+    {
+        var values = Parse("KEY=\"${DNE:-fallback}\"");
+        Assert.That(values["KEY"], Is.EqualTo("fallback"));
+    }
+
+    [Test]
+    public void DefaultIsLiteralInSingleQuotedValue()
+    {
+        var values = Parse("KEY='${DNE:-fallback}'");
+        Assert.That(values["KEY"], Is.EqualTo("${DNE:-fallback}"));
+    }
+
+    [Test]
+    public void EagerDefaultThrowsOnMissingNestedReferenceEvenWhenKeyResolves()
+    {
+        // Defaults are evaluated eagerly: a typo'd reference inside an unused
+        // default is still caught.
+        Assert.Throws<EnvInterpolationException>(() =>
+            Parse(
+                """
+                SET=value
+                KEY=${SET:-${TYPO}}
+                """
+            )
+        );
+    }
+
+    [Test]
+    public void EagerDefaultDoesNotThrowOnMissingNestedReferenceWhenAllowMissingInterpolation()
+    {
+        var values = Parse(
+            """
+            SET=value
+            KEY=${SET:-${TYPO}}
+            """,
+            new() { AllowMissingInterpolation = true }
+        );
+        Assert.That(values["KEY"], Is.EqualTo("value"));
+    }
+
+    [Test]
+    public void EagerDefaultReturnsEmptyStringWhenAllowMissingInterpolation()
+    {
+        var values = Parse(
+            """
+            KEY=${DNE:-${TYPO}}
+            """,
+            new() { AllowMissingInterpolation = true }
+        );
+        Assert.That(values["KEY"], Is.Empty);
+    }
+
+    [Test]
+    public void MissingKeyWithDefaultDoesNotThrow()
+    {
+        // A default suppresses the missing-interpolation error for the key.
+        var values = Parse("KEY=${DNE:-x}");
+        Assert.That(values["KEY"], Is.EqualTo("x"));
+    }
+
+    [Test]
+    public void ColonWithoutDashIsMalformed()
+    {
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=${VAR:x}"));
+    }
+
+    [Test]
+    public void UnterminatedDefaultIsMalformed()
+    {
+        Assert.Throws<EnvSyntaxException>(() => Parse("KEY=${VAR:-abc"));
+    }
+
+    [Test]
+    public void BareDashDefaultThrowsWithTargetedHint()
+    {
+        // The shell's unset-only `${VAR-default}` form is unsupported; the error
+        // should point the user at `:-` rather than be a generic malformed one.
+        var ex = Assert.Throws<EnvSyntaxException>(() => Parse("KEY=${VAR-default}"));
+        Assert.That(ex!.Message, Does.Contain(":-"));
+    }
+
+    // --- Required values: ${VAR:?} / ${VAR:?message} ---
+
+    [Test]
+    public void RequiredPassesWhenKeyResolves()
+    {
+        var values = Parse(
+            """
+            SET=value
+            KEY=${SET:?}
+            """
+        );
+        Assert.That(values["KEY"], Is.EqualTo("value"));
+    }
+
+    [Test]
+    public void RequiredThrowsWhenKeyUnset()
+    {
+        var ex = Assert.Throws<EnvInterpolationException>(() => Parse("KEY=${DNE:?}"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(ex!.Variable, Is.EqualTo("KEY"));
+            Assert.That(ex!.InterpolationKey, Is.EqualTo("DNE"));
+        }
+    }
+
+    [Test]
+    public void RequiredThrowsWhenKeyEmpty()
+    {
+        // `:?` treats an empty value the same as unset.
+        Assert.Throws<EnvInterpolationException>(() =>
+            Parse(
+                """
+                EMPTY=
+                KEY=${EMPTY:?}
+                """
+            )
+        );
+    }
+
+    [Test]
+    public void RequiredThrowsWithCustomMessage()
+    {
+        var ex = Assert.Throws<EnvInterpolationException>(() =>
+            Parse("KEY=${DNE:?set this in your .env}")
+        );
+        Assert.That(ex!.Message, Does.Contain("set this in your .env"));
+    }
+
+    [Test]
+    public void RequiredMessageResolvesNestedInterpolation()
+    {
+        var ex = Assert.Throws<EnvInterpolationException>(() =>
+            Parse(
+                """
+                ADMIN=ops@example.com
+                KEY=${DNE:?contact ${ADMIN}}
+                """
+            )
+        );
+        Assert.That(ex!.Message, Does.Contain("contact ops@example.com"));
+    }
+
+    [Test]
+    public void RequiredWorksInDoubleQuotedValue()
+    {
+        var values = Parse(
+            """
+            SET=value
+            KEY="${SET:?required}"
+            """
+        );
+        Assert.That(values["KEY"], Is.EqualTo("value"));
+    }
+
+    [Test]
+    public void RequiredIsLiteralInSingleQuotedValue()
+    {
+        var values = Parse("KEY='${DNE:?nope}'");
+        Assert.That(values["KEY"], Is.EqualTo("${DNE:?nope}"));
+    }
+
+    [Test]
+    public void BareQuestionRequiredThrowsWithTargetedHint()
+    {
+        // The shell's unset-only `${VAR?}` form is unsupported; the error should
+        // point the user at `:?`.
+        var ex = Assert.Throws<EnvSyntaxException>(() => Parse("KEY=${VAR?}"));
+        Assert.That(ex!.Message, Does.Contain(":?"));
+    }
+
     [Test]
     public void InlineCommentsAreIgnored()
     {

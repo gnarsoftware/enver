@@ -53,4 +53,18 @@ public sealed class EnvInterpolationException : EnvVariableException
             $"Environment variable '{variable}' references '${{{interpolationKey}}}' which is not defined."
         );
     }
+
+    [DoesNotReturn]
+    internal static void ThrowRequired(
+        string variable,
+        string interpolationKey,
+        string? customMessage = null
+    )
+    {
+        string message =
+            customMessage?.Length > 0
+                ? $"Environment variable '{variable}' requires '${{{interpolationKey}}}': {customMessage}"
+                : $"Environment variable '{variable}' requires '${{{interpolationKey}}}'.";
+        throw new EnvInterpolationException(variable, interpolationKey, message);
+    }
 }
