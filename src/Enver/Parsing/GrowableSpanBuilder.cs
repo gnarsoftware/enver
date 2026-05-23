@@ -27,6 +27,12 @@ internal ref struct GrowableSpanBuilder : IDisposable
         return RawBytes.Slice(0, Length);
     }
 
+    public readonly ReadOnlySpan<byte> ToSpan(int offset)
+    {
+        Debug.Assert(offset >= 0 && offset <= Length);
+        return RawBytes.Slice(offset, Length - offset);
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Append(scoped ReadOnlySpan<byte> value)
     {

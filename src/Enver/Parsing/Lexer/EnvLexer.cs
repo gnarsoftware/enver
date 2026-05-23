@@ -446,41 +446,45 @@ internal ref struct EnvLexer(
 
     private TokenInfo GetTokenInfoInterpolation()
     {
-        // Deferred start: when preceding text was emitted first, the `${` of a
-        // top-level interpolation is emitted here on the next call.
-        if (_text.Length > 1 && _text[0] == (byte)'$' && _text[1] == (byte)'{')
+        switch (_text)
         {
-            return new(2, TokenType.InterpolateStart);
+            // Deferred start: when preceding text was emitted first, the `${` of a
+            // top-level interpolation is emitted here on the next call.
+            case [(byte)'$', (byte)'{', ..]:
+                return new(2, TokenType.InterpolateStart);
+            // end interpolation
+            case [(byte)'}', ..]:
+                _interpDepth--;
+                _state = InterpolationReturnState;
+                return new(1, TokenType.InterpolateEnd);
+            // `:-` after the key opens a default value.
+            case [(byte)':', (byte)'-', ..]:
+                _state = LexerState.InterpolationDefault;
+                return new(2, TokenType.InterpolateDefault);
+            // `:?` after the key opens a required-value error message.
+            case [(byte)':', (byte)'?', ..]:
+                _state = LexerState.InterpolationDefault;
+                return new(2, TokenType.InterpolateRequired);
+            // bare `-` is unsupported
+            case [(byte)'-', ..]:
+                EnvSyntaxException.ThrowUnsupportedBareDashDefault(Position);
+                return default;
+            // bare `?` is unsupported
+            case [(byte)'?', ..]:
+                EnvSyntaxException.ThrowUnsupportedBareQuestionRequired(Position);
+                return default;
+            default:
+                if (!s_validKeyStartChars.Contains(_text[0]))
+                {
+                    return new(1, TokenType.Unknown);
+                }
+                var index = _text.IndexOfAnyExcept(s_validKeyChars);
+                if (index == -1)
+                {
+                    index = _text.Length;
+                }
+                return new(index, TokenType.InterpolateKey);
         }
-        if (_text[0] == (byte)'}')
-        {
-            _interpDepth--;
-            _state = InterpolationReturnState;
-            return new(1, TokenType.InterpolateEnd);
-        }
-        // `:-` after the key opens a default value.
-        if (_text.Length > 1 && _text[0] == (byte)':' && _text[1] == (byte)'-')
-        {
-            _state = LexerState.InterpolationDefault;
-            return new(2, TokenType.InterpolateDefault);
-        }
-        // A bare `-` is the shell's unset-only default form, which Enver
-        // deliberately does not support. Surface a targeted hint rather than a
-        // generic "malformed interpolation".
-        if (_text[0] == (byte)'-')
-        {
-            EnvSyntaxException.ThrowUnsupportedBareDashDefault(Position);
-        }
-        if (!s_validKeyStartChars.Contains(_text[0]))
-        {
-            return new(1, TokenType.Unknown);
-        }
-        var index = _text.IndexOfAnyExcept(s_validKeyChars);
-        if (index == -1)
-        {
-            index = _text.Length;
-        }
-        return new(index, TokenType.InterpolateKey);
     }
 
     private TokenInfo GetTokenInfoInterpolationDefault()

@@ -100,6 +100,16 @@ public sealed class EnvSyntaxException : EnvException
     }
 
     [DoesNotReturn]
+    internal static void ThrowUnsupportedBareQuestionRequired(int position)
+    {
+        throw new EnvSyntaxException(
+            position,
+            $"Unexpected '?' in interpolation at position {position:N0}. Use ':?' to require "
+                + "the variable to be set to a non-empty value. The bare '?' form is not supported."
+        );
+    }
+
+    [DoesNotReturn]
     internal static void ThrowInvalidEscape(int position, Rune escape)
     {
         throw new EnvSyntaxException(

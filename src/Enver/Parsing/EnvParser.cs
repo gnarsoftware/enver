@@ -355,7 +355,7 @@ public abstract class EnvParser
             // fall back to the default.
             lexer.MoveNext();
             int checkpoint = builder.Length;
-            AccumulateDefault(targetKey, ref lexer, ref builder, scope);
+            AccumulateInterpolationContent(targetKey, ref lexer, ref builder, scope);
             if (scope.TryResolve(key, out var keyValue) && !keyValue.IsEmpty)
             {
                 builder.Truncate(checkpoint);
@@ -364,10 +364,34 @@ public abstract class EnvParser
             return;
         }
 
+        if (lexer.Current.Type == TokenType.InterpolateRequired)
+        {
+            // `${KEY:?MESSAGE}`. Accumulate the (eagerly resolved) message, then
+            // keep KEY's value if it resolved to something non-empty; otherwise
+            // the variable is required but missing - throw with the message.
+            lexer.MoveNext();
+            int checkpoint = builder.Length;
+            AccumulateInterpolationContent(targetKey, ref lexer, ref builder, scope);
+            if (scope.TryResolve(key, out var keyValue) && !keyValue.IsEmpty)
+            {
+                builder.Truncate(checkpoint);
+                builder.Append(keyValue);
+            }
+            else
+            {
+                EnvInterpolationException.ThrowRequired(
+                    variable: Encoding.UTF8.GetString(targetKey),
+                    interpolationKey: Encoding.UTF8.GetString(key),
+                    customMessage: Encoding.UTF8.GetString(builder.ToSpan(checkpoint))
+                );
+            }
+            return;
+        }
+
         EnvSyntaxException.ThrowMalformedInterpolation(interpolationStart);
     }
 
-    private void AccumulateDefault(
+    private void AccumulateInterpolationContent(
         scoped ReadOnlySpan<byte> targetKey,
         scoped ref EnvLexer lexer,
         scoped ref GrowableSpanBuilder builder,
@@ -389,7 +413,7 @@ public abstract class EnvParser
                     lexer.MoveNext();
                     return;
                 default:
-                    // EndOfFile or anything else: the default was never closed.
+                    // EndOfFile or anything else: the content was never closed.
                     EnvSyntaxException.ThrowMalformedInterpolation(lexer.Position);
                     break;
             }
