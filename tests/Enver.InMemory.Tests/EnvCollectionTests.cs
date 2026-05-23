@@ -354,6 +354,15 @@ public class EnvCollectionTests
     }
 
     [Test]
+    public void BareDashDefaultThrowsWithTargetedHint()
+    {
+        // The shell's unset-only `${VAR-default}` form is unsupported; the error
+        // should point the user at `:-` rather than be a generic malformed one.
+        var ex = Assert.Throws<EnvSyntaxException>(() => Parse("KEY=${VAR-default}"));
+        Assert.That(ex!.Message, Does.Contain(":-"));
+    }
+
+    [Test]
     public void InlineCommentsAreIgnored()
     {
         var values = Parse("KEY=value # comment");

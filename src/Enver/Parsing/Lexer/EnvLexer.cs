@@ -464,6 +464,13 @@ internal ref struct EnvLexer(
             _state = LexerState.InterpolationDefault;
             return new(2, TokenType.InterpolateDefault);
         }
+        // A bare `-` is the shell's unset-only default form, which Enver
+        // deliberately does not support. Surface a targeted hint rather than a
+        // generic "malformed interpolation".
+        if (_text[0] == (byte)'-')
+        {
+            EnvSyntaxException.ThrowUnsupportedBareDashDefault(Position);
+        }
         if (!s_validKeyStartChars.Contains(_text[0]))
         {
             return new(1, TokenType.Unknown);
