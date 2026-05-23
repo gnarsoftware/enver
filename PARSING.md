@@ -235,6 +235,35 @@ Key properties:
   escape regardless of mode; inside single quotes and backticks the `$`
   is always literal.
 
+### Default values
+
+`${KEY:-default}` substitutes `default` when `KEY` resolves to **nothing or an
+empty string**:
+
+```
+HOST=${DB_HOST:-localhost}        # "localhost" when DB_HOST is unset or empty
+GREETING=${NAME:-${USER}}         # falls back to ${USER}
+PORT=${PORT:-}                    # empty string when PORT is unset
+```
+
+- **Suppresses the missing-key error.** Because a default *is* the fallback,
+  `${KEY:-x}` never raises `EnvInterpolationException` for `KEY`.
+- **Unset and empty are treated the same.** The `:-` form falls back on either.
+  The `${KEY-default}` form, which falls back only when `KEY` is *unset* (and
+  keeps an explicit empty), is **not** supported: in a `.env` file `KEY=` reads
+  as "blank/not set", so `:-`'s behavior matches intent, whereas the bare `-`
+  inverts it and is easily misread.
+- **The default is a full sub-expression.** It can be literal text, empty, or
+  contain nested `${...}` and further defaults: `${A:-pre-${B:-deep}-post}`.
+  Inside a default there's no escape processing and no bare `$IDENT`
+  interpolation; only `${...}` nests.
+- **Defaults are evaluated eagerly.** The default expression is always resolved,
+  even when `KEY` is present, so a typo'd reference inside an unused default
+  (`${SET:-${TPYO}}`) is still caught at parse time. This is a strict,
+  typo-catching choice and diverges from the usual lazy evaluation. Use
+  `AllowMissingInterpolation = true` or `:-` on the inner expression to allow
+  a missing default.
+
 ## Duplicate keys
 
 **One definition per key per file.** A second `KEY=` line in the same file
@@ -286,6 +315,7 @@ produces a per-fixture matrix.
 | `\$` escapes interpolation | `KEY="\${VALUE}"` | Literal | Literal | **Expanded** | Literal | Literal <sup>1</sup> |
 | Bare `$IDENTIFIER` interpolation | `KEY=$VALUE` | Error <sup>2</sup> | **Expanded** | **Expanded** | **Expanded** | **Expanded** |
 | Unknown escape in double quotes | `KEY="a\db"` | Error <sup>3</sup> | **Literal** | **Literal** | **Literal** | **Literal** |
+| Default values | `KEY=${VAR:-x}` | Supported | Supported | **Unsupported** | **Unsupported** | Supported |
 
 <small>
 1. Compose also supports $$ to escape interpolation. This is unsupported by Enver.
