@@ -2,5 +2,7 @@
   "SIMPLE": "hello",
   "WITH_SPACE": "hello world",
   "EMPTY": "",
-  "LEADING_TRAILING": " padded "
+  "LEADING_TRAILING": " padded ",
+  "NEWLINE_ESCAPE": "line1\nline2",
+  "TAB_ESCAPE": "col1\tcol2"
 }
