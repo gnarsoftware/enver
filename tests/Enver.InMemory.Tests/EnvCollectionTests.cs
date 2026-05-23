@@ -362,6 +362,96 @@ public class EnvCollectionTests
         Assert.That(ex!.Message, Does.Contain(":-"));
     }
 
+    // --- Required values: ${VAR:?} / ${VAR:?message} ---
+
+    [Test]
+    public void RequiredPassesWhenKeyResolves()
+    {
+        var values = Parse(
+            """
+            SET=value
+            KEY=${SET:?}
+            """
+        );
+        Assert.That(values["KEY"], Is.EqualTo("value"));
+    }
+
+    [Test]
+    public void RequiredThrowsWhenKeyUnset()
+    {
+        var ex = Assert.Throws<EnvInterpolationException>(() => Parse("KEY=${DNE:?}"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(ex!.Variable, Is.EqualTo("KEY"));
+            Assert.That(ex!.InterpolationKey, Is.EqualTo("DNE"));
+        }
+    }
+
+    [Test]
+    public void RequiredThrowsWhenKeyEmpty()
+    {
+        // `:?` treats an empty value the same as unset.
+        Assert.Throws<EnvInterpolationException>(() =>
+            Parse(
+                """
+                EMPTY=
+                KEY=${EMPTY:?}
+                """
+            )
+        );
+    }
+
+    [Test]
+    public void RequiredThrowsWithCustomMessage()
+    {
+        var ex = Assert.Throws<EnvInterpolationException>(() =>
+            Parse("KEY=${DNE:?set this in your .env}")
+        );
+        Assert.That(ex!.Message, Does.Contain("set this in your .env"));
+    }
+
+    [Test]
+    public void RequiredMessageResolvesNestedInterpolation()
+    {
+        var ex = Assert.Throws<EnvInterpolationException>(() =>
+            Parse(
+                """
+                ADMIN=ops@example.com
+                KEY=${DNE:?contact ${ADMIN}}
+                """
+            )
+        );
+        Assert.That(ex!.Message, Does.Contain("contact ops@example.com"));
+    }
+
+    [Test]
+    public void RequiredWorksInDoubleQuotedValue()
+    {
+        var values = Parse(
+            """
+            SET=value
+            KEY="${SET:?required}"
+            """
+        );
+        Assert.That(values["KEY"], Is.EqualTo("value"));
+    }
+
+    [Test]
+    public void RequiredIsLiteralInSingleQuotedValue()
+    {
+        var values = Parse("KEY='${DNE:?nope}'");
+        Assert.That(values["KEY"], Is.EqualTo("${DNE:?nope}"));
+    }
+
+    [Test]
+    public void BareQuestionRequiredThrowsWithTargetedHint()
+    {
+        // The shell's unset-only `${VAR?}` form is unsupported; the error should
+        // point the user at `:?`.
+        var ex = Assert.Throws<EnvSyntaxException>(() => Parse("KEY=${VAR?}"));
+        Assert.That(ex!.Message, Does.Contain(":?"));
+    }
+
     [Test]
     public void InlineCommentsAreIgnored()
     {
