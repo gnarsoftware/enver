@@ -11,6 +11,8 @@ internal ref struct EnvLexer(
     private ReadOnlySpan<byte> _text = text;
     private LexerState _state;
     private readonly UnbracedInterpolationBehavior _onUnbracedInterp = onUnbracedInterpolation;
+    private int _interpDepth;
+    private bool _interpQuoted;
 
     private static readonly SearchValues<byte> s_validKeyStartChars = SearchValues.Create(
         Constants.ValidKeyStartChars
@@ -137,8 +139,8 @@ internal ref struct EnvLexer(
             LexerState.SingleQuotedValue => GetTokenInfoSingleQuoted(),
             LexerState.DoubleQuotedValue => GetTokenInfoDoubleQuoted(),
             LexerState.BacktickValue => GetTokenInfoBackticked(),
-            LexerState.UnquotedInterpolator => GetTokenInfoInterpolated(quoted: false),
-            LexerState.DoubleQuotedInterpolator => GetTokenInfoInterpolated(quoted: true),
+            LexerState.Interpolation => GetTokenInfoInterpolation(),
+            LexerState.InterpolationDefault => GetTokenInfoInterpolationDefault(),
             _ => throw new InvalidOperationException("Invalid lexer state"),
         };
     }
@@ -227,10 +229,13 @@ internal ref struct EnvLexer(
                 case (byte)'$':
                     if (sigIndex + 1 < _text.Length && _text[sigIndex + 1] == (byte)'{')
                     {
-                        _state = LexerState.UnquotedInterpolator;
+                        _state = LexerState.Interpolation;
+                        _interpQuoted = false;
+                        _interpDepth = 1;
                         // When `$` is the very first byte, emit the InterpolateStart
                         // token directly so the parser's single-interpolation no-copy
-                        // optimization can fire.
+                        // optimization can fire. Otherwise emit the preceding text and
+                        // let the interpolation state emit the start on the next call.
                         if (sigIndex == 0)
                         {
                             return new(2, TokenType.InterpolateStart);
@@ -365,7 +370,9 @@ internal ref struct EnvLexer(
         // c == '$'
         if (endIndex + 1 < _text.Length && _text[endIndex + 1] == (byte)'{')
         {
-            _state = LexerState.DoubleQuotedInterpolator;
+            _state = LexerState.Interpolation;
+            _interpQuoted = true;
+            _interpDepth = 1;
             if (endIndex == 0)
             {
                 return new(2, TokenType.InterpolateStart);
@@ -430,16 +437,32 @@ internal ref struct EnvLexer(
         return (rest == -1 ? after.Length - 1 : rest) + 1;
     }
 
-    private TokenInfo GetTokenInfoInterpolated(bool quoted)
+    // State after the closing `}` of an interpolation: another level of default
+    // content if still nested, otherwise back to the originating value form.
+    private readonly LexerState InterpolationReturnState =>
+        _interpDepth > 0 ? LexerState.InterpolationDefault
+        : _interpQuoted ? LexerState.DoubleQuotedValue
+        : LexerState.UnquotedValue;
+
+    private TokenInfo GetTokenInfoInterpolation()
     {
+        // Deferred start: when preceding text was emitted first, the `${` of a
+        // top-level interpolation is emitted here on the next call.
         if (_text.Length > 1 && _text[0] == (byte)'$' && _text[1] == (byte)'{')
         {
             return new(2, TokenType.InterpolateStart);
         }
         if (_text[0] == (byte)'}')
         {
-            _state = quoted ? LexerState.DoubleQuotedValue : LexerState.UnquotedValue;
+            _interpDepth--;
+            _state = InterpolationReturnState;
             return new(1, TokenType.InterpolateEnd);
+        }
+        // `:-` after the key opens a default value.
+        if (_text.Length > 1 && _text[0] == (byte)':' && _text[1] == (byte)'-')
+        {
+            _state = LexerState.InterpolationDefault;
+            return new(2, TokenType.InterpolateDefault);
         }
         if (!s_validKeyStartChars.Contains(_text[0]))
         {
@@ -451,5 +474,40 @@ internal ref struct EnvLexer(
             index = _text.Length;
         }
         return new(index, TokenType.InterpolateKey);
+    }
+
+    private TokenInfo GetTokenInfoInterpolationDefault()
+    {
+        // Default content is literal text plus nested `${...}`, terminated by the
+        // matching `}`. No escape processing; `$` not followed by `{` is literal.
+        if (_text[0] == (byte)'}')
+        {
+            _interpDepth--;
+            _state = InterpolationReturnState;
+            return new(1, TokenType.InterpolateEnd);
+        }
+        if (_text.Length > 1 && _text[0] == (byte)'$' && _text[1] == (byte)'{')
+        {
+            _interpDepth++;
+            _state = LexerState.Interpolation;
+            return new(2, TokenType.InterpolateStart);
+        }
+
+        // Literal run up to the next `}` or `${`.
+        int i = 0;
+        while (i < _text.Length)
+        {
+            byte b = _text[i];
+            if (b == (byte)'}')
+            {
+                break;
+            }
+            if (b == (byte)'$' && i + 1 < _text.Length && _text[i + 1] == (byte)'{')
+            {
+                break;
+            }
+            i++;
+        }
+        return new(i, TokenType.ValuePart);
     }
 }

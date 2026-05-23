@@ -16,4 +16,5 @@ internal enum TokenType
     InterpolateBare = 10,
     NormalizedNewline = 11,
     EscapedChar = 12,
+    InterpolateDefault = 13,
 }

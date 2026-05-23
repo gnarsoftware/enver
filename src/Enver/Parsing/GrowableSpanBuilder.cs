@@ -129,8 +129,17 @@ internal ref struct GrowableSpanBuilder : IDisposable
     {
         if (Length > 0)
         {
-            RawBytes.Slice(0, Length).Clear();
             Length = 0;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Truncate(int length)
+    {
+        Debug.Assert(length >= 0 && length <= Length);
+        if (length < Length)
+        {
+            Length = length;
         }
     }
 }

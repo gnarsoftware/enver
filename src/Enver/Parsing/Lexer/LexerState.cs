@@ -8,6 +8,6 @@ internal enum LexerState
     SingleQuotedValue,
     DoubleQuotedValue,
     BacktickValue,
-    UnquotedInterpolator,
-    DoubleQuotedInterpolator,
+    Interpolation,
+    InterpolationDefault,
 }

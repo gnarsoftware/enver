@@ -299,21 +299,7 @@ public abstract class EnvParser
                     lexer.MoveNext();
                     break;
                 case TokenType.InterpolateStart:
-                    int interpolationStart = lexer.Position;
-                    if (lexer.MoveNext() && lexer.Current.Type == TokenType.InterpolateKey)
-                    {
-                        var bracedKey = lexer.Current.Text;
-                        if (!lexer.MoveNext() || lexer.Current.Type != TokenType.InterpolateEnd)
-                        {
-                            EnvSyntaxException.ThrowMalformedInterpolation(interpolationStart);
-                        }
-                        lexer.MoveNext();
-                        ResolveInterpolation(targetKey, bracedKey, scope, ref builder);
-                    }
-                    else
-                    {
-                        EnvSyntaxException.ThrowMalformedInterpolation(interpolationStart);
-                    }
+                    ResolveBraced(targetKey, ref lexer, ref builder, scope);
                     break;
                 case TokenType.InterpolateBare:
                     var bareKey = lexer.Current.Text;
@@ -336,6 +322,78 @@ public abstract class EnvParser
         }
 
         return new EnvValueReader(builder.ToSpan());
+    }
+
+    private void ResolveBraced(
+        scoped ReadOnlySpan<byte> targetKey,
+        scoped ref EnvLexer lexer,
+        scoped ref GrowableSpanBuilder builder,
+        EnvParseView scope
+    )
+    {
+        int interpolationStart = lexer.Position;
+        if (!lexer.MoveNext() || lexer.Current.Type != TokenType.InterpolateKey)
+        {
+            EnvSyntaxException.ThrowMalformedInterpolation(interpolationStart);
+        }
+        ReadOnlySpan<byte> key = lexer.Current.Text;
+        lexer.MoveNext();
+
+        if (lexer.Current.Type == TokenType.InterpolateEnd)
+        {
+            // `${KEY}` - no default.
+            lexer.MoveNext();
+            ResolveInterpolation(targetKey, key, scope, ref builder);
+            return;
+        }
+
+        if (lexer.Current.Type == TokenType.InterpolateDefault)
+        {
+            // `${KEY:-DEFAULT}`. Eagerly accumulate the default so a typo'd
+            // reference inside it is caught even when KEY is present. Then
+            // keep KEY's value if it resolved to something non-empty, otherwise
+            // fall back to the default.
+            lexer.MoveNext();
+            int checkpoint = builder.Length;
+            AccumulateDefault(targetKey, ref lexer, ref builder, scope);
+            if (scope.TryResolve(key, out var keyValue) && !keyValue.IsEmpty)
+            {
+                builder.Truncate(checkpoint);
+                builder.Append(keyValue);
+            }
+            return;
+        }
+
+        EnvSyntaxException.ThrowMalformedInterpolation(interpolationStart);
+    }
+
+    private void AccumulateDefault(
+        scoped ReadOnlySpan<byte> targetKey,
+        scoped ref EnvLexer lexer,
+        scoped ref GrowableSpanBuilder builder,
+        EnvParseView scope
+    )
+    {
+        while (true)
+        {
+            switch (lexer.Current.Type)
+            {
+                case TokenType.ValuePart:
+                    builder.Append(lexer.Current.Text);
+                    lexer.MoveNext();
+                    break;
+                case TokenType.InterpolateStart:
+                    ResolveBraced(targetKey, ref lexer, ref builder, scope);
+                    break;
+                case TokenType.InterpolateEnd:
+                    lexer.MoveNext();
+                    return;
+                default:
+                    // EndOfFile or anything else: the default was never closed.
+                    EnvSyntaxException.ThrowMalformedInterpolation(lexer.Position);
+                    break;
+            }
+        }
     }
 
     private void ResolveInterpolation(
