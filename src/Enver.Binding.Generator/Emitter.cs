@@ -50,6 +50,7 @@ internal static class Emitter
         EmitStaticMethods(w, target, methodInfix, binderName);
         w.WriteLine();
         EmitBinderClass(w, target, binderName);
+        EmitValidateHelpers(w, target);
 
         // Close host partial + enclosing types.
         w.Indent--;
@@ -152,6 +153,11 @@ internal static class Emitter
         BindingTarget target
     )
     {
+        var validate = RequiresValidation(target);
+        if (validate)
+        {
+            w.Write("__Validate(");
+        }
         w.Write($"new {target.FullyQualifiedTypeName}(");
         var ctorNames = target.Construction.CtorParameterMemberNames.AsImmutableArray();
         for (int i = 0; i < ctorNames.Length; i++)
@@ -181,6 +187,10 @@ internal static class Emitter
             }
             w.Indent--;
             w.Write("}");
+        }
+        if (validate)
+        {
+            w.Write(")");
         }
     }
 
@@ -650,6 +660,11 @@ internal static class Emitter
         string? fieldPrefix = null
     )
     {
+        var validate = RequiresValidation(target);
+        if (validate)
+        {
+            w.Write("__Validate(");
+        }
         w.Write($"new {target.FullyQualifiedTypeName}(");
         var ctorNames = target.Construction.CtorParameterMemberNames.AsImmutableArray();
         for (int i = 0; i < ctorNames.Length; i++)
@@ -676,6 +691,10 @@ internal static class Emitter
             }
             w.Indent--;
             w.Write("}");
+        }
+        if (validate)
+        {
+            w.Write(")");
         }
     }
 
@@ -709,6 +728,169 @@ internal static class Emitter
             // TODO: subsection optional + default expression support
             return $"_built_{fieldPrefix}{memberName}";
         }
+    }
+
+    #endregion
+
+    #region Validation
+
+    private static bool RequiresValidation(BindingTarget target)
+    {
+        if (target.ImplementsIValidatableObject)
+        {
+            return true;
+        }
+        foreach (var m in target.Members.AsImmutableArray())
+        {
+            if (m.Validators.Length > 0)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void EmitValidateHelpers(IndentedTextWriter w, BindingTarget root)
+    {
+        // One __Validate(T) overload per distinct validating target (root +
+        // subsections). Each target validates itself; nesting works because every
+        // construction site wraps in __Validate when its target requires it.
+        var emitted = new HashSet<string>(StringComparer.Ordinal);
+        int validatorFieldCounter = 0;
+        CollectAndEmit(w, root, emitted, ref validatorFieldCounter);
+    }
+
+    private static void CollectAndEmit(
+        IndentedTextWriter w,
+        BindingTarget target,
+        HashSet<string> emitted,
+        ref int fieldCounter
+    )
+    {
+        if (RequiresValidation(target) && emitted.Add(target.FullyQualifiedTypeName))
+        {
+            w.WriteLine();
+            EmitValidateMethod(w, target, ref fieldCounter);
+        }
+        foreach (var sub in target.SubSections.AsImmutableArray())
+        {
+            CollectAndEmit(w, sub.Target, emitted, ref fieldCounter);
+        }
+    }
+
+    private static void EmitValidateMethod(
+        IndentedTextWriter w,
+        BindingTarget target,
+        ref int fieldCounter
+    )
+    {
+        const string ctxType = "global::System.ComponentModel.DataAnnotations.ValidationContext";
+        var t = target.FullyQualifiedTypeName;
+
+        var membersWithValidators = target
+            .Members.AsImmutableArray()
+            .Where(m => m.Validators.Length > 0)
+            .ToArray();
+
+        // Each validator attribute is constructed once into a static field and
+        // reused across binds. fieldNames[memberIndex][validatorIndex] holds the
+        // generated field name.
+        var fieldNames = new string[membersWithValidators.Length][];
+        for (int mi = 0; mi < membersWithValidators.Length; mi++)
+        {
+            var validators = membersWithValidators[mi].Validators.AsImmutableArray();
+            fieldNames[mi] = new string[validators.Length];
+            for (int vi = 0; vi < validators.Length; vi++)
+            {
+                var v = validators[vi];
+                var ctorArgs = string.Join(
+                    ", ",
+                    v.ConstructorArgumentExpressions.AsImmutableArray()
+                );
+                var named = v.NamedArgumentExpressions.AsImmutableArray();
+                var initializer =
+                    named.Length == 0
+                        ? ""
+                        : " { "
+                            + string.Join(", ", named.Select(n => $"{n.Name} = {n.Expression}"))
+                            + " }";
+                var field = $"__validator{fieldCounter++}";
+                fieldNames[mi][vi] = field;
+                w.WriteLine(
+                    $"private static readonly {v.AttributeTypeFullyQualifiedName} {field} = "
+                        + $"new {v.AttributeTypeFullyQualifiedName}({ctorArgs}){initializer};"
+                );
+            }
+        }
+
+        w.WriteLine(
+            "/// <summary>Validate a constructed instance via its DataAnnotations attributes and IValidatableObject.</summary>"
+        );
+        w.WriteLine($"private static {t} __Validate({t} instance)");
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine("global::System.Collections.Generic.List<string>? __failures = null;");
+
+        if (membersWithValidators.Length > 0)
+        {
+            w.WriteLine($"var __ctx = new {ctxType}(instance);");
+            for (int mi = 0; mi < membersWithValidators.Length; mi++)
+            {
+                var m = membersWithValidators[mi];
+                var displayExpr =
+                    m.DisplayNameExpression
+                    ?? Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(
+                        m.MemberName,
+                        quote: true
+                    );
+                w.WriteLine($"__ctx.MemberName = \"{m.MemberName}\";");
+                w.WriteLine($"__ctx.DisplayName = {displayExpr};");
+                var validators = m.Validators.AsImmutableArray();
+                for (int vi = 0; vi < validators.Length; vi++)
+                {
+                    w.WriteLine("{");
+                    w.Indent++;
+                    w.WriteLine(
+                        $"var __r = {fieldNames[mi][vi]}.GetValidationResult(instance.{m.MemberName}, __ctx);"
+                    );
+                    // Fall back to a message built from the (already-set) display
+                    // name when the attribute supplies none.
+                    w.WriteLine(
+                        "if (__r is not null) (__failures ??= new()).Add(__r.ErrorMessage ?? "
+                            + "($\"Validation failed for '{__ctx.DisplayName}'.\"));"
+                    );
+                    w.Indent--;
+                    w.WriteLine("}");
+                }
+            }
+        }
+
+        if (target.ImplementsIValidatableObject)
+        {
+            w.WriteLine(
+                $"foreach (var __r in ((global::System.ComponentModel.DataAnnotations.IValidatableObject)instance).Validate(new {ctxType}(instance)))"
+            );
+            w.WriteLine("{");
+            w.Indent++;
+            w.WriteLine(
+                "if (__r is not null) (__failures ??= new()).Add(__r.ErrorMessage ?? \"Validation failed.\");"
+            );
+            w.Indent--;
+            w.WriteLine("}");
+        }
+
+        w.WriteLine("if (__failures is { Count: > 0 })");
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine(
+            $"throw new global::Enver.EnvValidationException(\"Configuration '{target.SimpleTypeName}' is invalid: \" "
+                + "+ global::System.String.Join(\"; \", __failures), __failures);"
+        );
+        w.Indent--;
+        w.WriteLine("}");
+        w.WriteLine("return instance;");
+        w.Indent--;
+        w.WriteLine("}");
     }
 
     #endregion

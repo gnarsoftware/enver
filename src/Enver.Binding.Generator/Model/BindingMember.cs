@@ -14,5 +14,7 @@ internal sealed record BindingMember(
     FormatProviderRef? FormatProvider,
     string? CSharpInitializerExpression,
     bool HasRequiredKeyword,
-    bool IsInitOnly
+    bool IsInitOnly,
+    EquatableArray<ValidationAttr> Validators,
+    string? DisplayNameExpression
 );

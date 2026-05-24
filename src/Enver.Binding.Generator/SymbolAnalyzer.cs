@@ -350,7 +350,8 @@ internal static class SymbolAnalyzer
             Members: new(members),
             SubSections: new(subSections),
             DefaultFormatProvider: defaultFormatProvider,
-            GeneratePopulate: generatePopulate
+            GeneratePopulate: generatePopulate,
+            ImplementsIValidatableObject: ImplementsIValidatableObject(targetSymbol)
         );
     }
 
@@ -542,8 +543,215 @@ internal static class SymbolAnalyzer
             FormatProvider: formatProvider,
             CSharpInitializerExpression: initializer,
             HasRequiredKeyword: hasRequiredKw,
-            IsInitOnly: prop.SetMethod?.IsInitOnly ?? false
+            IsInitOnly: prop.SetMethod?.IsInitOnly ?? false,
+            Validators: ReadValidators(prop),
+            DisplayNameExpression: ReadDisplayNameExpression(prop, hostSymbol, compilation)
         );
+    }
+
+    private static string? ReadDisplayNameExpression(
+        IPropertySymbol prop,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation
+    )
+    {
+        var attr = FindAttribute(prop, AttributeNames.Display);
+        if (attr is null)
+        {
+            return null;
+        }
+
+        string? name = null;
+        ITypeSymbol? resourceType = null;
+        foreach (var na in attr.NamedArguments)
+        {
+            switch (na.Key)
+            {
+                case "Name" when na.Value.Value is string n:
+                    name = n;
+                    break;
+                case "ResourceType" when na.Value.Value is ITypeSymbol r:
+                    resourceType = r;
+                    break;
+            }
+        }
+
+        if (name is null)
+        {
+            return null;
+        }
+
+        if (resourceType is null)
+        {
+            // Literal display name.
+            return Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(name, quote: true);
+        }
+
+        // Resource-based: `Name` is the key. Resolve it to an accessible static
+        // string member on ResourceType and emit a direct member access; the resx
+        // property resolves the localized value at runtime without reflection.
+        if (resourceType.TypeKind == TypeKind.Error)
+        {
+            return null;
+        }
+        var member = resourceType
+            .GetMembers(name)
+            .FirstOrDefault(s =>
+                s.IsStatic
+                && s switch
+                {
+                    IPropertySymbol p => p.Type.SpecialType == SpecialType.System_String,
+                    IFieldSymbol f => f.Type.SpecialType == SpecialType.System_String,
+                    _ => false,
+                }
+                && compilation.IsSymbolAccessibleWithin(s, hostSymbol)
+            );
+        if (member is null)
+        {
+            return null;
+        }
+        return $"{resourceType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}.{name}";
+    }
+
+    private static EquatableArray<ValidationAttr> ReadValidators(IPropertySymbol prop)
+    {
+        ImmutableArray<ValidationAttr>.Builder? builder = null;
+        foreach (var attr in prop.GetAttributes())
+        {
+            if (
+                DerivesFromValidationAttribute(attr.AttributeClass)
+                && TryReconstructAttribute(attr, out var reconstructed)
+            )
+            {
+                builder ??= ImmutableArray.CreateBuilder<ValidationAttr>();
+                builder.Add(reconstructed);
+            }
+        }
+        return builder is null ? EquatableArray<ValidationAttr>.Empty : new(builder);
+    }
+
+    private static bool DerivesFromValidationAttribute(INamedTypeSymbol? attrClass)
+    {
+        for (INamedTypeSymbol? t = attrClass; t is not null; t = t.BaseType)
+        {
+            if (
+                t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                == "global::" + AttributeNames.ValidationAttribute
+            )
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool TryReconstructAttribute(AttributeData attr, out ValidationAttr result)
+    {
+        result = null!;
+        if (attr.AttributeConstructor is not { } ctor)
+        {
+            return false;
+        }
+
+        var ctorArgs = ImmutableArray.CreateBuilder<string>(attr.ConstructorArguments.Length);
+        for (int i = 0; i < attr.ConstructorArguments.Length; i++)
+        {
+            if (FormatTypedConstant(attr.ConstructorArguments[i]) is not { } expr)
+            {
+                return false;
+            }
+            // Cast each arg to the declared parameter type so overload resolution
+            // and the exact numeric type (e.g. the double vs int Range ctor) are
+            // preserved when the literal alone would be ambiguous.
+            var paramType =
+                i < ctor.Parameters.Length
+                    ? ctor.Parameters[i]
+                        .Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                    : null;
+            ctorArgs.Add(paramType is null ? expr : $"({paramType})({expr})");
+        }
+
+        var named = ImmutableArray.CreateBuilder<ValidationNamedArg>(attr.NamedArguments.Length);
+        foreach (var na in attr.NamedArguments)
+        {
+            if (FormatTypedConstant(na.Value) is not { } expr)
+            {
+                return false;
+            }
+            named.Add(new ValidationNamedArg(na.Key, expr));
+        }
+
+        result = new ValidationAttr(
+            attr.AttributeClass!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+            new(ctorArgs),
+            new(named)
+        );
+        return true;
+    }
+
+    private static string? FormatTypedConstant(TypedConstant c)
+    {
+        if (c.IsNull)
+        {
+            return "null";
+        }
+        switch (c.Kind)
+        {
+            case TypedConstantKind.Primitive:
+                return Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(
+                    c.Value!,
+                    quoteStrings: true,
+                    useHexadecimalNumbers: false
+                );
+            case TypedConstantKind.Enum:
+                var enumType = c.Type!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                var underlying = Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(
+                    c.Value!,
+                    quoteStrings: false,
+                    useHexadecimalNumbers: false
+                );
+                return $"(({enumType}){underlying})";
+            case TypedConstantKind.Type:
+                return c.Value is ITypeSymbol t
+                    ? $"typeof({t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)})"
+                    : null;
+            case TypedConstantKind.Array:
+                if (c.Values.IsDefault)
+                {
+                    return null;
+                }
+                var elementType =
+                    (c.Type as IArrayTypeSymbol)?.ElementType.ToDisplayString(
+                        SymbolDisplayFormat.FullyQualifiedFormat
+                    ) ?? "object";
+                var parts = new List<string>(c.Values.Length);
+                foreach (var el in c.Values)
+                {
+                    if (FormatTypedConstant(el) is not { } e)
+                    {
+                        return null;
+                    }
+                    parts.Add(e);
+                }
+                return $"new {elementType}[] {{ {string.Join(", ", parts)} }}";
+            default:
+                return null;
+        }
+    }
+
+    private static bool ImplementsIValidatableObject(INamedTypeSymbol type)
+    {
+        foreach (var iface in type.AllInterfaces)
+        {
+            if (
+                iface.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                == "global::" + AttributeNames.IValidatableObject
+            )
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static (string? Prefix, EnvKeyNamingConvention KeyNaming) ReadConfig(
