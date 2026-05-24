@@ -116,6 +116,10 @@ var cfg = DatabaseConfig.BindFromAppDirectory();
 // property names map to UPPER_SNAKE_CASE: Host -> HOST, UseSsl -> USE_SSL
 ```
 
+Add `System.ComponentModel.DataAnnotations` attributes (or `IValidatableObject`) to
+have the bound config validated at bind time. Failures throw `EnvValidationException`.
+See the [binding readme](src/Enver.Binding/README.md#validation).
+
 ## Typed accessors
 
 The `IEnvReader` interface provides typed accessors for a collection of environment
