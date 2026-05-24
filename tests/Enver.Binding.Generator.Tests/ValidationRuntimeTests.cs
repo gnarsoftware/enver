@@ -169,6 +169,46 @@ internal sealed class MapReader(Dictionary<string, string?> map) : IEnvReader
     }
 
     [Test]
+    public void MissingRequiredKeyThrowsMissingVariableBeforeValidation()
+    {
+        // Presence is Enver's job: an absent required key surfaces as
+        // EnvMissingVariableException before DataAnnotations validation runs.
+        Assert.Throws<EnvMissingVariableException>(() =>
+            Exec(
+                """
+                [EnvBindable]
+                public partial class Config
+                {
+                    [StringLength(253)]
+                    public required string Host { get; init; }
+                }
+                """
+            // HOST absent
+            )
+        );
+    }
+
+    [Test]
+    public void RequiredAttributeCatchesPresentButEmptyValue()
+    {
+        // Enver presence passes (HOST is set, just empty); [Required] then
+        // catches the empty value as a validation failure.
+        Assert.Throws<EnvValidationException>(() =>
+            Exec(
+                """
+                [EnvBindable]
+                public partial class Config
+                {
+                    [Required]
+                    public required string Host { get; init; }
+                }
+                """,
+                ("HOST", "")
+            )
+        );
+    }
+
+    [Test]
     public void NestedSubsectionValidationThrows()
     {
         Assert.Throws<EnvValidationException>(() =>
