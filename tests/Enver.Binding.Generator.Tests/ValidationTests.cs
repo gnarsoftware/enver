@@ -28,6 +28,8 @@ public partial class Config
             Assert.That(src, Does.Contain("RangeAttribute"));
             Assert.That(src, Does.Contain(".GetValidationResult(instance.Port, __ctx)"));
             Assert.That(src, Does.Contain("global::Enver.EnvValidationException"));
+            // The ValidationContext ctor is the only IL2026 surface; suppressed honestly.
+            Assert.That(src, Does.Contain("UnconditionalSuppressMessage(\"Trimming\", \"IL2026\""));
         }
     }
 
@@ -208,23 +210,23 @@ public partial class Config
     {
         var result = GeneratorTestHarness.RunExpectingSuccess(
             """
-            using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
-            namespace Test;
+namespace Test;
 
-            public static class Validators
-            {
-                public static ValidationResult? CheckPort(int value)
-                    => value > 0 ? ValidationResult.Success : new ValidationResult("bad");
-            }
+public static class Validators
+{
+    public static ValidationResult? CheckPort(int value)
+        => value > 0 ? ValidationResult.Success : new ValidationResult("bad");
+}
 
-            [Enver.Binding.EnvBindable]
-            public partial class Config
-            {
-                [CustomValidation(typeof(Validators), "CheckPort")]
-                public int Port { get; init; }
-            }
-            """
+[Enver.Binding.EnvBindable]
+public partial class Config
+{
+    [CustomValidation(typeof(Validators), "CheckPort")]
+    public int Port { get; init; }
+}
+"""
         );
 
         var src = result.SingleSource().Text;
@@ -326,6 +328,37 @@ public partial class Config
         {
             Assert.That(src, Does.Contain("global::Test.UppercaseAttribute()"));
             Assert.That(src, Does.Contain(".GetValidationResult(instance.Region, __ctx)"));
+        }
+    }
+
+    [Test]
+    public void TypedRangeIsDiagnosedAndRefused()
+    {
+        var result = GeneratorTestHarness.Run(
+            """
+using System;
+using System.ComponentModel.DataAnnotations;
+
+namespace Test;
+
+[Enver.Binding.EnvBindable]
+public partial class Config
+{
+    [Range(typeof(decimal), "0.0", "9.99")]
+    public decimal Price { get; init; }
+}
+"""
+        );
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Contain("ENVR0020"));
+            // The refused attribute is never reconstructed, so no validator and no
+            // __Validate helper is emitted for it.
+            Assert.That(
+                result.GeneratedSources.Any(s => s.Text.Contains("RangeAttribute")),
+                Is.False
+            );
         }
     }
 }

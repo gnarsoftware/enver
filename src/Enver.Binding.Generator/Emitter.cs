@@ -839,14 +839,6 @@ internal static class Emitter
             }
         }
 
-        w.WriteLine(
-            "/// <summary>Validate a constructed instance via its DataAnnotations attributes and IValidatableObject.</summary>"
-        );
-        w.WriteLine($"private static {t} __Validate({t} instance)");
-        w.WriteLine("{");
-        w.Indent++;
-        w.WriteLine("global::System.Collections.Generic.List<string>? __failures = null;");
-
         // A ValidationContext is only needed for the generic GetValidationResult
         // path and for a CustomValidation method that takes one; a config validated
         // purely by other synthesized checks needs none (and so stays free of the
@@ -855,6 +847,28 @@ internal static class Emitter
             m.Validators.AsImmutableArray()
                 .Any(v => v.Synthesis is null or CustomValidationCheck { PassesContext: true })
         );
+
+        w.WriteLine(
+            "/// <summary>Validate a constructed instance via its DataAnnotations attributes and IValidatableObject.</summary>"
+        );
+        // The ValidationContext ctor is the only RequiresUnreferencedCode surface
+        // reached here: it lazily resolves a DisplayName via reflection when one
+        // isn't supplied. We set MemberName/DisplayName explicitly for every member,
+        // and every reflecting attribute is either synthesized away or refused
+        // (ENVR0020), so this suppression is honest.
+        if (needsContext)
+        {
+            w.WriteLine(
+                "[global::System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("
+                    + "\"Trimming\", \"IL2026\", "
+                    + "Justification = \"DisplayName is supplied explicitly; no member metadata is reflected at runtime.\")]"
+            );
+        }
+        w.WriteLine($"private static {t} __Validate({t} instance)");
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine("global::System.Collections.Generic.List<string>? __failures = null;");
+
         if (needsContext)
         {
             w.WriteLine($"var __ctx = new {ctxType}(instance);");

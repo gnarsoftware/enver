@@ -544,7 +544,7 @@ internal static class SymbolAnalyzer
             CSharpInitializerExpression: initializer,
             HasRequiredKeyword: hasRequiredKw,
             IsInitOnly: prop.SetMethod?.IsInitOnly ?? false,
-            Validators: ReadValidators(prop, hostSymbol, compilation),
+            Validators: ReadValidators(prop, hostSymbol, compilation, diags),
             DisplayNameExpression: ReadDisplayNameExpression(prop, hostSymbol, compilation)
         );
     }
@@ -616,28 +616,50 @@ internal static class SymbolAnalyzer
     private static EquatableArray<ValidationAttr> ReadValidators(
         IPropertySymbol prop,
         INamedTypeSymbol hostSymbol,
-        Compilation compilation
+        Compilation compilation,
+        ImmutableArray<DiagnosticInfo>.Builder diags
     )
     {
         ImmutableArray<ValidationAttr>.Builder? builder = null;
         foreach (var attr in prop.GetAttributes())
         {
-            if (
-                DerivesFromValidationAttribute(attr.AttributeClass)
-                && TryReconstructAttribute(
-                    attr,
-                    prop,
-                    hostSymbol,
-                    compilation,
-                    out var reconstructed
-                )
-            )
+            if (!DerivesFromValidationAttribute(attr.AttributeClass))
+            {
+                continue;
+            }
+
+            // The typed [Range(Type, string, string)] form parses its bounds
+            // through reflection at runtime (and its ctor is RequiresUnreferencedCode).
+            // Refuse it so the reflection-free guarantee holds, pointing at the
+            // supported alternatives.
+            if (IsTypedRange(attr))
+            {
+                diags.Add(
+                    new DiagnosticInfo(
+                        DiagnosticDescriptors.TypedRangeNotSupported,
+                        attr.ApplicationSyntaxReference?.GetSyntax().GetLocation()
+                            ?? prop.Locations.FirstOrDefault(),
+                        new(ImmutableArray.Create(prop.Name))
+                    )
+                );
+                continue;
+            }
+
+            if (TryReconstructAttribute(attr, prop, hostSymbol, compilation, out var reconstructed))
             {
                 builder ??= ImmutableArray.CreateBuilder<ValidationAttr>();
                 builder.Add(reconstructed);
             }
         }
         return builder is null ? EquatableArray<ValidationAttr>.Empty : new(builder);
+    }
+
+    private static bool IsTypedRange(AttributeData attr)
+    {
+        return attr.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                == "global::" + AttributeNames.Range
+            && attr.ConstructorArguments.Length == 3
+            && attr.ConstructorArguments[0].Kind == TypedConstantKind.Type;
     }
 
     private static bool DerivesFromValidationAttribute(INamedTypeSymbol? attrClass)
