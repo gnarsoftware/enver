@@ -220,6 +220,95 @@ declared initializer.
 Override the inferred classification with
 `[EnvKey(Requirement = EnvRequirement.Required | .Optional)]`.
 
+## Validation
+
+Annotate members with `System.ComponentModel.DataAnnotations` attributes and they
+are checked automatically after binding. Any failure throws
+`EnvValidationException` at `Bind()` / `Build()` time, so an invalid environment
+never reaches your app:
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+
+[EnvBindable]
+public partial class ServerConfig
+{
+    [Range(1, 65535)]
+    public int Port { get; init; }
+
+    [StringLength(253)]
+    public required string Host { get; init; }
+}
+
+// Throws EnvValidationException if PORT is outside 1..65535 or HOST exceeds 253 chars.
+var cfg = ServerConfig.BindFromAppDirectory();
+```
+
+> [!NOTE]
+> **Validation is separate from required-ness.** Whether a key must be *present*
+> is Enver's decision (the `required` keyword, nullability, or
+> `[EnvKey(Requirement)]`) and a missing key throws `EnvMissingVariableException`
+> *before* validation runs. DataAnnotations validate the *value* after binding and
+> throw `EnvValidationException`. The two compose: `[Required]` adds a non-empty
+> check on top of presence (so it catches `HOST=`), but an entirely absent key is
+> still reported earlier by Enver. Prefer Enver's mechanisms for presence and
+> DataAnnotations for value shape.
+
+- **All failures are aggregated.** `EnvValidationException.Failures` lists every
+  validation message.
+- **Custom and cross-field rules:** implement `IValidatableObject` on the config
+  type (or any subsection) for logic the attributes can't express.
+- **Subsections validate too.** Each nested config validates itself, so a
+  `[Range]` on a subsection member is enforced when the parent binds.
+- **Discovered at compile time.** The generator reads your attributes during
+  generation and invokes them directly, rather than scanning your type with
+  `Validator.ValidateObject`. `[Display(Name = "…")]` (including resource-based
+  names) feeds the error messages so they match standard DataAnnotations output.
+
+Custom validators work the same way. Derive from `ValidationAttribute`:
+
+```csharp
+public sealed class UppercaseAttribute : ValidationAttribute
+{
+    protected override ValidationResult? IsValid(object? value, ValidationContext ctx)
+        => value is string s && s == s.ToUpperInvariant()
+            ? ValidationResult.Success
+            : new ValidationResult($"{ctx.DisplayName} must be uppercase");
+}
+```
+
+> [!NOTE]
+> **The typed `[Range(Type, string, string)]` form is not supported.** It parses its
+> bounds reflectively at runtime, which Enver's reflection-free model can't honor. The
+> generator reports **ENVR0020**. Use the numeric `[Range(min, max)]` overload, a
+> `[CustomValidation]` method, or `IValidatableObject` instead.
+
+### Trimming and AOT
+
+The generator never calls `Validator.ValidateObject`. It discovers your attributes
+at compile time and either **invokes them directly** or **synthesizes an equivalent
+inline check**, so validation is fully reflection-free.
+
+However, a handful of built-in attributes carry `[RequiresUnreferencedCode]` on their
+constructor (`[MinLength]`, `[MaxLength]`, `[Length]`, `[Compare]`). Because of this,
+you'll see an **IL2026** warning at the attribute in your own source, even though
+Enver's generated check for it is reflection-free:
+
+```csharp
+[MinLength(3)] // warning IL2026 here, at the attribute
+public string Name { get; init; } = "";
+```
+
+The warning isn't wrong in the general case, but it is safe to suppress if you only
+use the generated bindings to validate your class:
+
+```csharp
+[UnconditionalSuppressMessage("Trimming", "IL2026",
+    Justification = "Validated only via Enver's reflection-free generated binder.")]
+[MinLength(3)]
+public string Name { get; init; } = "";
+```
+
 ## External host: `[EnvBindable<T>]`
 
 Generate binders on a separate `partial` class:

@@ -20,3 +20,4 @@ ENVR0015 | EnverBinding | Warning | [EnvKey] member is not accessible from the b
 ENVR0016 | EnverBinding | Warning | [EnvKey] on getter-only property has no effect
 ENVR0018 | EnverBinding | Warning | Member skipped in generated Populate
 ENVR0019 | EnverBinding | Error | No mutable members for Populate
+ENVR0020 | EnverBinding | Error | [Range(Type, ...)] is not supported by reflection-free validation

@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Reflection;
 using Enver.Binding.Generator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -99,6 +100,72 @@ internal static class GeneratorTestHarness
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Compile <paramref name="source"/> (with the generator), emit it to a real
+    /// assembly, load it, and invoke the parameterless static entry method. Returns
+    /// whatever it returns; rethrows the underlying exception so callers can
+    /// assert on it.
+    /// </summary>
+    public static object? Execute(string source, string entryType, string entryMethod)
+    {
+        var syntaxTree = CSharpSyntaxTree.ParseText(
+            source,
+            new CSharpParseOptions(LanguageVersion.Latest)
+        );
+        var tpa = (string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!;
+        var compilation = CSharpCompilation.Create(
+            // Unique name so repeated Execute calls don't collide in the load context.
+            assemblyName: "EnverGeneratorRun_" + Guid.NewGuid().ToString("N"),
+            syntaxTrees: [syntaxTree],
+            references: tpa.Split(Path.PathSeparator)
+                .Where(p => Path.GetFileNameWithoutExtension(p) != "Enver.Binding.Generator")
+                .Select(p => MetadataReference.CreateFromFile(p))
+                .ToImmutableArray(),
+            options: new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable
+            )
+        );
+
+        var driver = CSharpGeneratorDriver.Create(new EnvConfigGenerator());
+        driver = (CSharpGeneratorDriver)
+            driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out _);
+
+        using var ms = new MemoryStream();
+        var emit = outputCompilation.Emit(ms);
+        Assert.That(
+            emit.Success,
+            Is.True,
+            () =>
+                "Generated code did not compile:\n"
+                + Describe([.. emit.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)])
+        );
+
+        var assembly = Assembly.Load(ms.ToArray());
+        var type =
+            assembly.GetType(entryType)
+            ?? throw new InvalidOperationException($"Entry type '{entryType}' not found.");
+        var method =
+            type.GetMethod(entryMethod, BindingFlags.Public | BindingFlags.Static)
+            ?? throw new InvalidOperationException(
+                $"Entry method '{entryType}.{entryMethod}' not found."
+            );
+
+        try
+        {
+            return method.Invoke(null, null);
+        }
+        catch (TargetInvocationException tie) when (tie.InnerException is not null)
+        {
+            // Surface the real exception (e.g. EnvValidationException) so callers
+            // can Assert.Throws on it directly.
+            System
+                .Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(tie.InnerException)
+                .Throw();
+            throw; // unreachable
+        }
     }
 
     private static string Describe(ImmutableArray<Diagnostic> diagnostics) =>

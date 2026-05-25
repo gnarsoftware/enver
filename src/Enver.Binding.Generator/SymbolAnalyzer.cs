@@ -350,7 +350,8 @@ internal static class SymbolAnalyzer
             Members: new(members),
             SubSections: new(subSections),
             DefaultFormatProvider: defaultFormatProvider,
-            GeneratePopulate: generatePopulate
+            GeneratePopulate: generatePopulate,
+            ImplementsIValidatableObject: ImplementsIValidatableObject(targetSymbol)
         );
     }
 
@@ -542,8 +543,452 @@ internal static class SymbolAnalyzer
             FormatProvider: formatProvider,
             CSharpInitializerExpression: initializer,
             HasRequiredKeyword: hasRequiredKw,
-            IsInitOnly: prop.SetMethod?.IsInitOnly ?? false
+            IsInitOnly: prop.SetMethod?.IsInitOnly ?? false,
+            Validators: ReadValidators(prop, hostSymbol, compilation, diags),
+            DisplayNameExpression: ReadDisplayNameExpression(prop, hostSymbol, compilation)
         );
+    }
+
+    private static string? ReadDisplayNameExpression(
+        IPropertySymbol prop,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation
+    )
+    {
+        var attr = FindAttribute(prop, AttributeNames.Display);
+        if (attr is null)
+        {
+            return null;
+        }
+
+        string? name = null;
+        ITypeSymbol? resourceType = null;
+        foreach (var na in attr.NamedArguments)
+        {
+            switch (na.Key)
+            {
+                case "Name" when na.Value.Value is string n:
+                    name = n;
+                    break;
+                case "ResourceType" when na.Value.Value is ITypeSymbol r:
+                    resourceType = r;
+                    break;
+            }
+        }
+
+        if (name is null)
+        {
+            return null;
+        }
+
+        if (resourceType is null)
+        {
+            // Literal display name.
+            return Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(name, quote: true);
+        }
+
+        // Resource-based: `Name` is the key. Resolve it to an accessible static
+        // string member on ResourceType and emit a direct member access; the resx
+        // property resolves the localized value at runtime without reflection.
+        if (resourceType.TypeKind == TypeKind.Error)
+        {
+            return null;
+        }
+        var member = resourceType
+            .GetMembers(name)
+            .FirstOrDefault(s =>
+                s.IsStatic
+                && s switch
+                {
+                    IPropertySymbol p => p.Type.SpecialType == SpecialType.System_String,
+                    IFieldSymbol f => f.Type.SpecialType == SpecialType.System_String,
+                    _ => false,
+                }
+                && compilation.IsSymbolAccessibleWithin(s, hostSymbol)
+            );
+        if (member is null)
+        {
+            return null;
+        }
+        return $"{resourceType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}.{name}";
+    }
+
+    private static EquatableArray<ValidationAttr> ReadValidators(
+        IPropertySymbol prop,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation,
+        ImmutableArray<DiagnosticInfo>.Builder diags
+    )
+    {
+        ImmutableArray<ValidationAttr>.Builder? builder = null;
+        foreach (var attr in prop.GetAttributes())
+        {
+            if (!DerivesFromValidationAttribute(attr.AttributeClass))
+            {
+                continue;
+            }
+
+            // The typed [Range(Type, string, string)] form parses its bounds
+            // through reflection at runtime (and its ctor is RequiresUnreferencedCode).
+            // Refuse it so the reflection-free guarantee holds, pointing at the
+            // supported alternatives.
+            if (IsTypedRange(attr))
+            {
+                diags.Add(
+                    new DiagnosticInfo(
+                        DiagnosticDescriptors.TypedRangeNotSupported,
+                        attr.ApplicationSyntaxReference?.GetSyntax().GetLocation()
+                            ?? prop.Locations.FirstOrDefault(),
+                        new(ImmutableArray.Create(prop.Name))
+                    )
+                );
+                continue;
+            }
+
+            if (TryReconstructAttribute(attr, prop, hostSymbol, compilation, out var reconstructed))
+            {
+                builder ??= ImmutableArray.CreateBuilder<ValidationAttr>();
+                builder.Add(reconstructed);
+            }
+        }
+        return builder is null ? EquatableArray<ValidationAttr>.Empty : new(builder);
+    }
+
+    private static bool IsTypedRange(AttributeData attr)
+    {
+        return attr.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                == "global::" + AttributeNames.Range
+            && attr.ConstructorArguments.Length == 3
+            && attr.ConstructorArguments[0].Kind == TypedConstantKind.Type;
+    }
+
+    private static bool DerivesFromValidationAttribute(INamedTypeSymbol? attrClass)
+    {
+        for (INamedTypeSymbol? t = attrClass; t is not null; t = t.BaseType)
+        {
+            if (
+                t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                == "global::" + AttributeNames.ValidationAttribute
+            )
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool TryReconstructAttribute(
+        AttributeData attr,
+        IPropertySymbol prop,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation,
+        out ValidationAttr result
+    )
+    {
+        result = null!;
+        if (attr.AttributeConstructor is not { } ctor)
+        {
+            return false;
+        }
+
+        var ctorArgs = ImmutableArray.CreateBuilder<string>(attr.ConstructorArguments.Length);
+        for (int i = 0; i < attr.ConstructorArguments.Length; i++)
+        {
+            if (FormatTypedConstant(attr.ConstructorArguments[i]) is not { } expr)
+            {
+                return false;
+            }
+            // Cast each arg to the declared parameter type so overload resolution
+            // and the exact numeric type (e.g. the double vs int Range ctor) are
+            // preserved when the literal alone would be ambiguous.
+            var paramType =
+                i < ctor.Parameters.Length
+                    ? ctor.Parameters[i]
+                        .Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                    : null;
+            ctorArgs.Add(paramType is null ? expr : $"({paramType})({expr})");
+        }
+
+        var named = ImmutableArray.CreateBuilder<ValidationNamedArg>(attr.NamedArguments.Length);
+        foreach (var na in attr.NamedArguments)
+        {
+            if (FormatTypedConstant(na.Value) is not { } expr)
+            {
+                return false;
+            }
+            named.Add(new ValidationNamedArg(na.Key, expr));
+        }
+
+        var attributeFqn = attr.AttributeClass!.ToDisplayString(
+            SymbolDisplayFormat.FullyQualifiedFormat
+        );
+        var ctorArguments = new EquatableArray<string>(ctorArgs);
+        result = new ValidationAttr(
+            attributeFqn,
+            ctorArguments,
+            new(named),
+            Synthesis: ClassifySynthesis(
+                attr,
+                attributeFqn,
+                ctorArguments,
+                prop,
+                hostSymbol,
+                compilation
+            )
+        );
+        return true;
+    }
+
+    private static SynthesizedCheck? ClassifySynthesis(
+        AttributeData attr,
+        string attributeFqn,
+        EquatableArray<string> ctorArgs,
+        IPropertySymbol prop,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation
+    )
+    {
+        return (SynthesizedCheck?)ClassifyLength(attributeFqn, ctorArgs, prop.Type)
+            ?? (SynthesizedCheck?)ClassifyCompare(attr, attributeFqn, prop, hostSymbol, compilation)
+            ?? ClassifyCustomValidation(attr, attributeFqn, prop, hostSymbol, compilation);
+    }
+
+    private static CustomValidationCheck? ClassifyCustomValidation(
+        AttributeData attr,
+        string attributeFqn,
+        IPropertySymbol prop,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation
+    )
+    {
+        if (attributeFqn != "global::" + AttributeNames.CustomValidation)
+        {
+            return null;
+        }
+        if (
+            attr.ConstructorArguments.Length < 2
+            || attr.ConstructorArguments[0].Value is not INamedTypeSymbol validatorType
+            || validatorType.TypeKind == TypeKind.Error
+            || attr.ConstructorArguments[1].Value is not string methodName
+        )
+        {
+            return null;
+        }
+
+        foreach (var member in validatorType.GetMembers(methodName))
+        {
+            if (
+                member is not IMethodSymbol { IsStatic: true } method
+                || !compilation.IsSymbolAccessibleWithin(method, hostSymbol)
+                || method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                    != "global::" + AttributeNames.ValidationResult
+                || method.Parameters.Length is not (1 or 2)
+            )
+            {
+                continue;
+            }
+
+            // The member value must be assignable to the value parameter.
+            var valueParam = method.Parameters[0].Type;
+            if (
+                !SymbolEqualityComparer.Default.Equals(prop.Type, valueParam)
+                && !compilation.ClassifyCommonConversion(prop.Type, valueParam).IsImplicit
+            )
+            {
+                continue;
+            }
+
+            if (
+                method.Parameters.Length == 2
+                && method
+                    .Parameters[1]
+                    .Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                    != "global::" + AttributeNames.ValidationContext
+            )
+            {
+                continue;
+            }
+
+            return new CustomValidationCheck(
+                validatorType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+                methodName,
+                method.Parameters.Length == 2
+            );
+        }
+        return null;
+    }
+
+    private static CompareCheck? ClassifyCompare(
+        AttributeData attr,
+        string attributeFqn,
+        IPropertySymbol prop,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation
+    )
+    {
+        if (attributeFqn != "global::" + AttributeNames.Compare)
+        {
+            return null;
+        }
+        if (
+            attr.ConstructorArguments.Length < 1
+            || attr.ConstructorArguments[0].Value is not string otherName
+        )
+        {
+            return null;
+        }
+
+        // The sibling must be an accessible instance property or field so
+        // `instance.Other` reads compile from the generated host.
+        var sibling = prop
+            .ContainingType.GetMembers(otherName)
+            .FirstOrDefault(m =>
+                m is (IPropertySymbol or IFieldSymbol) and { IsStatic: false }
+                && compilation.IsSymbolAccessibleWithin(m, hostSymbol)
+            );
+        if (sibling is null)
+        {
+            return null;
+        }
+
+        return new CompareCheck(otherName);
+    }
+
+    private static LengthCheck? ClassifyLength(
+        string fqn,
+        EquatableArray<string> ctorArgs,
+        ITypeSymbol memberType
+    )
+    {
+        string? min = null;
+        string? max = null;
+        if (fqn == "global::" + AttributeNames.MinLength && ctorArgs.Length >= 1)
+        {
+            min = ctorArgs[0];
+        }
+        else if (fqn == "global::" + AttributeNames.MaxLength && ctorArgs.Length >= 1)
+        {
+            max = ctorArgs[0];
+        }
+        else if (fqn == "global::" + AttributeNames.Length && ctorArgs.Length >= 2)
+        {
+            min = ctorArgs[0];
+            max = ctorArgs[1];
+        }
+        else
+        {
+            return null;
+        }
+
+        var lengthMember = ResolveLengthMember(memberType);
+        return lengthMember is null ? null : new LengthCheck(lengthMember, min, max);
+
+        static string? ResolveLengthMember(ITypeSymbol type)
+        {
+            var t = type.UnwrapNullable();
+            if (t.SpecialType == SpecialType.System_String || t is IArrayTypeSymbol)
+            {
+                return "Length";
+            }
+            // Use `.Count` only when it's publicly accessible via the member's
+            // static type - its own or inherited public Count, or a Count declared
+            // on an interface-typed member. A concrete type that satisfies a
+            // collection interface with an *explicit* implementation has no
+            // accessible `.Count`, so it falls through to the generic path rather
+            // than emitting `instance.Member.Count`, which wouldn't compile.
+            for (var current = t; current is not null; current = current.BaseType)
+            {
+                if (HasPublicInstanceIntCount(current))
+                {
+                    return "Count";
+                }
+            }
+            return null;
+        }
+
+        static bool HasPublicInstanceIntCount(ITypeSymbol type)
+        {
+            foreach (var member in type.GetMembers("Count"))
+            {
+                if (
+                    member is IPropertySymbol
+                    {
+                        IsStatic: false,
+                        DeclaredAccessibility: Accessibility.Public,
+                        Type.SpecialType: SpecialType.System_Int32
+                    }
+                )
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    private static string? FormatTypedConstant(TypedConstant c)
+    {
+        if (c.IsNull)
+        {
+            return "null";
+        }
+        switch (c.Kind)
+        {
+            case TypedConstantKind.Primitive:
+                return Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(
+                    c.Value!,
+                    quoteStrings: true,
+                    useHexadecimalNumbers: false
+                );
+            case TypedConstantKind.Enum:
+                var enumType = c.Type!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                var underlying = Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(
+                    c.Value!,
+                    quoteStrings: false,
+                    useHexadecimalNumbers: false
+                );
+                return $"(({enumType}){underlying})";
+            case TypedConstantKind.Type:
+                return c.Value is ITypeSymbol t
+                    ? $"typeof({t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)})"
+                    : null;
+            case TypedConstantKind.Array:
+                if (c.Values.IsDefault)
+                {
+                    return null;
+                }
+                var elementType =
+                    (c.Type as IArrayTypeSymbol)?.ElementType.ToDisplayString(
+                        SymbolDisplayFormat.FullyQualifiedFormat
+                    ) ?? "object";
+                var parts = new List<string>(c.Values.Length);
+                foreach (var el in c.Values)
+                {
+                    if (FormatTypedConstant(el) is not { } e)
+                    {
+                        return null;
+                    }
+                    parts.Add(e);
+                }
+                return $"new {elementType}[] {{ {string.Join(", ", parts)} }}";
+            default:
+                return null;
+        }
+    }
+
+    private static bool ImplementsIValidatableObject(INamedTypeSymbol type)
+    {
+        foreach (var iface in type.AllInterfaces)
+        {
+            if (
+                iface.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                == "global::" + AttributeNames.IValidatableObject
+            )
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static (string? Prefix, EnvKeyNamingConvention KeyNaming) ReadConfig(

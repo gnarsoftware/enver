@@ -10,5 +10,6 @@ internal sealed record BindingTarget(
     EquatableArray<BindingMember> Members,
     EquatableArray<SubSection> SubSections,
     FormatProviderRef? DefaultFormatProvider,
-    bool GeneratePopulate
+    bool GeneratePopulate,
+    bool ImplementsIValidatableObject
 );

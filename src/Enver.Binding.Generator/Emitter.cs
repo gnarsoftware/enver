@@ -50,6 +50,7 @@ internal static class Emitter
         EmitStaticMethods(w, target, methodInfix, binderName);
         w.WriteLine();
         EmitBinderClass(w, target, binderName);
+        EmitValidateHelpers(w, target);
 
         // Close host partial + enclosing types.
         w.Indent--;
@@ -152,6 +153,11 @@ internal static class Emitter
         BindingTarget target
     )
     {
+        var validate = RequiresValidation(target);
+        if (validate)
+        {
+            w.Write("__Validate(");
+        }
         w.Write($"new {target.FullyQualifiedTypeName}(");
         var ctorNames = target.Construction.CtorParameterMemberNames.AsImmutableArray();
         for (int i = 0; i < ctorNames.Length; i++)
@@ -181,6 +187,10 @@ internal static class Emitter
             }
             w.Indent--;
             w.Write("}");
+        }
+        if (validate)
+        {
+            w.Write(")");
         }
     }
 
@@ -650,6 +660,11 @@ internal static class Emitter
         string? fieldPrefix = null
     )
     {
+        var validate = RequiresValidation(target);
+        if (validate)
+        {
+            w.Write("__Validate(");
+        }
         w.Write($"new {target.FullyQualifiedTypeName}(");
         var ctorNames = target.Construction.CtorParameterMemberNames.AsImmutableArray();
         for (int i = 0; i < ctorNames.Length; i++)
@@ -676,6 +691,10 @@ internal static class Emitter
             }
             w.Indent--;
             w.Write("}");
+        }
+        if (validate)
+        {
+            w.Write(")");
         }
     }
 
@@ -709,6 +728,329 @@ internal static class Emitter
             // TODO: subsection optional + default expression support
             return $"_built_{fieldPrefix}{memberName}";
         }
+    }
+
+    #endregion
+
+    #region Validation
+
+    private static bool RequiresValidation(BindingTarget target)
+    {
+        if (target.ImplementsIValidatableObject)
+        {
+            return true;
+        }
+        foreach (var m in target.Members.AsImmutableArray())
+        {
+            if (m.Validators.Length > 0)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void EmitValidateHelpers(IndentedTextWriter w, BindingTarget root)
+    {
+        // One __Validate(T) overload per distinct validating target (root +
+        // subsections). Each target validates itself; nesting works because every
+        // construction site wraps in __Validate when its target requires it.
+        var emitted = new HashSet<string>(StringComparer.Ordinal);
+        int validatorFieldCounter = 0;
+        CollectAndEmit(w, root, emitted, ref validatorFieldCounter);
+    }
+
+    private static void CollectAndEmit(
+        IndentedTextWriter w,
+        BindingTarget target,
+        HashSet<string> emitted,
+        ref int fieldCounter
+    )
+    {
+        if (RequiresValidation(target) && emitted.Add(target.FullyQualifiedTypeName))
+        {
+            w.WriteLine();
+            EmitValidateMethod(w, target, ref fieldCounter);
+        }
+        foreach (var sub in target.SubSections.AsImmutableArray())
+        {
+            CollectAndEmit(w, sub.Target, emitted, ref fieldCounter);
+        }
+    }
+
+    private static void EmitValidateMethod(
+        IndentedTextWriter w,
+        BindingTarget target,
+        ref int fieldCounter
+    )
+    {
+        const string ctxType = "global::System.ComponentModel.DataAnnotations.ValidationContext";
+        var t = target.FullyQualifiedTypeName;
+
+        var membersWithValidators = target
+            .Members.AsImmutableArray()
+            .Where(m => m.Validators.Length > 0)
+            .ToArray();
+
+        // Each validator attribute is constructed once into a static field and
+        // reused across binds. fieldNames[memberIndex][validatorIndex] holds the
+        // generated field name.
+        var fieldNames = new string[membersWithValidators.Length][];
+        for (int mi = 0; mi < membersWithValidators.Length; mi++)
+        {
+            var validators = membersWithValidators[mi].Validators.AsImmutableArray();
+            fieldNames[mi] = new string[validators.Length];
+            for (int vi = 0; vi < validators.Length; vi++)
+            {
+                var v = validators[vi];
+                // CustomValidation calls a user method directly - no attribute is
+                // constructed, so it gets no static field.
+                if (v.Synthesis is CustomValidationCheck)
+                {
+                    continue;
+                }
+                var ctorArgs = string.Join(
+                    ", ",
+                    v.ConstructorArgumentExpressions.AsImmutableArray()
+                );
+                var named = v.NamedArgumentExpressions.AsImmutableArray();
+                var initializer =
+                    named.Length == 0
+                        ? ""
+                        : " { "
+                            + string.Join(", ", named.Select(n => $"{n.Name} = {n.Expression}"))
+                            + " }";
+                var field = $"__validator{fieldCounter++}";
+                fieldNames[mi][vi] = field;
+                var decl =
+                    $"private static readonly {v.AttributeTypeFullyQualifiedName} {field} = "
+                    + $"new {v.AttributeTypeFullyQualifiedName}({ctorArgs}){initializer};";
+                if (v.Synthesis is not null)
+                {
+                    // attributes are only used for FormatErrorMessage - safe to use
+                    w.WriteLine("#pragma warning disable IL2026");
+                    w.WriteLine(decl);
+                    w.WriteLine("#pragma warning restore IL2026");
+                }
+                else
+                {
+                    w.WriteLine(decl);
+                }
+            }
+        }
+
+        // A ValidationContext is only needed for the generic GetValidationResult
+        // path and for a CustomValidation method that takes one; a config validated
+        // purely by other synthesized checks needs none (and so stays free of the
+        // flagged ValidationContext ctor).
+        bool needsContext = membersWithValidators.Any(m =>
+            m.Validators.AsImmutableArray()
+                .Any(v => v.Synthesis is null or CustomValidationCheck { PassesContext: true })
+        );
+
+        w.WriteLine(
+            "/// <summary>Validate a constructed instance via its DataAnnotations attributes and IValidatableObject.</summary>"
+        );
+        // The ValidationContext ctor is the only RequiresUnreferencedCode surface
+        // reached here: it lazily resolves a DisplayName via reflection when one
+        // isn't supplied. We set MemberName/DisplayName explicitly for every member,
+        // and every reflecting attribute is either synthesized away or refused
+        // (ENVR0020), so this suppression is honest.
+        if (needsContext)
+        {
+            w.WriteLine(
+                "[global::System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("
+                    + "\"Trimming\", \"IL2026\", "
+                    + "Justification = \"DisplayName is supplied explicitly; no member metadata is reflected at runtime.\")]"
+            );
+        }
+        w.WriteLine($"private static {t} __Validate({t} instance)");
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine("global::System.Collections.Generic.List<string>? __failures = null;");
+
+        if (needsContext)
+        {
+            w.WriteLine($"var __ctx = new {ctxType}(instance);");
+        }
+
+        for (int mi = 0; mi < membersWithValidators.Length; mi++)
+        {
+            var m = membersWithValidators[mi];
+            var displayExpr =
+                m.DisplayNameExpression
+                ?? Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(
+                    m.MemberName,
+                    quote: true
+                );
+            var validators = m.Validators.AsImmutableArray();
+            bool memberUsesContext = validators.Any(v =>
+                v.Synthesis is null or CustomValidationCheck { PassesContext: true }
+            );
+            if (memberUsesContext)
+            {
+                w.WriteLine($"__ctx.MemberName = \"{m.MemberName}\";");
+                w.WriteLine($"__ctx.DisplayName = {displayExpr};");
+            }
+            for (int vi = 0; vi < validators.Length; vi++)
+            {
+                var v = validators[vi];
+                var field = fieldNames[mi][vi];
+                if (v.Synthesis is { } synth)
+                {
+                    EmitSynthesizedCheck(w, synth, m.MemberName, field, displayExpr);
+                }
+                else
+                {
+                    w.WriteLine("{");
+                    w.Indent++;
+                    w.WriteLine(
+                        $"var __r = {field}.GetValidationResult(instance.{m.MemberName}, __ctx);"
+                    );
+                    // Fall back to a message built from the (already-set) display
+                    // name when the attribute supplies none.
+                    w.WriteLine(
+                        "if (__r is not null) (__failures ??= new()).Add(__r.ErrorMessage ?? "
+                            + "($\"Validation failed for '{__ctx.DisplayName}'.\"));"
+                    );
+                    w.Indent--;
+                    w.WriteLine("}");
+                }
+            }
+        }
+
+        if (target.ImplementsIValidatableObject)
+        {
+            w.WriteLine(
+                $"foreach (var __r in ((global::System.ComponentModel.DataAnnotations.IValidatableObject)instance).Validate(new {ctxType}(instance)))"
+            );
+            w.WriteLine("{");
+            w.Indent++;
+            w.WriteLine(
+                "if (__r is not null) (__failures ??= new()).Add(__r.ErrorMessage ?? \"Validation failed.\");"
+            );
+            w.Indent--;
+            w.WriteLine("}");
+        }
+
+        w.WriteLine("if (__failures is { Count: > 0 })");
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine(
+            $"throw new global::Enver.EnvValidationException(\"Configuration '{target.SimpleTypeName}' is invalid: \" "
+                + "+ global::System.String.Join(\"; \", __failures), __failures);"
+        );
+        w.Indent--;
+        w.WriteLine("}");
+        w.WriteLine("return instance;");
+        w.Indent--;
+        w.WriteLine("}");
+    }
+
+    private static void EmitSynthesizedCheck(
+        IndentedTextWriter w,
+        SynthesizedCheck check,
+        string memberName,
+        string field,
+        string displayExpr
+    )
+    {
+        switch (check)
+        {
+            case LengthCheck length:
+                EmitLengthCheck(w, memberName, length, field, displayExpr);
+                break;
+            case CompareCheck compare:
+                EmitCompareCheck(w, memberName, compare, field, displayExpr);
+                break;
+            case CustomValidationCheck custom:
+                EmitCustomValidationCheck(w, memberName, custom, displayExpr);
+                break;
+            default:
+                throw new InvalidOperationException(
+                    $"Unhandled synthesis kind: {check.GetType().Name}"
+                );
+        }
+    }
+
+    private static void EmitLengthCheck(
+        IndentedTextWriter w,
+        string memberName,
+        LengthCheck ls,
+        string field,
+        string displayExpr
+    )
+    {
+        var conditions = new List<string>(2);
+        if (ls.MinBoundExpression is not null)
+        {
+            conditions.Add($"__len < {ls.MinBoundExpression}");
+        }
+        if (ls.MaxBoundExpression is not null)
+        {
+            conditions.Add($"__len > {ls.MaxBoundExpression}");
+        }
+
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine($"var __v = instance.{memberName};");
+        w.WriteLine("if (__v is not null)");
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine($"var __len = __v.{ls.LengthMember};");
+        w.WriteLine($"if ({string.Join(" || ", conditions)})");
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine($"(__failures ??= new()).Add({field}.FormatErrorMessage({displayExpr}));");
+        w.Indent--;
+        w.WriteLine("}");
+        w.Indent--;
+        w.WriteLine("}");
+        w.Indent--;
+        w.WriteLine("}");
+    }
+
+    private static void EmitCompareCheck(
+        IndentedTextWriter w,
+        string memberName,
+        CompareCheck compare,
+        string field,
+        string displayExpr
+    )
+    {
+        w.WriteLine(
+            $"if (!global::System.Object.Equals(instance.{memberName}, instance.{compare.OtherMember}))"
+        );
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine($"(__failures ??= new()).Add({field}.FormatErrorMessage({displayExpr}));");
+        w.Indent--;
+        w.WriteLine("}");
+    }
+
+    private static void EmitCustomValidationCheck(
+        IndentedTextWriter w,
+        string memberName,
+        CustomValidationCheck custom,
+        string displayExpr
+    )
+    {
+        // Reflection-free equivalent of CustomValidationAttribute: call the user's
+        // static validator directly. The returned ValidationResult carries the
+        // message (Success is null), so no attribute or FormatErrorMessage is used.
+        var contextArg = custom.PassesContext ? ", __ctx" : "";
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine(
+            $"var __r = {custom.ValidatorTypeFullyQualifiedName}.{custom.MethodName}"
+                + $"(instance.{memberName}{contextArg});"
+        );
+        w.WriteLine(
+            "if (__r is not null) (__failures ??= new()).Add(__r.ErrorMessage ?? "
+                + $"(\"Validation failed for '\" + {displayExpr} + \"'.\"));"
+        );
+        w.Indent--;
+        w.WriteLine("}");
     }
 
     #endregion
