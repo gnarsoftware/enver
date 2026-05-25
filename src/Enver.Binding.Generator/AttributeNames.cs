@@ -20,4 +20,9 @@ internal static class AttributeNames
     public const string MaxLength = "System.ComponentModel.DataAnnotations.MaxLengthAttribute";
     public const string Length = "System.ComponentModel.DataAnnotations.LengthAttribute";
     public const string Compare = "System.ComponentModel.DataAnnotations.CompareAttribute";
+    public const string CustomValidation =
+        "System.ComponentModel.DataAnnotations.CustomValidationAttribute";
+    public const string ValidationResult = "System.ComponentModel.DataAnnotations.ValidationResult";
+    public const string ValidationContext =
+        "System.ComponentModel.DataAnnotations.ValidationContext";
 }

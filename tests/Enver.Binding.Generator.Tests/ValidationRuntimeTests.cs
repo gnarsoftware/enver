@@ -343,6 +343,57 @@ internal sealed class MapReader(Dictionary<string, string?> map) : IEnvReader
     }
 
     [Test]
+    public void CustomValidationPassesAndFails()
+    {
+        const string config = """
+            public static class Validators
+            {
+                public static ValidationResult? CheckPort(int value)
+                    => value > 0 ? ValidationResult.Success : new ValidationResult("must be positive");
+            }
+
+            [EnvBindable]
+            public partial class Config
+            {
+                [CustomValidation(typeof(Validators), "CheckPort")]
+                public int Port { get; init; }
+            }
+            """;
+
+        Assert.That(Exec(config, ("PORT", "8080")), Is.Not.Null);
+        Assert.Throws<EnvValidationException>(() => Exec(config, ("PORT", "0")));
+    }
+
+    [Test]
+    public void CustomValidationWithContextUsesDisplayName()
+    {
+        var ex = Assert.Throws<EnvValidationException>(() =>
+            Exec(
+                """
+                public static class Validators
+                {
+                    public static ValidationResult? CheckPort(int value, ValidationContext ctx)
+                        => value > 0
+                            ? ValidationResult.Success
+                            : new ValidationResult($"{ctx.DisplayName} must be positive");
+                }
+
+                [EnvBindable]
+                public partial class Config
+                {
+                    [Display(Name = "Listen port")]
+                    [CustomValidation(typeof(Validators), "CheckPort")]
+                    public int Port { get; init; }
+                }
+                """,
+                ("PORT", "0")
+            )
+        );
+
+        Assert.That(ex!.Message, Does.Contain("Listen port must be positive"));
+    }
+
+    [Test]
     public void NestedSubsectionValidationThrows()
     {
         Assert.Throws<EnvValidationException>(() =>

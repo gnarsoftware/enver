@@ -18,3 +18,9 @@ internal sealed record LengthCheck(
 ) : SynthesizedCheck;
 
 internal sealed record CompareCheck(string OtherMember) : SynthesizedCheck;
+
+internal sealed record CustomValidationCheck(
+    string ValidatorTypeFullyQualifiedName,
+    string MethodName,
+    bool PassesContext
+) : SynthesizedCheck;

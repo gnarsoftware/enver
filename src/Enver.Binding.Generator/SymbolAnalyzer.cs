@@ -727,7 +727,73 @@ internal static class SymbolAnalyzer
     )
     {
         return (SynthesizedCheck?)ClassifyLength(attributeFqn, ctorArgs, prop.Type)
-            ?? ClassifyCompare(attr, attributeFqn, prop, hostSymbol, compilation);
+            ?? (SynthesizedCheck?)ClassifyCompare(attr, attributeFqn, prop, hostSymbol, compilation)
+            ?? ClassifyCustomValidation(attr, attributeFqn, prop, hostSymbol, compilation);
+    }
+
+    private static CustomValidationCheck? ClassifyCustomValidation(
+        AttributeData attr,
+        string attributeFqn,
+        IPropertySymbol prop,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation
+    )
+    {
+        if (attributeFqn != "global::" + AttributeNames.CustomValidation)
+        {
+            return null;
+        }
+        if (
+            attr.ConstructorArguments.Length < 2
+            || attr.ConstructorArguments[0].Value is not INamedTypeSymbol validatorType
+            || validatorType.TypeKind == TypeKind.Error
+            || attr.ConstructorArguments[1].Value is not string methodName
+        )
+        {
+            return null;
+        }
+
+        foreach (var member in validatorType.GetMembers(methodName))
+        {
+            if (
+                member is not IMethodSymbol { IsStatic: true } method
+                || !compilation.IsSymbolAccessibleWithin(method, hostSymbol)
+                || method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                    != "global::" + AttributeNames.ValidationResult
+                || method.Parameters.Length is not (1 or 2)
+            )
+            {
+                continue;
+            }
+
+            // The member value must be assignable to the value parameter.
+            var valueParam = method.Parameters[0].Type;
+            if (
+                !SymbolEqualityComparer.Default.Equals(prop.Type, valueParam)
+                && !compilation.ClassifyCommonConversion(prop.Type, valueParam).IsImplicit
+            )
+            {
+                continue;
+            }
+
+            if (
+                method.Parameters.Length == 2
+                && method
+                    .Parameters[1]
+                    .Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                    != "global::" + AttributeNames.ValidationContext
+            )
+            {
+                continue;
+            }
+
+            return new CustomValidationCheck(
+                validatorType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+                methodName,
+                method.Parameters.Length == 2
+            );
+        }
+        return null;
     }
 
     private static CompareCheck? ClassifyCompare(

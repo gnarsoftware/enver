@@ -803,6 +803,12 @@ internal static class Emitter
             for (int vi = 0; vi < validators.Length; vi++)
             {
                 var v = validators[vi];
+                // CustomValidation calls a user method directly - no attribute is
+                // constructed, so it gets no static field.
+                if (v.Synthesis is CustomValidationCheck)
+                {
+                    continue;
+                }
                 var ctorArgs = string.Join(
                     ", ",
                     v.ConstructorArgumentExpressions.AsImmutableArray()
@@ -842,12 +848,14 @@ internal static class Emitter
         w.WriteLine("global::System.Collections.Generic.List<string>? __failures = null;");
 
         // A ValidationContext is only needed for the generic GetValidationResult
-        // path; a config validated purely by synthesized length checks needs none
-        // (and so stays free of the flagged ValidationContext ctor).
-        bool anyGeneric = membersWithValidators.Any(m =>
-            m.Validators.AsImmutableArray().Any(v => v.Synthesis is null)
+        // path and for a CustomValidation method that takes one; a config validated
+        // purely by other synthesized checks needs none (and so stays free of the
+        // flagged ValidationContext ctor).
+        bool needsContext = membersWithValidators.Any(m =>
+            m.Validators.AsImmutableArray()
+                .Any(v => v.Synthesis is null or CustomValidationCheck { PassesContext: true })
         );
-        if (anyGeneric)
+        if (needsContext)
         {
             w.WriteLine($"var __ctx = new {ctxType}(instance);");
         }
@@ -862,8 +870,10 @@ internal static class Emitter
                     quote: true
                 );
             var validators = m.Validators.AsImmutableArray();
-            bool memberHasGeneric = validators.Any(v => v.Synthesis is null);
-            if (memberHasGeneric)
+            bool memberUsesContext = validators.Any(v =>
+                v.Synthesis is null or CustomValidationCheck { PassesContext: true }
+            );
+            if (memberUsesContext)
             {
                 w.WriteLine($"__ctx.MemberName = \"{m.MemberName}\";");
                 w.WriteLine($"__ctx.DisplayName = {displayExpr};");
@@ -939,6 +949,9 @@ internal static class Emitter
             case CompareCheck compare:
                 EmitCompareCheck(w, memberName, compare, field, displayExpr);
                 break;
+            case CustomValidationCheck custom:
+                EmitCustomValidationCheck(w, memberName, custom, displayExpr);
+                break;
             default:
                 throw new InvalidOperationException(
                     $"Unhandled synthesis kind: {check.GetType().Name}"
@@ -997,6 +1010,31 @@ internal static class Emitter
         w.WriteLine("{");
         w.Indent++;
         w.WriteLine($"(__failures ??= new()).Add({field}.FormatErrorMessage({displayExpr}));");
+        w.Indent--;
+        w.WriteLine("}");
+    }
+
+    private static void EmitCustomValidationCheck(
+        IndentedTextWriter w,
+        string memberName,
+        CustomValidationCheck custom,
+        string displayExpr
+    )
+    {
+        // Reflection-free equivalent of CustomValidationAttribute: call the user's
+        // static validator directly. The returned ValidationResult carries the
+        // message (Success is null), so no attribute or FormatErrorMessage is used.
+        var contextArg = custom.PassesContext ? ", __ctx" : "";
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine(
+            $"var __r = {custom.ValidatorTypeFullyQualifiedName}.{custom.MethodName}"
+                + $"(instance.{memberName}{contextArg});"
+        );
+        w.WriteLine(
+            "if (__r is not null) (__failures ??= new()).Add(__r.ErrorMessage ?? "
+                + $"(\"Validation failed for '\" + {displayExpr} + \"'.\"));"
+        );
         w.Indent--;
         w.WriteLine("}");
     }

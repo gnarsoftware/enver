@@ -204,6 +204,40 @@ public partial class Config
     }
 
     [Test]
+    public void CustomValidationIsSynthesizedAsDirectCall()
+    {
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            using System.ComponentModel.DataAnnotations;
+
+            namespace Test;
+
+            public static class Validators
+            {
+                public static ValidationResult? CheckPort(int value)
+                    => value > 0 ? ValidationResult.Success : new ValidationResult("bad");
+            }
+
+            [Enver.Binding.EnvBindable]
+            public partial class Config
+            {
+                [CustomValidation(typeof(Validators), "CheckPort")]
+                public int Port { get; init; }
+            }
+            """
+        );
+
+        var src = result.SingleSource().Text;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(src, Does.Contain("global::Test.Validators.CheckPort(instance.Port)"));
+            Assert.That(src, Does.Not.Contain(".GetValidationResult("));
+            // 1-arg validator needs no ValidationContext.
+            Assert.That(src, Does.Not.Contain("ValidationContext"));
+        }
+    }
+
+    [Test]
     public void EmitsValidateForIValidatableObject()
     {
         var result = GeneratorTestHarness.RunExpectingSuccess(
