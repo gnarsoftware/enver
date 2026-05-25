@@ -544,7 +544,7 @@ internal static class SymbolAnalyzer
             CSharpInitializerExpression: initializer,
             HasRequiredKeyword: hasRequiredKw,
             IsInitOnly: prop.SetMethod?.IsInitOnly ?? false,
-            Validators: ReadValidators(prop),
+            Validators: ReadValidators(prop, hostSymbol, compilation),
             DisplayNameExpression: ReadDisplayNameExpression(prop, hostSymbol, compilation)
         );
     }
@@ -613,14 +613,24 @@ internal static class SymbolAnalyzer
         return $"{resourceType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}.{name}";
     }
 
-    private static EquatableArray<ValidationAttr> ReadValidators(IPropertySymbol prop)
+    private static EquatableArray<ValidationAttr> ReadValidators(
+        IPropertySymbol prop,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation
+    )
     {
         ImmutableArray<ValidationAttr>.Builder? builder = null;
         foreach (var attr in prop.GetAttributes())
         {
             if (
                 DerivesFromValidationAttribute(attr.AttributeClass)
-                && TryReconstructAttribute(attr, out var reconstructed)
+                && TryReconstructAttribute(
+                    attr,
+                    prop,
+                    hostSymbol,
+                    compilation,
+                    out var reconstructed
+                )
             )
             {
                 builder ??= ImmutableArray.CreateBuilder<ValidationAttr>();
@@ -645,7 +655,13 @@ internal static class SymbolAnalyzer
         return false;
     }
 
-    private static bool TryReconstructAttribute(AttributeData attr, out ValidationAttr result)
+    private static bool TryReconstructAttribute(
+        AttributeData attr,
+        IPropertySymbol prop,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation,
+        out ValidationAttr result
+    )
     {
         result = null!;
         if (attr.AttributeConstructor is not { } ctor)
@@ -681,12 +697,145 @@ internal static class SymbolAnalyzer
             named.Add(new ValidationNamedArg(na.Key, expr));
         }
 
+        var attributeFqn = attr.AttributeClass!.ToDisplayString(
+            SymbolDisplayFormat.FullyQualifiedFormat
+        );
+        var ctorArguments = new EquatableArray<string>(ctorArgs);
         result = new ValidationAttr(
-            attr.AttributeClass!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-            new(ctorArgs),
-            new(named)
+            attributeFqn,
+            ctorArguments,
+            new(named),
+            Synthesis: ClassifySynthesis(
+                attr,
+                attributeFqn,
+                ctorArguments,
+                prop,
+                hostSymbol,
+                compilation
+            )
         );
         return true;
+    }
+
+    private static SynthesizedCheck? ClassifySynthesis(
+        AttributeData attr,
+        string attributeFqn,
+        EquatableArray<string> ctorArgs,
+        IPropertySymbol prop,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation
+    )
+    {
+        return (SynthesizedCheck?)ClassifyLength(attributeFqn, ctorArgs, prop.Type)
+            ?? ClassifyCompare(attr, attributeFqn, prop, hostSymbol, compilation);
+    }
+
+    private static CompareCheck? ClassifyCompare(
+        AttributeData attr,
+        string attributeFqn,
+        IPropertySymbol prop,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation
+    )
+    {
+        if (attributeFqn != "global::" + AttributeNames.Compare)
+        {
+            return null;
+        }
+        if (
+            attr.ConstructorArguments.Length < 1
+            || attr.ConstructorArguments[0].Value is not string otherName
+        )
+        {
+            return null;
+        }
+
+        // The sibling must be an accessible instance property or field so
+        // `instance.Other` reads compile from the generated host.
+        var sibling = prop
+            .ContainingType.GetMembers(otherName)
+            .FirstOrDefault(m =>
+                m is (IPropertySymbol or IFieldSymbol) and { IsStatic: false }
+                && compilation.IsSymbolAccessibleWithin(m, hostSymbol)
+            );
+        if (sibling is null)
+        {
+            return null;
+        }
+
+        return new CompareCheck(otherName);
+    }
+
+    private static LengthCheck? ClassifyLength(
+        string fqn,
+        EquatableArray<string> ctorArgs,
+        ITypeSymbol memberType
+    )
+    {
+        string? min = null;
+        string? max = null;
+        if (fqn == "global::" + AttributeNames.MinLength && ctorArgs.Length >= 1)
+        {
+            min = ctorArgs[0];
+        }
+        else if (fqn == "global::" + AttributeNames.MaxLength && ctorArgs.Length >= 1)
+        {
+            max = ctorArgs[0];
+        }
+        else if (fqn == "global::" + AttributeNames.Length && ctorArgs.Length >= 2)
+        {
+            min = ctorArgs[0];
+            max = ctorArgs[1];
+        }
+        else
+        {
+            return null;
+        }
+
+        var lengthMember = ResolveLengthMember(memberType);
+        return lengthMember is null ? null : new LengthCheck(lengthMember, min, max);
+
+        static string? ResolveLengthMember(ITypeSymbol type)
+        {
+            var t = type.UnwrapNullable();
+            if (t.SpecialType == SpecialType.System_String || t is IArrayTypeSymbol)
+            {
+                return "Length";
+            }
+            // Use `.Count` only when it's publicly accessible via the member's
+            // static type - its own or inherited public Count, or a Count declared
+            // on an interface-typed member. A concrete type that satisfies a
+            // collection interface with an *explicit* implementation has no
+            // accessible `.Count`, so it falls through to the generic path rather
+            // than emitting `instance.Member.Count`, which wouldn't compile.
+            for (var current = t; current is not null; current = current.BaseType)
+            {
+                if (HasPublicInstanceIntCount(current))
+                {
+                    return "Count";
+                }
+            }
+            return null;
+        }
+
+        static bool HasPublicInstanceIntCount(ITypeSymbol type)
+        {
+            foreach (var member in type.GetMembers("Count"))
+            {
+                if (
+                    member is IPropertySymbol
+                    {
+                        IsStatic: false,
+                        DeclaredAccessibility: Accessibility.Public,
+                        Type.SpecialType: SpecialType.System_Int32
+                    }
+                )
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     private static string? FormatTypedConstant(TypedConstant c)

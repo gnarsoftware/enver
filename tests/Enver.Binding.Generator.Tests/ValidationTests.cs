@@ -8,17 +8,17 @@ public class ValidationTests
     {
         var result = GeneratorTestHarness.RunExpectingSuccess(
             """
-            using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
-            namespace Test;
+namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            public partial class Config
-            {
-                [Range(1, 100)]
-                public int Port { get; init; }
-            }
-            """
+[Enver.Binding.EnvBindable]
+public partial class Config
+{
+    [Range(1, 100)]
+    public int Port { get; init; }
+}
+"""
         );
 
         var src = result.SingleSource().Text;
@@ -36,17 +36,17 @@ public class ValidationTests
     {
         var result = GeneratorTestHarness.RunExpectingSuccess(
             """
-            using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
-            namespace Test;
+namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            public partial class Config
-            {
-                [StringLength(256, MinimumLength = 4, ErrorMessage = "bad length")]
-                public string Name { get; init; } = "";
-            }
-            """
+[Enver.Binding.EnvBindable]
+public partial class Config
+{
+    [StringLength(256, MinimumLength = 4, ErrorMessage = "bad length")]
+    public string Name { get; init; } = "";
+}
+"""
         );
 
         var src = result.SingleSource().Text;
@@ -63,17 +63,17 @@ public class ValidationTests
     {
         var result = GeneratorTestHarness.RunExpectingSuccess(
             """
-            using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
-            namespace Test;
+namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            public partial class Config
-            {
-                [Range(1, 100)]
-                public int Port { get; init; }
-            }
-            """
+[Enver.Binding.EnvBindable]
+public partial class Config
+{
+    [Range(1, 100)]
+    public int Port { get; init; }
+}
+"""
         );
 
         var src = result.SingleSource().Text;
@@ -89,18 +89,18 @@ public class ValidationTests
     {
         var result = GeneratorTestHarness.RunExpectingSuccess(
             """
-            using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
-            namespace Test;
+namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            public partial class Config
-            {
-                [Display(Name = "Server port")]
-                [Range(1, 100)]
-                public int Port { get; init; }
-            }
-            """
+[Enver.Binding.EnvBindable]
+public partial class Config
+{
+    [Display(Name = "Server port")]
+    [Range(1, 100)]
+    public int Port { get; init; }
+}
+"""
         );
 
         Assert.That(
@@ -114,23 +114,23 @@ public class ValidationTests
     {
         var result = GeneratorTestHarness.RunExpectingSuccess(
             """
-            using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
-            namespace Test;
+namespace Test;
 
-            public static class Res
-            {
-                public static string Port_Name => "Localized port";
-            }
+public static class Res
+{
+    public static string Port_Name => "Localized port";
+}
 
-            [Enver.Binding.EnvBindable]
-            public partial class Config
-            {
-                [Display(Name = "Port_Name", ResourceType = typeof(Res))]
-                [Range(1, 100)]
-                public int Port { get; init; }
-            }
-            """
+[Enver.Binding.EnvBindable]
+public partial class Config
+{
+    [Display(Name = "Port_Name", ResourceType = typeof(Res))]
+    [Range(1, 100)]
+    public int Port { get; init; }
+}
+"""
         );
 
         Assert.That(
@@ -140,27 +140,91 @@ public class ValidationTests
     }
 
     [Test]
+    public void LengthAttributeIsSynthesizedReflectionFree()
+    {
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+using System.ComponentModel.DataAnnotations;
+
+namespace Test;
+
+[Enver.Binding.EnvBindable]
+public partial class Config
+{
+    [MinLength(3)]
+    public string Name { get; init; } = "";
+}
+"""
+        );
+
+        var src = result.SingleSource().Text;
+        using (Assert.EnterMultipleScope())
+        {
+            // Inline length check + message via FormatErrorMessage, not GetValidationResult.
+            Assert.That(src, Does.Contain(".Length"));
+            Assert.That(src, Does.Contain(".FormatErrorMessage("));
+            Assert.That(src, Does.Contain("#pragma warning disable IL2026"));
+            Assert.That(src, Does.Not.Contain("GetValidationResult"));
+            // A length-only config needs no ValidationContext (the flagged ctor).
+            Assert.That(src, Does.Not.Contain("ValidationContext"));
+        }
+    }
+
+    [Test]
+    public void CompareIsSynthesizedReflectionFree()
+    {
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+using System.ComponentModel.DataAnnotations;
+
+namespace Test;
+
+[Enver.Binding.EnvBindable]
+public partial class Config
+{
+    public string Password { get; init; } = "";
+
+    [Compare("Password")]
+    public string Confirm { get; init; } = "";
+}
+"""
+        );
+
+        var src = result.SingleSource().Text;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                src,
+                Does.Contain("global::System.Object.Equals(instance.Confirm, instance.Password)")
+            );
+            Assert.That(src, Does.Contain(".FormatErrorMessage("));
+            // Synthesized, so it must not go through the reflective path.
+            Assert.That(src, Does.Not.Contain(".GetValidationResult("));
+        }
+    }
+
+    [Test]
     public void EmitsValidateForIValidatableObject()
     {
         var result = GeneratorTestHarness.RunExpectingSuccess(
             """
-            using System.Collections.Generic;
-            using System.ComponentModel.DataAnnotations;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
-            namespace Test;
+namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            public partial class Config : IValidatableObject
-            {
-                public int Port { get; init; }
+[Enver.Binding.EnvBindable]
+public partial class Config : IValidatableObject
+{
+    public int Port { get; init; }
 
-                public IEnumerable<ValidationResult> Validate(ValidationContext context)
-                {
-                    if (Port == 0)
-                        yield return new ValidationResult("Port must be set");
-                }
-            }
-            """
+    public IEnumerable<ValidationResult> Validate(ValidationContext context)
+    {
+        if (Port == 0)
+            yield return new ValidationResult("Port must be set");
+    }
+}
+"""
         );
 
         var src = result.SingleSource().Text;
@@ -181,15 +245,15 @@ public class ValidationTests
     {
         var result = GeneratorTestHarness.RunExpectingSuccess(
             """
-            namespace Test;
+namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            public partial class Config
-            {
-                public int Port { get; init; }
-                public string Host { get; init; } = "";
-            }
-            """
+[Enver.Binding.EnvBindable]
+public partial class Config
+{
+    public int Port { get; init; }
+    public string Host { get; init; } = "";
+}
+"""
         );
 
         Assert.That(result.SingleSource().Text, Does.Not.Contain("__Validate"));
@@ -200,27 +264,27 @@ public class ValidationTests
     {
         var result = GeneratorTestHarness.RunExpectingSuccess(
             """
-            using System;
-            using System.ComponentModel.DataAnnotations;
+using System;
+using System.ComponentModel.DataAnnotations;
 
-            namespace Test;
+namespace Test;
 
-            [AttributeUsage(AttributeTargets.Property)]
-            public sealed class UppercaseAttribute : ValidationAttribute
-            {
-                protected override ValidationResult? IsValid(object? value, ValidationContext ctx)
-                    => value is string s && s == s.ToUpperInvariant()
-                        ? ValidationResult.Success
-                        : new ValidationResult("must be uppercase");
-            }
+[AttributeUsage(AttributeTargets.Property)]
+public sealed class UppercaseAttribute : ValidationAttribute
+{
+    protected override ValidationResult? IsValid(object? value, ValidationContext ctx)
+        => value is string s && s == s.ToUpperInvariant()
+            ? ValidationResult.Success
+            : new ValidationResult("must be uppercase");
+}
 
-            [Enver.Binding.EnvBindable]
-            public partial class Config
-            {
-                [Uppercase]
-                public string Region { get; init; } = "";
-            }
-            """
+[Enver.Binding.EnvBindable]
+public partial class Config
+{
+    [Uppercase]
+    public string Region { get; init; } = "";
+}
+"""
         );
 
         var src = result.SingleSource().Text;

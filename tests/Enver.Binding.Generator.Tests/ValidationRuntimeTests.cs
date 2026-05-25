@@ -209,6 +209,140 @@ internal sealed class MapReader(Dictionary<string, string?> map) : IEnvReader
     }
 
     [Test]
+    public void MinLengthFailsWhenTooShort()
+    {
+        Assert.Throws<EnvValidationException>(() =>
+            Exec(
+                """
+                [EnvBindable]
+                public partial class Config
+                {
+                    [MinLength(3)]
+                    public string Name { get; init; } = "";
+                }
+                """,
+                ("NAME", "ab")
+            )
+        );
+    }
+
+    [Test]
+    public void MinLengthPassesWhenLongEnough()
+    {
+        var result = Exec(
+            """
+            [EnvBindable]
+            public partial class Config
+            {
+                [MinLength(3)]
+                public string Name { get; init; } = "";
+            }
+            """,
+            ("NAME", "abcd")
+        );
+
+        Assert.That(result, Is.Not.Null);
+    }
+
+    [Test]
+    public void MaxLengthFailsWhenTooLong()
+    {
+        Assert.Throws<EnvValidationException>(() =>
+            Exec(
+                """
+                [EnvBindable]
+                public partial class Config
+                {
+                    [MaxLength(3)]
+                    public string Name { get; init; } = "";
+                }
+                """,
+                ("NAME", "abcd")
+            )
+        );
+    }
+
+    [Test]
+    public void LengthFailsOutsideRange()
+    {
+        Assert.Throws<EnvValidationException>(() =>
+            Exec(
+                """
+                [EnvBindable]
+                public partial class Config
+                {
+                    [Length(2, 5)]
+                    public string Name { get; init; } = "";
+                }
+                """,
+                ("NAME", "a")
+            )
+        );
+    }
+
+    [Test]
+    public void NullValueSkipsLengthCheck()
+    {
+        // A null member is valid for length attributes; the synthesized check
+        // guards against null just like the real attribute does.
+        var result = Exec(
+            """
+            [EnvBindable]
+            public partial class Config
+            {
+                [MinLength(3)]
+                public string? Name { get; init; }
+            }
+            """
+        // NAME absent -> Name is null -> skipped
+        );
+
+        Assert.That(result, Is.Not.Null);
+    }
+
+    [Test]
+    public void CompareEqualPasses()
+    {
+        var result = Exec(
+            """
+            [EnvBindable]
+            public partial class Config
+            {
+                public string Password { get; init; } = "";
+
+                [Compare("Password")]
+                public string Confirm { get; init; } = "";
+            }
+            """,
+            ("PASSWORD", "secret"),
+            ("CONFIRM", "secret")
+        );
+
+        Assert.That(result, Is.Not.Null);
+    }
+
+    [Test]
+    public void CompareMismatchThrows()
+    {
+        Assert.Throws<EnvValidationException>(() =>
+            Exec(
+                """
+                [EnvBindable]
+                public partial class Config
+                {
+                    public string Password { get; init; } = "";
+
+                    [Compare("Password")]
+                    public string Confirm { get; init; } = "";
+                }
+                """,
+                ("PASSWORD", "secret"),
+                ("CONFIRM", "nope")
+            )
+        );
+    }
+
+    [Test]
     public void NestedSubsectionValidationThrows()
     {
         Assert.Throws<EnvValidationException>(() =>

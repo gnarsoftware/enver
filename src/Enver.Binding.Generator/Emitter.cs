@@ -816,10 +816,20 @@ internal static class Emitter
                             + " }";
                 var field = $"__validator{fieldCounter++}";
                 fieldNames[mi][vi] = field;
-                w.WriteLine(
+                var decl =
                     $"private static readonly {v.AttributeTypeFullyQualifiedName} {field} = "
-                        + $"new {v.AttributeTypeFullyQualifiedName}({ctorArgs}){initializer};"
-                );
+                    + $"new {v.AttributeTypeFullyQualifiedName}({ctorArgs}){initializer};";
+                if (v.Synthesis is not null)
+                {
+                    // attributes are only used for FormatErrorMessage - safe to use
+                    w.WriteLine("#pragma warning disable IL2026");
+                    w.WriteLine(decl);
+                    w.WriteLine("#pragma warning restore IL2026");
+                }
+                else
+                {
+                    w.WriteLine(decl);
+                }
             }
         }
 
@@ -831,27 +841,47 @@ internal static class Emitter
         w.Indent++;
         w.WriteLine("global::System.Collections.Generic.List<string>? __failures = null;");
 
-        if (membersWithValidators.Length > 0)
+        // A ValidationContext is only needed for the generic GetValidationResult
+        // path; a config validated purely by synthesized length checks needs none
+        // (and so stays free of the flagged ValidationContext ctor).
+        bool anyGeneric = membersWithValidators.Any(m =>
+            m.Validators.AsImmutableArray().Any(v => v.Synthesis is null)
+        );
+        if (anyGeneric)
         {
             w.WriteLine($"var __ctx = new {ctxType}(instance);");
-            for (int mi = 0; mi < membersWithValidators.Length; mi++)
+        }
+
+        for (int mi = 0; mi < membersWithValidators.Length; mi++)
+        {
+            var m = membersWithValidators[mi];
+            var displayExpr =
+                m.DisplayNameExpression
+                ?? Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(
+                    m.MemberName,
+                    quote: true
+                );
+            var validators = m.Validators.AsImmutableArray();
+            bool memberHasGeneric = validators.Any(v => v.Synthesis is null);
+            if (memberHasGeneric)
             {
-                var m = membersWithValidators[mi];
-                var displayExpr =
-                    m.DisplayNameExpression
-                    ?? Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(
-                        m.MemberName,
-                        quote: true
-                    );
                 w.WriteLine($"__ctx.MemberName = \"{m.MemberName}\";");
                 w.WriteLine($"__ctx.DisplayName = {displayExpr};");
-                var validators = m.Validators.AsImmutableArray();
-                for (int vi = 0; vi < validators.Length; vi++)
+            }
+            for (int vi = 0; vi < validators.Length; vi++)
+            {
+                var v = validators[vi];
+                var field = fieldNames[mi][vi];
+                if (v.Synthesis is { } synth)
+                {
+                    EmitSynthesizedCheck(w, synth, m.MemberName, field, displayExpr);
+                }
+                else
                 {
                     w.WriteLine("{");
                     w.Indent++;
                     w.WriteLine(
-                        $"var __r = {fieldNames[mi][vi]}.GetValidationResult(instance.{m.MemberName}, __ctx);"
+                        $"var __r = {field}.GetValidationResult(instance.{m.MemberName}, __ctx);"
                     );
                     // Fall back to a message built from the (already-set) display
                     // name when the attribute supplies none.
@@ -889,6 +919,84 @@ internal static class Emitter
         w.Indent--;
         w.WriteLine("}");
         w.WriteLine("return instance;");
+        w.Indent--;
+        w.WriteLine("}");
+    }
+
+    private static void EmitSynthesizedCheck(
+        IndentedTextWriter w,
+        SynthesizedCheck check,
+        string memberName,
+        string field,
+        string displayExpr
+    )
+    {
+        switch (check)
+        {
+            case LengthCheck length:
+                EmitLengthCheck(w, memberName, length, field, displayExpr);
+                break;
+            case CompareCheck compare:
+                EmitCompareCheck(w, memberName, compare, field, displayExpr);
+                break;
+            default:
+                throw new InvalidOperationException(
+                    $"Unhandled synthesis kind: {check.GetType().Name}"
+                );
+        }
+    }
+
+    private static void EmitLengthCheck(
+        IndentedTextWriter w,
+        string memberName,
+        LengthCheck ls,
+        string field,
+        string displayExpr
+    )
+    {
+        var conditions = new List<string>(2);
+        if (ls.MinBoundExpression is not null)
+        {
+            conditions.Add($"__len < {ls.MinBoundExpression}");
+        }
+        if (ls.MaxBoundExpression is not null)
+        {
+            conditions.Add($"__len > {ls.MaxBoundExpression}");
+        }
+
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine($"var __v = instance.{memberName};");
+        w.WriteLine("if (__v is not null)");
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine($"var __len = __v.{ls.LengthMember};");
+        w.WriteLine($"if ({string.Join(" || ", conditions)})");
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine($"(__failures ??= new()).Add({field}.FormatErrorMessage({displayExpr}));");
+        w.Indent--;
+        w.WriteLine("}");
+        w.Indent--;
+        w.WriteLine("}");
+        w.Indent--;
+        w.WriteLine("}");
+    }
+
+    private static void EmitCompareCheck(
+        IndentedTextWriter w,
+        string memberName,
+        CompareCheck compare,
+        string field,
+        string displayExpr
+    )
+    {
+        w.WriteLine(
+            $"if (!global::System.Object.Equals(instance.{memberName}, instance.{compare.OtherMember}))"
+        );
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine($"(__failures ??= new()).Add({field}.FormatErrorMessage({displayExpr}));");
         w.Indent--;
         w.WriteLine("}");
     }

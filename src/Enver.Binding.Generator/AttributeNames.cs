@@ -16,4 +16,8 @@ internal static class AttributeNames
     public const string IValidatableObject =
         "System.ComponentModel.DataAnnotations.IValidatableObject";
     public const string Display = "System.ComponentModel.DataAnnotations.DisplayAttribute";
+    public const string MinLength = "System.ComponentModel.DataAnnotations.MinLengthAttribute";
+    public const string MaxLength = "System.ComponentModel.DataAnnotations.MaxLengthAttribute";
+    public const string Length = "System.ComponentModel.DataAnnotations.LengthAttribute";
+    public const string Compare = "System.ComponentModel.DataAnnotations.CompareAttribute";
 }
