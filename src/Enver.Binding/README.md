@@ -277,6 +277,38 @@ public sealed class UppercaseAttribute : ValidationAttribute
 }
 ```
 
+> [!NOTE]
+> **The typed `[Range(Type, string, string)]` form is not supported.** It parses its
+> bounds reflectively at runtime, which Enver's reflection-free model can't honor. The
+> generator reports **ENVR0020**. Use the numeric `[Range(min, max)]` overload, a
+> `[CustomValidation]` method, or `IValidatableObject` instead.
+
+### Trimming and AOT
+
+The generator never calls `Validator.ValidateObject`. It discovers your attributes
+at compile time and either **invokes them directly** or **synthesizes an equivalent
+inline check**, so validation is fully reflection-free.
+
+However, a handful of built-in attributes carry `[RequiresUnreferencedCode]` on their
+constructor (`[MinLength]`, `[MaxLength]`, `[Length]`, `[Compare]`). Because of this,
+you'll see an **IL2026** warning at the attribute in your own source, even though
+Enver's generated check for it is reflection-free:
+
+```csharp
+[MinLength(3)] // warning IL2026 here, at the attribute
+public string Name { get; init; } = "";
+```
+
+The warning isn't wrong in the general case, but it is safe to suppress if you only
+use the generated bindings to validate your class:
+
+```csharp
+[UnconditionalSuppressMessage("Trimming", "IL2026",
+    Justification = "Validated only via Enver's reflection-free generated binder.")]
+[MinLength(3)]
+public string Name { get; init; } = "";
+```
+
 ## External host: `[EnvBindable<T>]`
 
 Generate binders on a separate `partial` class:
