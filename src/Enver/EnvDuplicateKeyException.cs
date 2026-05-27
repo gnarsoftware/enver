@@ -23,11 +23,8 @@ public sealed class EnvDuplicateKeyException : EnvVariableException
     public EnvDuplicateKeyException(string variable, string message, Exception? inner)
         : base(variable, message, inner) { }
 
-    /// <summary>
-    /// Throws <see cref="EnvDuplicateKeyException"/>.
-    /// </summary>
     [DoesNotReturn]
-    public static void Throw(string variable)
+    internal static void Throw(string variable)
     {
         throw new EnvDuplicateKeyException(
             variable,

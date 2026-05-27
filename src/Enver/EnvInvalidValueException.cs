@@ -22,11 +22,8 @@ public sealed class EnvInvalidValueException : EnvVariableException
     public EnvInvalidValueException(string variable, string message, Exception? inner)
         : base(variable, message, inner) { }
 
-    /// <summary>
-    /// Throws <see cref="EnvInvalidValueException"/>.
-    /// </summary>
     [DoesNotReturn]
-    public static void Throw(string variable)
+    internal static void Throw(string variable)
     {
         throw new EnvInvalidValueException(
             variable,
