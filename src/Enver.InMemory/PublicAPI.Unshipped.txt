@@ -1,0 +1,14 @@
+#nullable enable
+Enver.EnvCollection
+Enver.EnvCollection.EnvCollection() -> void
+Enver.EnvDictionaryParser
+Enver.EnvDictionaryParser.EnvDictionaryParser(Enver.EnvCollection! target) -> void
+override Enver.EnvDictionaryParser.SeedScope(Enver.Parsing.EnvParseView scope) -> void
+static Enver.EnvCollection.FromAppDirectory(string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> Enver.EnvCollection!
+static Enver.EnvCollection.FromAppDirectoryAsync(string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Enver.EnvCollection!>!
+static Enver.EnvCollection.FromDirectory(string! directory, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> Enver.EnvCollection!
+static Enver.EnvCollection.FromDirectoryAsync(string! directory, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Enver.EnvCollection!>!
+static Enver.EnvCollection.FromFile(string! path, bool throwIfMissing = true, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> Enver.EnvCollection!
+static Enver.EnvCollection.FromFileAsync(string! path, bool throwIfMissing = true, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Enver.EnvCollection!>!
+static Enver.EnvCollection.FromWorkingDirectory(string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> Enver.EnvCollection!
+static Enver.EnvCollection.FromWorkingDirectoryAsync(string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Enver.EnvCollection!>!

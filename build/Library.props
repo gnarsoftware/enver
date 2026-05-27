@@ -37,12 +37,12 @@
     </PackageReference>
   </ItemGroup>
 
-  <!-- TODO: post first release -->
-  <!-- <ItemGroup>
+  <!-- Public API surface tracking -->
+  <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <AdditionalFiles Include="PublicAPI.Shipped.txt" />
     <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
-  </ItemGroup> -->
+  </ItemGroup>
 </Project>

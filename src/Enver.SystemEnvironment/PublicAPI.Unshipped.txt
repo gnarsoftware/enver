@@ -1,0 +1,17 @@
+#nullable enable
+Enver.EnvironmentExtensions
+Enver.EnvironmentExtensions.extension(System.Environment!)
+Enver.SystemEnvParser
+Enver.SystemEnvParser.SystemEnvParser(bool overrideExisting = false) -> void
+Enver.SystemEnvReader
+Enver.SystemEnvReader.SystemEnvReader() -> void
+Enver.SystemEnvReader.TryGetValue(string! key, out string? value) -> bool
+static Enver.EnvironmentExtensions.extension(System.Environment!).LoadDotEnv(string! path, bool throwIfMissing = true, bool overrideExisting = false) -> void
+static Enver.EnvironmentExtensions.extension(System.Environment!).LoadDotEnvAsync(string! path, bool throwIfMissing = true, bool overrideExisting = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Enver.EnvironmentExtensions.extension(System.Environment!).LoadDotEnvFromAppDirectory(string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, bool overrideExisting = false) -> void
+static Enver.EnvironmentExtensions.extension(System.Environment!).LoadDotEnvFromAppDirectoryAsync(string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, bool overrideExisting = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Enver.EnvironmentExtensions.extension(System.Environment!).LoadDotEnvFromDirectory(string! directory, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, bool overrideExisting = false) -> void
+static Enver.EnvironmentExtensions.extension(System.Environment!).LoadDotEnvFromDirectoryAsync(string! directory, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, bool overrideExisting = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Enver.EnvironmentExtensions.extension(System.Environment!).LoadDotEnvFromWorkingDirectory(string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, bool overrideExisting = false) -> void
+static Enver.EnvironmentExtensions.extension(System.Environment!).LoadDotEnvFromWorkingDirectoryAsync(string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, bool overrideExisting = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Enver.EnvironmentExtensions.extension(System.Environment!).Variables.get -> Enver.SystemEnvReader
