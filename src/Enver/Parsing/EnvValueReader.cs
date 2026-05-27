@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Text;
 
 namespace Enver.Parsing;
@@ -5,6 +6,12 @@ namespace Enver.Parsing;
 /// <summary>
 /// A view onto a single env value.
 /// </summary>
+/// <remarks>
+/// Surfaced through <see cref="EnvParser.OnNext"/> for custom parser authors and
+/// consumed by generator-emitted code; hidden from completion lists as it is not a
+/// general-purpose type.
+/// </remarks>
+[EditorBrowsable(EditorBrowsableState.Never)]
 public ref struct EnvValueReader
 {
     private string? _materialized;
