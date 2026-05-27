@@ -6,6 +6,9 @@ internal static class DiagnosticDescriptors
 {
     private const string Category = "EnverBinding";
 
+    // ENVR0005, ENVR0009, and ENVR0017 are intentionally reserved. Do not
+    // reuse these IDs for new rules.
+
     public static readonly DiagnosticDescriptor NotPartial = new(
         id: "ENVR0001",
         title: "Type must be partial",
