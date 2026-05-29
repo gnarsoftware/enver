@@ -7,6 +7,10 @@ namespace Enver.Parsing;
 /// <summary>
 /// Base class for env-parser implementations.
 /// </summary>
+/// <remarks>
+/// Instances are not thread-safe. Use a separate <see cref="EnvParser"/> per thread or
+/// synchronize externally.
+/// </remarks>
 public abstract class EnvParser
 {
     private bool _allowMissingInterpolation;
