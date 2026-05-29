@@ -19,17 +19,12 @@ public static class EnvFileLoader
     {
         ArgumentNullException.ThrowIfNull(parser);
         ArgumentNullException.ThrowIfNull(path);
-        if (!File.Exists(path))
-        {
-            if (throwIfMissing)
-            {
-                throw new FileNotFoundException($"Env file not found: {path}", path);
-            }
-            return;
-        }
         using var scope = new EnvParseScope();
         parser.SeedScope(scope.Borrow());
-        EnvFileReader.Read(path, parser, parseOptions, scope);
+        if (!TryRead(path, parser, parseOptions, scope) && throwIfMissing)
+        {
+            throw new FileNotFoundException($"Env file not found: {path}", path);
+        }
     }
 
     /// <inheritdoc cref="LoadFile(EnvParser, string, bool, EnvParseOptions)"/>
@@ -43,17 +38,13 @@ public static class EnvFileLoader
     {
         ArgumentNullException.ThrowIfNull(parser);
         ArgumentNullException.ThrowIfNull(path);
-        if (!File.Exists(path))
-        {
-            if (throwIfMissing)
-            {
-                throw new FileNotFoundException($"Env file not found: {path}", path);
-            }
-            return;
-        }
         using var scope = new EnvParseScope();
         parser.SeedScope(scope.Borrow());
-        await EnvFileReader.ReadAsync(path, parser, parseOptions, scope, cancellationToken);
+        var loaded = await TryReadAsync(path, parser, parseOptions, scope, cancellationToken);
+        if (!loaded && throwIfMissing)
+        {
+            throw new FileNotFoundException($"Env file not found: {path}", path);
+        }
     }
 
     /// <summary>
@@ -158,6 +149,7 @@ public static class EnvFileLoader
     {
         ArgumentNullException.ThrowIfNull(parser);
         ArgumentNullException.ThrowIfNull(directory);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxAncestors);
 
         using var scope = new EnvParseScope();
         parser.SeedScope(scope.Borrow());
@@ -165,21 +157,14 @@ public static class EnvFileLoader
         foreach (var dir in CollectDirectories(directory, maxAncestors))
         {
             var basePath = Path.Combine(dir, fileName);
-            if (File.Exists(basePath))
+            if (TryRead(basePath, parser, parseOptions, scope) && PathsEqual(dir, directory))
             {
-                EnvFileReader.Read(basePath, parser, parseOptions, scope);
-                if (PathsEqual(dir, directory))
-                {
-                    primaryFound = true;
-                }
+                primaryFound = true;
             }
             if (variant is not null)
             {
                 var variantPath = Path.Combine(dir, $"{fileName}.{variant}");
-                if (File.Exists(variantPath))
-                {
-                    EnvFileReader.Read(variantPath, parser, parseOptions, scope);
-                }
+                TryRead(variantPath, parser, parseOptions, scope);
             }
         }
 
@@ -204,6 +189,7 @@ public static class EnvFileLoader
     {
         ArgumentNullException.ThrowIfNull(parser);
         ArgumentNullException.ThrowIfNull(directory);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxAncestors);
 
         using var scope = new EnvParseScope();
         parser.SeedScope(scope.Borrow());
@@ -211,33 +197,21 @@ public static class EnvFileLoader
         foreach (var dir in CollectDirectories(directory, maxAncestors))
         {
             var basePath = Path.Combine(dir, fileName);
-            if (File.Exists(basePath))
+            var baseLoaded = await TryReadAsync(
+                basePath,
+                parser,
+                parseOptions,
+                scope,
+                cancellationToken
+            );
+            if (baseLoaded && PathsEqual(dir, directory))
             {
-                await EnvFileReader.ReadAsync(
-                    basePath,
-                    parser,
-                    parseOptions,
-                    scope,
-                    cancellationToken
-                );
-                if (PathsEqual(dir, directory))
-                {
-                    primaryFound = true;
-                }
+                primaryFound = true;
             }
             if (variant is not null)
             {
                 var variantPath = Path.Combine(dir, $"{fileName}.{variant}");
-                if (File.Exists(variantPath))
-                {
-                    await EnvFileReader.ReadAsync(
-                        variantPath,
-                        parser,
-                        parseOptions,
-                        scope,
-                        cancellationToken
-                    );
-                }
+                await TryReadAsync(variantPath, parser, parseOptions, scope, cancellationToken);
             }
         }
 
@@ -245,6 +219,51 @@ public static class EnvFileLoader
         {
             var expected = Path.Combine(directory, fileName);
             throw new FileNotFoundException($"Env file not found: {expected}", expected);
+        }
+    }
+
+    private static bool TryRead(
+        string path,
+        EnvParser parser,
+        EnvParseOptions options,
+        EnvParseScope scope
+    )
+    {
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+        try
+        {
+            EnvFileReader.Read(path, parser, options, scope);
+            return true;
+        }
+        catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return false;
+        }
+    }
+
+    private static async Task<bool> TryReadAsync(
+        string path,
+        EnvParser parser,
+        EnvParseOptions options,
+        EnvParseScope scope,
+        CancellationToken cancellationToken
+    )
+    {
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+        try
+        {
+            await EnvFileReader.ReadAsync(path, parser, options, scope, cancellationToken);
+            return true;
+        }
+        catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return false;
         }
     }
 

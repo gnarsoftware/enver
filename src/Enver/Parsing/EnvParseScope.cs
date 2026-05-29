@@ -39,8 +39,7 @@ public sealed class EnvParseScope : IDisposable
         for (int i = _segmentStart; i < _entries.Count; i++)
         {
             var e = _entries[i];
-            // TODO: needs to compare with OS key equality rule
-            if (key.SequenceEqual(_arena.AsSpan(e.KeyOffset, e.KeyLength)))
+            if (KeyEquality.Equal(key, _arena.AsSpan(e.KeyOffset, e.KeyLength)))
             {
                 if (!_segmentAllowsDuplicates)
                 {
@@ -67,7 +66,7 @@ public sealed class EnvParseScope : IDisposable
         for (int i = _entries.Count - 1; i >= 0; i--)
         {
             var e = _entries[i];
-            if (key.SequenceEqual(_arena.AsSpan(e.KeyOffset, e.KeyLength)))
+            if (KeyEquality.Equal(key, _arena.AsSpan(e.KeyOffset, e.KeyLength)))
             {
                 value = _arena.AsSpan(e.ValueOffset, e.ValueLength);
                 return true;

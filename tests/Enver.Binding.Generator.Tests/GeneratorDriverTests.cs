@@ -1059,4 +1059,79 @@ public class GeneratorDriverTests
             Assert.That(src, Does.Contain("if (_set_Count) instance.Count ="));
         }
     }
+
+    [Test]
+    public void DuplicateResolvedKeyIsDiagnosed()
+    {
+        var result = GeneratorTestHarness.Run(
+            """
+            namespace Test;
+
+            [Enver.Binding.EnvBindable]
+            public partial class Config
+            {
+                public string Foo { get; init; } = "";
+
+                [Enver.Binding.EnvKey("FOO")]
+                public string Bar { get; init; } = "";
+            }
+            """
+        );
+
+        Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Contain("ENVR0021"));
+    }
+
+    [Test]
+    public void StaticTargetIsDiagnosed()
+    {
+        var result = GeneratorTestHarness.Run(
+            """
+            namespace Test;
+
+            [Enver.Binding.EnvBindable]
+            public static partial class Config { }
+            """
+        );
+
+        Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Contain("ENVR0022"));
+    }
+
+    [Test]
+    public void OpenGenericTargetIsDiagnosed()
+    {
+        var result = GeneratorTestHarness.Run(
+            """
+            namespace Test;
+
+            [Enver.Binding.EnvBindable]
+            public partial class Config<T>
+            {
+                public int Port { get; init; }
+            }
+            """
+        );
+
+        Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Contain("ENVR0023"));
+    }
+
+    [Test]
+    public void NonPartialEnclosingTypeIsDiagnosed()
+    {
+        var result = GeneratorTestHarness.Run(
+            """
+            namespace Test;
+
+            public class Outer
+            {
+                [Enver.Binding.EnvBindable]
+                public partial class Config
+                {
+                    public int Port { get; init; }
+                }
+            }
+            """
+        );
+
+        Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Contain("ENVR0024"));
+    }
 }

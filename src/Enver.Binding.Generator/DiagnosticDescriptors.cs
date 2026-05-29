@@ -161,4 +161,40 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
     );
+
+    public static readonly DiagnosticDescriptor DuplicateResolvedKey = new(
+        id: "ENVR0021",
+        title: "Members resolve to the same environment variable key",
+        messageFormat: "Member '{0}' resolves to env-var key '{1}', which is already used by member '{2}'",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    public static readonly DiagnosticDescriptor TargetTypeStatic = new(
+        id: "ENVR0022",
+        title: "Target type cannot be static",
+        messageFormat: "Type '{0}' is annotated with [EnvBindable] but is static; the binder must be able to construct instances",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    public static readonly DiagnosticDescriptor TargetTypeOpenGeneric = new(
+        id: "ENVR0023",
+        title: "Target type cannot be an open generic type",
+        messageFormat: "Type '{0}' is annotated with [EnvBindable] but is an open generic type; bind to a concrete construction instead",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    public static readonly DiagnosticDescriptor EnclosingTypeNotPartial = new(
+        id: "ENVR0024",
+        title: "Enclosing type must be declared partial",
+        messageFormat: "Type '{0}' is annotated with [EnvBindable] but its enclosing type '{1}' is not declared partial; declare every type in the containment chain partial so the generated declaration can merge",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
 }

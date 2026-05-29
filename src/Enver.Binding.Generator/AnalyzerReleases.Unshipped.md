@@ -21,3 +21,7 @@ ENVR0016 | EnverBinding | Warning | [EnvKey] on getter-only property has no effe
 ENVR0018 | EnverBinding | Warning | Member skipped in generated Populate
 ENVR0019 | EnverBinding | Error | No mutable members for Populate
 ENVR0020 | EnverBinding | Error | [Range(Type, ...)] is not supported by reflection-free validation
+ENVR0021 | EnverBinding | Error | Members resolve to the same environment variable key
+ENVR0022 | EnverBinding | Error | Target type cannot be static
+ENVR0023 | EnverBinding | Error | Target type cannot be an open generic type
+ENVR0024 | EnverBinding | Error | Enclosing type must be declared partial
