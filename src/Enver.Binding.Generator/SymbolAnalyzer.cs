@@ -73,6 +73,55 @@ internal static class SymbolAnalyzer
             return new Result(null, new(diags));
         }
 
+        // Checks that every enclosing type is also partial
+        for (
+            var enclosing = hostSymbol.ContainingType;
+            enclosing is not null;
+            enclosing = enclosing.ContainingType
+        )
+        {
+            if (!IsDeclaredPartial(enclosing))
+            {
+                diags.Add(
+                    new DiagnosticInfo(
+                        DiagnosticDescriptors.EnclosingTypeNotPartial,
+                        hostSymbol.Locations.FirstOrDefault(),
+                        new(ImmutableArray.Create(hostSymbol.Name, enclosing.Name))
+                    )
+                );
+                return new Result(null, new(diags));
+            }
+        }
+
+        // Cheks that the target is not static
+        if (targetSymbol.IsStatic)
+        {
+            diags.Add(
+                new DiagnosticInfo(
+                    DiagnosticDescriptors.TargetTypeStatic,
+                    hostSymbol.Locations.FirstOrDefault(),
+                    new(ImmutableArray.Create(targetSymbol.Name))
+                )
+            );
+            return new Result(null, new(diags));
+        }
+
+        // Checks that the target is not an open generic
+        if (
+            targetSymbol.IsGenericType
+            && SymbolEqualityComparer.Default.Equals(targetSymbol.OriginalDefinition, targetSymbol)
+        )
+        {
+            diags.Add(
+                new DiagnosticInfo(
+                    DiagnosticDescriptors.TargetTypeOpenGeneric,
+                    hostSymbol.Locations.FirstOrDefault(),
+                    new(ImmutableArray.Create(targetSymbol.Name))
+                )
+            );
+            return new Result(null, new(diags));
+        }
+
         var rootConfigAttr = FindAttribute(targetSymbol, AttributeNames.EnvConfig);
         bool generatePopulate = ReadGeneratePopulate(rootConfigAttr);
 
