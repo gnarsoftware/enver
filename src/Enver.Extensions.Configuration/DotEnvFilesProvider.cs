@@ -10,6 +10,14 @@ internal sealed class DotEnvFilesProvider : ConfigurationProvider, IDisposable
     private readonly DotEnvFilesSource _source;
     private readonly IDisposable? _changeTokenRegistration;
 
+    // Serializes Load() so multiple change-token callbacks can't race
+    // each other or a caller-driven Load() to corrupt the rebuilt Data.
+#if NET9_0_OR_GREATER
+    private readonly Lock _loadLock = new();
+#else
+    private readonly object _loadLock = new();
+#endif
+
     public DotEnvFilesProvider(DotEnvFilesSource source)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -32,6 +40,14 @@ internal sealed class DotEnvFilesProvider : ConfigurationProvider, IDisposable
     }
 
     public override void Load()
+    {
+        lock (_loadLock)
+        {
+            LoadCore();
+        }
+    }
+
+    private void LoadCore()
     {
         var coll = new EnvCollection();
         var parser = new EnvDictionaryParser(coll);
