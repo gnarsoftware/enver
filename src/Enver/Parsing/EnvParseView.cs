@@ -1,8 +1,15 @@
+using System.ComponentModel;
+
 namespace Enver.Parsing;
 
 /// <summary>
 /// A parse-bounded borrow of an <see cref="EnvParseScope"/>.
 /// </summary>
+/// <remarks>
+/// Surfaced through <see cref="EnvParser.SeedScope"/> for custom parser authors;
+/// hidden from completion lists as it is not a general-purpose type.
+/// </remarks>
+[EditorBrowsable(EditorBrowsableState.Never)]
 public readonly ref struct EnvParseView
 {
     private readonly EnvParseScope? _scope;

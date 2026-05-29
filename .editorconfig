@@ -139,3 +139,6 @@ dotnet_diagnostic.IDE0042.severity = silent
 
 # RCS1194: Implement exception constructors
 dotnet_diagnostic.RCS1194.severity = none
+
+# RS0026: Do not add multiple public overloads with optional parameters
+dotnet_diagnostic.RS0026.severity = none

@@ -4,12 +4,12 @@ namespace Enver;
 /// Raised for a failure tied to a specific environment variable.
 /// </summary>
 [Serializable]
-public class EnvVariableException : EnvException
+public abstract class EnvVariableException : EnvException
 {
     /// <summary>
     /// Creates an exception attached to the given <paramref name="variable"/>.
     /// </summary>
-    public EnvVariableException(string variable, string message)
+    protected EnvVariableException(string variable, string message)
         : base(message)
     {
         Variable = variable;
@@ -19,7 +19,7 @@ public class EnvVariableException : EnvException
     /// Creates an exception attached to the given <paramref name="variable"/>
     /// with an inner exception.
     /// </summary>
-    public EnvVariableException(string variable, string message, Exception? inner)
+    protected EnvVariableException(string variable, string message, Exception? inner)
         : base(message, inner)
     {
         Variable = variable;

@@ -39,13 +39,8 @@ public sealed class EnvInterpolationException : EnvVariableException
     /// </summary>
     public string InterpolationKey { get; init; }
 
-    /// <summary>
-    /// Throws <see cref="EnvInterpolationException"/> indicating that the
-    /// <paramref name="interpolationKey"/> referenced while materializing
-    /// <paramref name="variable"/> is not defined in any source.
-    /// </summary>
     [DoesNotReturn]
-    public static void Throw(string variable, string interpolationKey)
+    internal static void Throw(string variable, string interpolationKey)
     {
         throw new EnvInterpolationException(
             variable,

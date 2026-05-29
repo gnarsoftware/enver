@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Globalization;
 using System.Numerics;
 using System.Text;
@@ -8,6 +9,11 @@ namespace Enver.Parsing;
 /// <summary>
 /// Helper methods for parsing using methods not directly supported by the BCL.
 /// </summary>
+/// <remarks>
+/// Public as a support API for code emitted by the Enver binding generator;
+/// not intended to be called directly from hand-written code.
+/// </remarks>
+[EditorBrowsable(EditorBrowsableState.Never)]
 public static class EnvValueParser
 {
     /// <summary>

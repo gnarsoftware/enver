@@ -1,0 +1,140 @@
+#nullable enable
+abstract Enver.Parsing.EnvParser.OnNext(System.ReadOnlySpan<byte> key, ref Enver.Parsing.EnvValueReader value) -> bool
+Enver.EnvDuplicateKeyException
+Enver.EnvDuplicateKeyException.EnvDuplicateKeyException(string! variable, string! message) -> void
+Enver.EnvDuplicateKeyException.EnvDuplicateKeyException(string! variable, string! message, System.Exception? inner) -> void
+Enver.EnvException
+Enver.EnvException.EnvException() -> void
+Enver.EnvException.EnvException(string? message) -> void
+Enver.EnvException.EnvException(string? message, System.Exception? inner) -> void
+Enver.EnvInterpolationException
+Enver.EnvInterpolationException.EnvInterpolationException(string! variable, string! interpolationKey, string! message) -> void
+Enver.EnvInterpolationException.EnvInterpolationException(string! variable, string! interpolationKey, string! message, System.Exception? inner) -> void
+Enver.EnvInterpolationException.InterpolationKey.get -> string!
+Enver.EnvInterpolationException.InterpolationKey.init -> void
+Enver.EnvInvalidValueException
+Enver.EnvInvalidValueException.EnvInvalidValueException(string! variable, string! message) -> void
+Enver.EnvInvalidValueException.EnvInvalidValueException(string! variable, string! message, System.Exception? inner) -> void
+Enver.EnvMissingVariableException
+Enver.EnvMissingVariableException.EnvMissingVariableException(string! variable, string! message) -> void
+Enver.EnvMissingVariableException.EnvMissingVariableException(string! variable, string! message, System.Exception? inner) -> void
+Enver.EnvReaderExtensions
+Enver.EnvSyntaxException
+Enver.EnvSyntaxException.EnvSyntaxException() -> void
+Enver.EnvSyntaxException.EnvSyntaxException(int position, string? message, System.Exception? innerException = null) -> void
+Enver.EnvSyntaxException.EnvSyntaxException(string? message) -> void
+Enver.EnvSyntaxException.EnvSyntaxException(string? message, System.Exception? innerException) -> void
+Enver.EnvSyntaxException.Position.get -> int
+Enver.EnvSyntaxException.Position.init -> void
+Enver.EnvValidationException
+Enver.EnvValidationException.EnvValidationException(string? message) -> void
+Enver.EnvValidationException.EnvValidationException(string? message, System.Collections.Generic.IReadOnlyList<string!>! failures) -> void
+Enver.EnvValidationException.EnvValidationException(string? message, System.Exception? inner) -> void
+Enver.EnvValidationException.Failures.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Enver.EnvValidationException.Failures.init -> void
+Enver.EnvVariableException
+Enver.EnvVariableException.EnvVariableException(string! variable, string! message) -> void
+Enver.EnvVariableException.EnvVariableException(string! variable, string! message, System.Exception? inner) -> void
+Enver.EnvVariableException.Variable.get -> string!
+Enver.EnvVariableException.Variable.init -> void
+Enver.IEnvReader
+Enver.IEnvReader.TryGetValue(string! key, out string? value) -> bool
+Enver.Loading.EnvFileLoader
+Enver.Loading.EnvStreamReader
+Enver.Parsing.EnvParseOptions
+Enver.Parsing.EnvParseOptions.AllowDuplicateKeys.get -> bool
+Enver.Parsing.EnvParseOptions.AllowDuplicateKeys.init -> void
+Enver.Parsing.EnvParseOptions.AllowMissingInterpolation.get -> bool
+Enver.Parsing.EnvParseOptions.AllowMissingInterpolation.init -> void
+Enver.Parsing.EnvParseOptions.AllowUnknownEscapes.get -> bool
+Enver.Parsing.EnvParseOptions.AllowUnknownEscapes.init -> void
+Enver.Parsing.EnvParseOptions.EnvParseOptions() -> void
+Enver.Parsing.EnvParseOptions.OnUnbracedInterpolation.get -> Enver.Parsing.UnbracedInterpolationBehavior
+Enver.Parsing.EnvParseOptions.OnUnbracedInterpolation.init -> void
+Enver.Parsing.EnvParser
+Enver.Parsing.EnvParser.EnvParser() -> void
+Enver.Parsing.EnvParser.Parse(System.ReadOnlySpan<byte> input) -> void
+Enver.Parsing.EnvParser.Parse(System.ReadOnlySpan<byte> input, Enver.Parsing.EnvParseOptions options) -> void
+Enver.Parsing.EnvParser.Parse(System.ReadOnlySpan<char> input) -> void
+Enver.Parsing.EnvParser.Parse(System.ReadOnlySpan<char> input, Enver.Parsing.EnvParseOptions options) -> void
+Enver.Parsing.EnvParseScope
+Enver.Parsing.EnvParseScope.Borrow() -> Enver.Parsing.EnvParseView
+Enver.Parsing.EnvParseScope.Dispose() -> void
+Enver.Parsing.EnvParseScope.EnvParseScope() -> void
+Enver.Parsing.EnvParseView
+Enver.Parsing.EnvParseView.EnvParseView() -> void
+Enver.Parsing.EnvParseView.Seed(string! key, string! value) -> void
+Enver.Parsing.EnvValueParser
+Enver.Parsing.EnvValueReader
+Enver.Parsing.EnvValueReader.AsString() -> string!
+Enver.Parsing.EnvValueReader.EnvValueReader() -> void
+Enver.Parsing.EnvValueReader.Span.get -> System.ReadOnlySpan<byte>
+Enver.Parsing.UnbracedInterpolationBehavior
+Enver.Parsing.UnbracedInterpolationBehavior.Error = 0 -> Enver.Parsing.UnbracedInterpolationBehavior
+Enver.Parsing.UnbracedInterpolationBehavior.Interpolate = 2 -> Enver.Parsing.UnbracedInterpolationBehavior
+Enver.Parsing.UnbracedInterpolationBehavior.Literal = 1 -> Enver.Parsing.UnbracedInterpolationBehavior
+static Enver.EnvReaderExtensions.Get<T>(this Enver.IEnvReader! source, string! key, System.IFormatProvider? provider = null) -> T
+static Enver.EnvReaderExtensions.Get<T>(this Enver.IEnvReader! source, string! key, T defaultValue, System.IFormatProvider? provider = null) -> T
+static Enver.EnvReaderExtensions.GetBoolean(this Enver.IEnvReader! source, string! key) -> bool
+static Enver.EnvReaderExtensions.GetBoolean(this Enver.IEnvReader! source, string! key, bool defaultValue) -> bool
+static Enver.EnvReaderExtensions.GetDouble(this Enver.IEnvReader! source, string! key) -> double
+static Enver.EnvReaderExtensions.GetDouble(this Enver.IEnvReader! source, string! key, double defaultValue) -> double
+static Enver.EnvReaderExtensions.GetEnum<T>(this Enver.IEnvReader! source, string! key, bool ignoreCase = true) -> T
+static Enver.EnvReaderExtensions.GetEnum<T>(this Enver.IEnvReader! source, string! key, T defaultValue, bool ignoreCase = true) -> T
+static Enver.EnvReaderExtensions.GetGuid(this Enver.IEnvReader! source, string! key) -> System.Guid
+static Enver.EnvReaderExtensions.GetGuid(this Enver.IEnvReader! source, string! key, System.Guid defaultValue) -> System.Guid
+static Enver.EnvReaderExtensions.GetInt32(this Enver.IEnvReader! source, string! key) -> int
+static Enver.EnvReaderExtensions.GetInt32(this Enver.IEnvReader! source, string! key, int defaultValue) -> int
+static Enver.EnvReaderExtensions.GetInt64(this Enver.IEnvReader! source, string! key) -> long
+static Enver.EnvReaderExtensions.GetInt64(this Enver.IEnvReader! source, string! key, long defaultValue) -> long
+static Enver.EnvReaderExtensions.GetNumber<T>(this Enver.IEnvReader! source, string! key, System.IFormatProvider? provider = null) -> T
+static Enver.EnvReaderExtensions.GetNumber<T>(this Enver.IEnvReader! source, string! key, T defaultValue, System.IFormatProvider? provider = null) -> T
+static Enver.EnvReaderExtensions.GetOptional<T>(this Enver.IEnvReader! source, string! key, System.IFormatProvider? provider = null) -> T?
+static Enver.EnvReaderExtensions.GetOptionalBoolean(this Enver.IEnvReader! source, string! key) -> bool?
+static Enver.EnvReaderExtensions.GetOptionalDouble(this Enver.IEnvReader! source, string! key) -> double?
+static Enver.EnvReaderExtensions.GetOptionalEnum<T>(this Enver.IEnvReader! source, string! key, bool ignoreCase = true) -> T?
+static Enver.EnvReaderExtensions.GetOptionalGuid(this Enver.IEnvReader! source, string! key) -> System.Guid?
+static Enver.EnvReaderExtensions.GetOptionalInt32(this Enver.IEnvReader! source, string! key) -> int?
+static Enver.EnvReaderExtensions.GetOptionalInt64(this Enver.IEnvReader! source, string! key) -> long?
+static Enver.EnvReaderExtensions.GetOptionalNumber<T>(this Enver.IEnvReader! source, string! key, System.IFormatProvider? provider = null) -> T?
+static Enver.EnvReaderExtensions.GetOptionalRef<T>(this Enver.IEnvReader! source, string! key, System.IFormatProvider? provider = null) -> T?
+static Enver.EnvReaderExtensions.GetOptionalString(this Enver.IEnvReader! source, string! key) -> string?
+static Enver.EnvReaderExtensions.GetOptionalUri(this Enver.IEnvReader! source, string! key, System.UriKind kind = System.UriKind.Absolute) -> System.Uri?
+static Enver.EnvReaderExtensions.GetOptionalVersion(this Enver.IEnvReader! source, string! key) -> System.Version?
+static Enver.EnvReaderExtensions.GetString(this Enver.IEnvReader! source, string! key) -> string!
+static Enver.EnvReaderExtensions.GetString(this Enver.IEnvReader! source, string! key, string! defaultValue) -> string!
+static Enver.EnvReaderExtensions.GetUri(this Enver.IEnvReader! source, string! key, System.Uri! defaultValue, System.UriKind kind = System.UriKind.Absolute) -> System.Uri!
+static Enver.EnvReaderExtensions.GetUri(this Enver.IEnvReader! source, string! key, System.UriKind kind = System.UriKind.Absolute) -> System.Uri!
+static Enver.EnvReaderExtensions.GetVersion(this Enver.IEnvReader! source, string! key) -> System.Version!
+static Enver.EnvReaderExtensions.GetVersion(this Enver.IEnvReader! source, string! key, System.Version! defaultValue) -> System.Version!
+static Enver.EnvReaderExtensions.TryGet<T>(this Enver.IEnvReader! source, string! key, out T value, System.IFormatProvider? provider = null) -> bool
+static Enver.EnvReaderExtensions.TryGetBoolean(this Enver.IEnvReader! source, string! key, out bool value) -> bool
+static Enver.EnvReaderExtensions.TryGetDouble(this Enver.IEnvReader! source, string! key, out double value) -> bool
+static Enver.EnvReaderExtensions.TryGetEnum<T>(this Enver.IEnvReader! source, string! key, out T value, bool ignoreCase = true) -> bool
+static Enver.EnvReaderExtensions.TryGetGuid(this Enver.IEnvReader! source, string! key, out System.Guid value) -> bool
+static Enver.EnvReaderExtensions.TryGetInt32(this Enver.IEnvReader! source, string! key, out int value) -> bool
+static Enver.EnvReaderExtensions.TryGetInt64(this Enver.IEnvReader! source, string! key, out long value) -> bool
+static Enver.EnvReaderExtensions.TryGetNumber<T>(this Enver.IEnvReader! source, string! key, out T value, System.IFormatProvider? provider = null) -> bool
+static Enver.EnvReaderExtensions.TryGetRef<T>(this Enver.IEnvReader! source, string! key, out T? value, System.IFormatProvider? provider = null) -> bool
+static Enver.EnvReaderExtensions.TryGetString(this Enver.IEnvReader! source, string! key, out string? value) -> bool
+static Enver.EnvReaderExtensions.TryGetUri(this Enver.IEnvReader! source, string! key, out System.Uri? value, System.UriKind kind = System.UriKind.Absolute) -> bool
+static Enver.EnvReaderExtensions.TryGetVersion(this Enver.IEnvReader! source, string! key, out System.Version? value) -> bool
+static Enver.Loading.EnvFileLoader.LoadFile(Enver.Parsing.EnvParser! parser, string! path, bool throwIfMissing = true, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> void
+static Enver.Loading.EnvFileLoader.LoadFileAsync(Enver.Parsing.EnvParser! parser, string! path, bool throwIfMissing = true, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Enver.Loading.EnvFileLoader.LoadFromAppDirectory(Enver.Parsing.EnvParser! parser, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> void
+static Enver.Loading.EnvFileLoader.LoadFromAppDirectoryAsync(Enver.Parsing.EnvParser! parser, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Enver.Loading.EnvFileLoader.LoadFromDirectory(Enver.Parsing.EnvParser! parser, string! directory, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> void
+static Enver.Loading.EnvFileLoader.LoadFromDirectoryAsync(Enver.Parsing.EnvParser! parser, string! directory, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Enver.Loading.EnvFileLoader.LoadFromWorkingDirectory(Enver.Parsing.EnvParser! parser, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> void
+static Enver.Loading.EnvFileLoader.LoadFromWorkingDirectoryAsync(Enver.Parsing.EnvParser! parser, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Enver.Loading.EnvStreamReader.Read(System.IO.Stream! stream, Enver.Parsing.EnvParser! parser, Enver.Parsing.EnvParseOptions options = default(Enver.Parsing.EnvParseOptions), Enver.Parsing.EnvParseScope? scope = null) -> void
+static Enver.Loading.EnvStreamReader.ReadAsync(System.IO.Stream! stream, Enver.Parsing.EnvParser! parser, Enver.Parsing.EnvParseOptions options = default(Enver.Parsing.EnvParseOptions), Enver.Parsing.EnvParseScope? scope = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Enver.Parsing.EnvParseOptions.Default.get -> Enver.Parsing.EnvParseOptions
+static Enver.Parsing.EnvParseOptions.Loose.get -> Enver.Parsing.EnvParseOptions
+static Enver.Parsing.EnvValueParser.ParseDefinedEnum<T>(System.ReadOnlySpan<byte> utf8) -> T
+static Enver.Parsing.EnvValueParser.ParseGuid(System.ReadOnlySpan<byte> utf8, System.IFormatProvider? provider = null) -> System.Guid
+static Enver.Parsing.EnvValueParser.ParseISpanParsable<T>(System.ReadOnlySpan<byte> utf8, System.IFormatProvider? provider = null) -> T
+static Enver.Parsing.EnvValueParser.ParseIUtf8SpanParsable<T>(System.ReadOnlySpan<byte> utf8, System.IFormatProvider? provider = null) -> T
+static Enver.Parsing.EnvValueParser.ParseNumberWithPrefix<T>(System.ReadOnlySpan<byte> utf8, System.IFormatProvider? provider = null) -> T
+static Enver.Parsing.EnvValueParser.ParseVersion(System.ReadOnlySpan<byte> utf8) -> System.Version!
+virtual Enver.Parsing.EnvParser.SeedScope(Enver.Parsing.EnvParseView scope) -> void

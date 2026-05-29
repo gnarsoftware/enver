@@ -21,11 +21,8 @@ public sealed class EnvMissingVariableException : EnvVariableException
     public EnvMissingVariableException(string variable, string message, Exception? inner)
         : base(variable, message, inner) { }
 
-    /// <summary>
-    /// Throws <see cref="EnvMissingVariableException"/>.
-    /// </summary>
     [DoesNotReturn]
-    public static void Throw(string variable)
+    internal static void Throw(string variable)
     {
         throw new EnvMissingVariableException(
             variable,
