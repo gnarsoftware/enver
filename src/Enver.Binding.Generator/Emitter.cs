@@ -87,25 +87,42 @@ internal static class Emitter
         w.WriteLine("}");
         w.WriteLine();
 
-        // BindFromAppDirectory
-        EmidBindFromNamedDirectory(w, t, methodInfix, binderName, "App");
-        // BindFromWorkingDirectory
-        EmidBindFromNamedDirectory(w, t, methodInfix, binderName, "Working");
-
-        // BindFromFile
-        w.WriteLine("/// <summary>Bind a fresh instance by loading the given .env file.</summary>");
+        // Bind(string path)
         w.WriteLine(
-            $"public static {t} Bind{methodInfix}FromFile("
+            "/// <summary>Bind a fresh instance by loading the given .env file. "
+                + "Missing files are silently skipped.</summary>"
+        );
+        w.WriteLine(
+            $"public static {t} Bind{methodInfix}("
                 + "string path, "
-                + "bool throwIfMissing = true, "
                 + "global::Enver.Parsing.EnvParseOptions parseOptions = default)"
         );
         w.WriteLine("{");
         w.Indent++;
         w.WriteLine($"var binder = new {binderName}();");
+        w.WriteLine("global::Enver.Loading.EnvFileLoader.Load(binder, path, parseOptions);");
+        w.WriteLine("return binder.Build();");
+        w.Indent--;
+        w.WriteLine("}");
+        w.WriteLine();
+
+        // Bind(IEnumerable<string> paths)
         w.WriteLine(
-            "global::Enver.Loading.EnvFileLoader.LoadFile(binder, path, throwIfMissing, parseOptions);"
+            "/// <summary>Bind a fresh instance by loading each .env file in order; "
+                + "later files override values defined in earlier ones, with shared "
+                + "<c>${VAR}</c> interpolation across the whole sequence. Missing files are "
+                + "silently skipped. Pair with <see cref=\"global::Enver.DotEnvPaths\"/> "
+                + "to compose the canonical ladder.</summary>"
         );
+        w.WriteLine(
+            $"public static {t} Bind{methodInfix}("
+                + "global::System.Collections.Generic.IEnumerable<string> paths, "
+                + "global::Enver.Parsing.EnvParseOptions parseOptions = default)"
+        );
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine($"var binder = new {binderName}();");
+        w.WriteLine("global::Enver.Loading.EnvFileLoader.Load(binder, paths, parseOptions);");
         w.WriteLine("return binder.Build();");
         w.Indent--;
         w.WriteLine("}");
@@ -115,37 +132,6 @@ internal static class Emitter
             w.WriteLine();
             EmitPopulateStaticMethod(w, target, methodInfix);
         }
-    }
-
-    private static void EmidBindFromNamedDirectory(
-        IndentedTextWriter w,
-        string t,
-        string methodInfix,
-        string binderName,
-        string dirName
-    )
-    {
-        w.WriteLine(
-            $"/// <summary>Bind a fresh instance by loading .env from the {dirName.ToLowerInvariant()} directory.</summary>"
-        );
-        w.WriteLine(
-            $"public static {t} Bind{methodInfix}From{dirName}Directory("
-                + "string fileName = \".env\", "
-                + "string? variant = null, "
-                + "int maxAncestors = 0, "
-                + "bool throwIfMissing = false, "
-                + "global::Enver.Parsing.EnvParseOptions parseOptions = default)"
-        );
-        w.WriteLine("{");
-        w.Indent++;
-        w.WriteLine($"var binder = new {binderName}();");
-        w.WriteLine(
-            $"global::Enver.Loading.EnvFileLoader.LoadFrom{dirName}Directory(binder, fileName, variant, maxAncestors, throwIfMissing, parseOptions);"
-        );
-        w.WriteLine("return binder.Build();");
-        w.Indent--;
-        w.WriteLine("}");
-        w.WriteLine();
     }
 
     private static void EmitInlineObjectConstructionForReader(

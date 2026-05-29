@@ -1,5 +1,16 @@
 #nullable enable
 abstract Enver.Parsing.EnvParser.OnNext(System.ReadOnlySpan<byte> key, ref Enver.Parsing.EnvValueReader value) -> bool
+Enver.DotEnvPaths
+Enver.DotEnvPaths.DotEnvPaths() -> void
+Enver.DotEnvPaths.GetEnumerator() -> System.Collections.Generic.Stack<string!>.Enumerator
+Enver.DotEnvPaths.Standard(string? variant = null) -> Enver.DotEnvPaths
+Enver.DotEnvPaths.WithFileName(string! fileName) -> Enver.DotEnvPaths
+Enver.DotEnvPaths.WithLocal() -> Enver.DotEnvPaths
+Enver.DotEnvPaths.WithParentDirectories(int max) -> Enver.DotEnvPaths
+Enver.DotEnvPaths.WithVariant(string! variant) -> Enver.DotEnvPaths
+static Enver.DotEnvPaths.AppDirectory() -> Enver.DotEnvPaths
+static Enver.DotEnvPaths.Directory(string! directory) -> Enver.DotEnvPaths
+static Enver.DotEnvPaths.WorkingDirectory() -> Enver.DotEnvPaths
 Enver.EnvDuplicateKeyException
 Enver.EnvDuplicateKeyException.EnvDuplicateKeyException(string! variable, string! message) -> void
 Enver.EnvDuplicateKeyException.EnvDuplicateKeyException(string! variable, string! message, System.Exception? inner) -> void
@@ -119,14 +130,10 @@ static Enver.EnvReaderExtensions.TryGetRef<T>(this Enver.IEnvReader! source, str
 static Enver.EnvReaderExtensions.TryGetString(this Enver.IEnvReader! source, string! key, out string? value) -> bool
 static Enver.EnvReaderExtensions.TryGetUri(this Enver.IEnvReader! source, string! key, out System.Uri? value, System.UriKind kind = System.UriKind.Absolute) -> bool
 static Enver.EnvReaderExtensions.TryGetVersion(this Enver.IEnvReader! source, string! key, out System.Version? value) -> bool
-static Enver.Loading.EnvFileLoader.LoadFile(Enver.Parsing.EnvParser! parser, string! path, bool throwIfMissing = true, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> void
-static Enver.Loading.EnvFileLoader.LoadFileAsync(Enver.Parsing.EnvParser! parser, string! path, bool throwIfMissing = true, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-static Enver.Loading.EnvFileLoader.LoadFromAppDirectory(Enver.Parsing.EnvParser! parser, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> void
-static Enver.Loading.EnvFileLoader.LoadFromAppDirectoryAsync(Enver.Parsing.EnvParser! parser, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-static Enver.Loading.EnvFileLoader.LoadFromDirectory(Enver.Parsing.EnvParser! parser, string! directory, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> void
-static Enver.Loading.EnvFileLoader.LoadFromDirectoryAsync(Enver.Parsing.EnvParser! parser, string! directory, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-static Enver.Loading.EnvFileLoader.LoadFromWorkingDirectory(Enver.Parsing.EnvParser! parser, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> void
-static Enver.Loading.EnvFileLoader.LoadFromWorkingDirectoryAsync(Enver.Parsing.EnvParser! parser, string! fileName = ".env", string? variant = null, int maxAncestors = 0, bool throwIfMissing = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Enver.Loading.EnvFileLoader.Load(Enver.Parsing.EnvParser! parser, string! path, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> void
+static Enver.Loading.EnvFileLoader.Load(Enver.Parsing.EnvParser! parser, System.Collections.Generic.IEnumerable<string!>! paths, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> void
+static Enver.Loading.EnvFileLoader.LoadAsync(Enver.Parsing.EnvParser! parser, string! path, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Enver.Loading.EnvFileLoader.LoadAsync(Enver.Parsing.EnvParser! parser, System.Collections.Generic.IEnumerable<string!>! paths, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 static Enver.Loading.EnvStreamReader.Read(System.IO.Stream! stream, Enver.Parsing.EnvParser! parser, Enver.Parsing.EnvParseOptions options = default(Enver.Parsing.EnvParseOptions), Enver.Parsing.EnvParseScope? scope = null) -> void
 static Enver.Loading.EnvStreamReader.ReadAsync(System.IO.Stream! stream, Enver.Parsing.EnvParser! parser, Enver.Parsing.EnvParseOptions options = default(Enver.Parsing.EnvParseOptions), Enver.Parsing.EnvParseScope? scope = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 static Enver.Parsing.EnvParseOptions.Default.get -> Enver.Parsing.EnvParseOptions

@@ -6,188 +6,55 @@ namespace Enver;
 partial class EnvCollection
 {
     /// <summary>
-    /// Load a single .env file at the given path.
+    /// Loads a single .env file into a new collection.
     /// </summary>
-    public static EnvCollection FromFile(
+    public static EnvCollection From(string path, EnvParseOptions parseOptions = default)
+    {
+        var coll = new EnvCollection();
+        var parser = new EnvDictionaryParser(coll);
+        EnvFileLoader.Load(parser, path, parseOptions);
+        return coll;
+    }
+
+    /// <summary>
+    /// Loads each file in <paramref name="paths"/> in order into a new
+    /// collection; later files override earlier ones. Pair with
+    /// <see cref="DotEnvPaths"/> to compose the canonical ladder.
+    /// </summary>
+    public static EnvCollection From(
+        IEnumerable<string> paths,
+        EnvParseOptions parseOptions = default
+    )
+    {
+        var coll = new EnvCollection();
+        var parser = new EnvDictionaryParser(coll);
+        EnvFileLoader.Load(parser, paths, parseOptions);
+        return coll;
+    }
+
+    /// <inheritdoc cref="From(string, EnvParseOptions)"/>
+    public static async Task<EnvCollection> FromAsync(
         string path,
-        bool throwIfMissing = true,
-        EnvParseOptions parseOptions = default
-    )
-    {
-        var coll = new EnvCollection();
-        var parser = new EnvDictionaryParser(coll);
-        EnvFileLoader.LoadFile(parser, path, throwIfMissing, parseOptions);
-        return coll;
-    }
-
-    /// <inheritdoc cref="FromFile(string, bool, EnvParseOptions)"/>
-    public static async Task<EnvCollection> FromFileAsync(
-        string path,
-        bool throwIfMissing = true,
         EnvParseOptions parseOptions = default,
         CancellationToken cancellationToken = default
     )
     {
         var coll = new EnvCollection();
         var parser = new EnvDictionaryParser(coll);
-        await EnvFileLoader.LoadFileAsync(
-            parser,
-            path,
-            throwIfMissing,
-            parseOptions,
-            cancellationToken
-        );
+        await EnvFileLoader.LoadAsync(parser, path, parseOptions, cancellationToken);
         return coll;
     }
 
-    /// <summary>
-    /// Load a .env file (and optionally .env.<paramref name="variant"/>) from
-    /// <see cref="AppContext.BaseDirectory"/>, optionally walking up parent directories.
-    /// </summary>
-    public static EnvCollection FromAppDirectory(
-        string fileName = ".env",
-        string? variant = null,
-        int maxAncestors = 0,
-        bool throwIfMissing = false,
-        EnvParseOptions parseOptions = default
-    )
-    {
-        var coll = new EnvCollection();
-        var parser = new EnvDictionaryParser(coll);
-        EnvFileLoader.LoadFromAppDirectory(
-            parser,
-            fileName,
-            variant,
-            maxAncestors,
-            throwIfMissing,
-            parseOptions
-        );
-        return coll;
-    }
-
-    /// <inheritdoc cref="FromAppDirectory(string, string?, int, bool, EnvParseOptions)"/>
-    public static async Task<EnvCollection> FromAppDirectoryAsync(
-        string fileName = ".env",
-        string? variant = null,
-        int maxAncestors = 0,
-        bool throwIfMissing = false,
+    /// <inheritdoc cref="From(IEnumerable{string}, EnvParseOptions)"/>
+    public static async Task<EnvCollection> FromAsync(
+        IEnumerable<string> paths,
         EnvParseOptions parseOptions = default,
         CancellationToken cancellationToken = default
     )
     {
         var coll = new EnvCollection();
         var parser = new EnvDictionaryParser(coll);
-        await EnvFileLoader.LoadFromAppDirectoryAsync(
-            parser,
-            fileName,
-            variant,
-            maxAncestors,
-            throwIfMissing,
-            parseOptions,
-            cancellationToken
-        );
-        return coll;
-    }
-
-    /// <summary>
-    /// Load a .env file (and optionally .env.<paramref name="variant"/>) from
-    /// <see cref="Environment.CurrentDirectory"/>, optionally walking up parent directories.
-    /// </summary>
-    public static EnvCollection FromWorkingDirectory(
-        string fileName = ".env",
-        string? variant = null,
-        int maxAncestors = 0,
-        bool throwIfMissing = false,
-        EnvParseOptions parseOptions = default
-    )
-    {
-        var coll = new EnvCollection();
-        var parser = new EnvDictionaryParser(coll);
-        EnvFileLoader.LoadFromWorkingDirectory(
-            parser,
-            fileName,
-            variant,
-            maxAncestors,
-            throwIfMissing,
-            parseOptions
-        );
-        return coll;
-    }
-
-    /// <inheritdoc cref="FromWorkingDirectory(string, string?, int, bool, EnvParseOptions)"/>
-    public static async Task<EnvCollection> FromWorkingDirectoryAsync(
-        string fileName = ".env",
-        string? variant = null,
-        int maxAncestors = 0,
-        bool throwIfMissing = false,
-        EnvParseOptions parseOptions = default,
-        CancellationToken cancellationToken = default
-    )
-    {
-        var coll = new EnvCollection();
-        var parser = new EnvDictionaryParser(coll);
-        await EnvFileLoader.LoadFromWorkingDirectoryAsync(
-            parser,
-            fileName,
-            variant,
-            maxAncestors,
-            throwIfMissing,
-            parseOptions,
-            cancellationToken
-        );
-        return coll;
-    }
-
-    /// <summary>
-    /// Load a .env file (and optionally .env.<paramref name="variant"/>) from
-    /// a specified directory, optionally walking up parent directories.
-    /// </summary>
-    public static EnvCollection FromDirectory(
-        string directory,
-        string fileName = ".env",
-        string? variant = null,
-        int maxAncestors = 0,
-        bool throwIfMissing = false,
-        EnvParseOptions parseOptions = default
-    )
-    {
-        var coll = new EnvCollection();
-        var parser = new EnvDictionaryParser(coll);
-        EnvFileLoader.LoadFromDirectory(
-            parser,
-            directory,
-            fileName,
-            variant,
-            maxAncestors,
-            throwIfMissing,
-            parseOptions
-        );
-        return coll;
-    }
-
-    /// <inheritdoc cref="FromDirectory(string, string, string?, int, bool, EnvParseOptions)"/>
-    public static async Task<EnvCollection> FromDirectoryAsync(
-        string directory,
-        string fileName = ".env",
-        string? variant = null,
-        int maxAncestors = 0,
-        bool throwIfMissing = false,
-        EnvParseOptions parseOptions = default,
-        CancellationToken cancellationToken = default
-    )
-    {
-        var coll = new EnvCollection();
-        var parser = new EnvDictionaryParser(coll);
-        await EnvFileLoader.LoadFromDirectoryAsync(
-            parser,
-            directory,
-            fileName,
-            variant,
-            maxAncestors,
-            throwIfMissing,
-            parseOptions,
-            cancellationToken
-        );
+        await EnvFileLoader.LoadAsync(parser, paths, parseOptions, cancellationToken);
         return coll;
     }
 }

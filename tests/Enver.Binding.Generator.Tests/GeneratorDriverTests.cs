@@ -19,9 +19,19 @@ public class GeneratorDriverTests
         var src = result.SingleSource().Text;
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(src, Does.Contain("public static global::Test.DbConfig Bind("));
-            Assert.That(src, Does.Contain("BindFromAppDirectory"));
-            Assert.That(src, Does.Contain("BindFromFile"));
+            Assert.That(
+                src,
+                Does.Contain(
+                    "public static global::Test.DbConfig Bind(global::Enver.IEnvReader reader)"
+                )
+            );
+            Assert.That(src, Does.Contain("public static global::Test.DbConfig Bind(string path"));
+            Assert.That(
+                src,
+                Does.Contain(
+                    "public static global::Test.DbConfig Bind(global::System.Collections.Generic.IEnumerable<string> paths"
+                )
+            );
             Assert.That(src, Does.Contain("class Binder"));
             // The members must survive analysis
             Assert.That(src, Does.Contain("_val_Port"));
@@ -256,9 +266,22 @@ public class GeneratorDriverTests
         var src = result.SingleSource().Text;
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(src, Does.Contain("public static global::Test.DbConfig BindDbConfig("));
-            Assert.That(src, Does.Contain("BindDbConfigFromFile"));
-            Assert.That(src, Does.Contain("BindDbConfigFromAppDirectory"));
+            Assert.That(
+                src,
+                Does.Contain(
+                    "public static global::Test.DbConfig BindDbConfig(global::Enver.IEnvReader reader)"
+                )
+            );
+            Assert.That(
+                src,
+                Does.Contain("public static global::Test.DbConfig BindDbConfig(string path")
+            );
+            Assert.That(
+                src,
+                Does.Contain(
+                    "public static global::Test.DbConfig BindDbConfig(global::System.Collections.Generic.IEnumerable<string> paths"
+                )
+            );
             Assert.That(src, Does.Contain("class DbConfigBinder"));
             Assert.That(src, Does.Contain("partial class AppHost"));
         }

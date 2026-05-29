@@ -63,6 +63,27 @@ public static class DotEnvConfigurationExtensions
     }
 
     /// <summary>
+    /// Adds the given <paramref name="paths"/> as a single configuration source.
+    /// Files load in order with shared <c>${VAR}</c> interpolation; later files
+    /// override earlier ones. Pair with <see cref="DotEnvPaths"/> to compose the
+    /// canonical ladder.
+    /// </summary>
+    public static IConfigurationBuilder AddDotEnvFiles(
+        this IConfigurationBuilder builder,
+        IEnumerable<string> paths,
+        Action<DotEnvFilesSource>? configureSource = null
+    )
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(paths);
+        return builder.Add<DotEnvFilesSource>(source =>
+        {
+            source.Paths = [.. paths];
+            configureSource?.Invoke(source);
+        });
+    }
+
+    /// <summary>
     /// Adds the four-tier <c>.env</c> ladder
     /// (<c>.env</c>, <c>.env.{environment}</c>, <c>.env.local</c>,
     /// <c>.env.{environment}.local</c>) from the current working directory.
