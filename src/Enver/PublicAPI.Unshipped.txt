@@ -10,6 +10,7 @@ Enver.DotEnvPaths.WithParentDirectories(int max) -> Enver.DotEnvPaths
 Enver.DotEnvPaths.WithVariant(string! variant) -> Enver.DotEnvPaths
 static Enver.DotEnvPaths.AppDirectory() -> Enver.DotEnvPaths
 static Enver.DotEnvPaths.Directory(string! directory) -> Enver.DotEnvPaths
+static Enver.DotEnvPaths.Relative() -> Enver.DotEnvPaths
 static Enver.DotEnvPaths.WorkingDirectory() -> Enver.DotEnvPaths
 Enver.EnvDuplicateKeyException
 Enver.EnvDuplicateKeyException.EnvDuplicateKeyException(string! variable, string! message) -> void

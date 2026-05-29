@@ -196,6 +196,35 @@ public class DotEnvPathsTests
     }
 
     [Test]
+    public void RelativeEmitsBareFilename()
+    {
+        var paths = DotEnvPaths.Relative().ToArray();
+        Assert.That(paths, Is.EqualTo([".env"]));
+    }
+
+    [Test]
+    public void RelativeWithFileNameEmitsBareCustomName()
+    {
+        var paths = DotEnvPaths.Relative().WithFileName("config.env").ToArray();
+        Assert.That(paths, Is.EqualTo(["config.env"]));
+    }
+
+    [Test]
+    public void RelativeStandardEmitsFourTierLadderAsFilenames()
+    {
+        var paths = DotEnvPaths.Relative().Standard("dev").ToArray();
+        Assert.That(paths, Is.EqualTo([".env", ".env.dev", ".env.local", ".env.dev.local"]));
+    }
+
+    [Test]
+    public void RelativeWithParentDirectoriesThrows()
+    {
+        Assert.Throws<InvalidOperationException>(
+            () => DotEnvPaths.Relative().WithParentDirectories(2)
+        );
+    }
+
+    [Test]
     public void ComposesIntoCollectionExpression()
     {
         // The use case that motivated the design: mix builders with literal paths.

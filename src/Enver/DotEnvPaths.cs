@@ -20,6 +20,7 @@ public readonly record struct DotEnvPaths : IEnumerable<string>
         AppDirectory,
         WorkingDirectory,
         Explicit,
+        Relative,
     }
 
     internal RootKind Root { get; init; }
@@ -62,6 +63,16 @@ public readonly record struct DotEnvPaths : IEnumerable<string>
         };
     }
 
+    /// <summary>
+    /// Emits relative filenames. Resolution is determined by the consumer
+    /// (ASP.NET configuration sources resolve via their IFileProvider; other
+    /// consumers resolve via the process working directory).
+    /// </summary>
+    public static DotEnvPaths Relative()
+    {
+        return new() { Root = RootKind.Relative, FileName = ".env" };
+    }
+
     // --- Modifiers ---
 
     /// <summary>
@@ -95,10 +106,18 @@ public readonly record struct DotEnvPaths : IEnumerable<string>
     /// <summary>
     /// Walks up to <paramref name="max"/> ancestor directories, emitting
     /// <c>.env</c> and <c>.env.{variant}</c> in each (farthest-first). Local-tier
-    /// files are not propagated into ancestors.
+    /// files are not propagated into ancestors. Not supported on
+    /// <see cref="Relative"/> builders, which have no anchor to walk from.
     /// </summary>
     public DotEnvPaths WithParentDirectories(int max)
     {
+        if (Root == RootKind.Relative)
+        {
+            throw new InvalidOperationException(
+                "WithParentDirectories cannot be applied to a Relative builder; "
+                    + "anchor with Directory(...), AppDirectory(), or WorkingDirectory()."
+            );
+        }
         ArgumentOutOfRangeException.ThrowIfNegative(max);
         return this with { ParentDirs = max };
     }
@@ -133,6 +152,7 @@ public readonly record struct DotEnvPaths : IEnumerable<string>
             RootKind.AppDirectory => AppContext.BaseDirectory,
             RootKind.WorkingDirectory => System.IO.Directory.GetCurrentDirectory(),
             RootKind.Explicit => ExplicitDir!,
+            RootKind.Relative => string.Empty,
             _ => throw new InvalidOperationException("DotEnvPaths has no root configured."),
         };
 
