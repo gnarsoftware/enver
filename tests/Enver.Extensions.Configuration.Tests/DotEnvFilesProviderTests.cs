@@ -176,4 +176,86 @@ public class DotEnvFilesProviderTests
         var config = BuildFromFile(path);
         Assert.That(config["GREETING"], Is.EqualTo("Hello World"));
     }
+
+    [Test]
+    public void AddDotEnvFilesLoadsAbsolutePathsAcrossDirectories()
+    {
+        // The single FileProvider can't reach files outside the content root.
+        // Absolute paths in the path list must resolve via direct file I/O.
+        var dirA = Directory.CreateDirectory(Path.Combine(_tempDir, "a")).FullName;
+        var dirB = Directory.CreateDirectory(Path.Combine(_tempDir, "b")).FullName;
+        var pathA = Path.Combine(dirA, ".env");
+        var pathB = Path.Combine(dirB, ".env");
+        File.WriteAllText(pathA, "A=from-a\nSHARED=base\n");
+        File.WriteAllText(pathB, "B=from-b\nSHARED=overridden\n");
+
+        var config = new ConfigurationBuilder().AddDotEnvFiles([pathA, pathB]).Build();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(config["A"], Is.EqualTo("from-a"));
+            Assert.That(config["B"], Is.EqualTo("from-b"));
+            Assert.That(config["SHARED"], Is.EqualTo("overridden"));
+        }
+    }
+
+    [Test]
+    public void AddDotEnvFilesShareInterpolationAcrossAbsolutePaths()
+    {
+        // The whole path list loads under one parse scope, so a later file can
+        // reference a key defined in an earlier file even when they live in
+        // different directories.
+        var dirA = Directory.CreateDirectory(Path.Combine(_tempDir, "a")).FullName;
+        var dirB = Directory.CreateDirectory(Path.Combine(_tempDir, "b")).FullName;
+        File.WriteAllText(Path.Combine(dirA, ".env"), "BASE=foo\n");
+        File.WriteAllText(Path.Combine(dirB, ".env"), "DERIVED=${BASE}-bar\n");
+
+        var config = new ConfigurationBuilder()
+            .AddDotEnvFiles([Path.Combine(dirA, ".env"), Path.Combine(dirB, ".env")])
+            .Build();
+        Assert.That(config["DERIVED"], Is.EqualTo("foo-bar"));
+    }
+
+    [Test]
+    public void AddDotEnvFilesIntegratesWithDotEnvPathsBuilder()
+    {
+        // The motivating use case: builders.Standard("dev").
+        var pathBase = Path.Combine(_tempDir, ".env");
+        var pathDev = Path.Combine(_tempDir, ".env.dev");
+        File.WriteAllText(pathBase, "BASE=1\nFROM=base\n");
+        File.WriteAllText(pathDev, "FROM=dev\n");
+
+        var config = new ConfigurationBuilder()
+            .AddDotEnvFiles(DotEnvPaths.Directory(_tempDir).WithVariant("dev"))
+            .Build();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(config["BASE"], Is.EqualTo("1"));
+            Assert.That(config["FROM"], Is.EqualTo("dev"));
+        }
+    }
+
+    [Test]
+    public void ReloadOnChangePicksUpModificationsToAbsolutePaths()
+    {
+        // Watching for absolute paths goes through a per-directory
+        // PhysicalFileProvider; modifications to those files should still
+        // trigger reload-on-change.
+        var dir = Directory.CreateDirectory(Path.Combine(_tempDir, "remote")).FullName;
+        var path = Path.Combine(dir, ".env");
+        File.WriteAllText(path, "KEY=v1\n");
+
+        var config = new ConfigurationBuilder()
+            .AddDotEnvFiles([path], src => src.ReloadOnChange = true)
+            .Build();
+        Assert.That(config["KEY"], Is.EqualTo("v1"));
+
+        File.WriteAllText(path, "KEY=v2\n");
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < deadline && config["KEY"] != "v2")
+        {
+            Thread.Sleep(50);
+        }
+        Assert.That(config["KEY"], Is.EqualTo("v2"));
+    }
 }
