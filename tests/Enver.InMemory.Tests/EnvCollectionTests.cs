@@ -1355,6 +1355,25 @@ public class EnvCollectionTests
     }
 
     [Test]
+    public void DuplicateKeyDetectionUsesOsEqualityRule()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var ex = Assert.Throws<EnvDuplicateKeyException>(() => Parse("KEY=first\nkey=second"));
+            Assert.That(ex!.Variable, Is.EqualTo("key"));
+        }
+        else
+        {
+            var values = Parse("KEY=first\nkey=second");
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(values["KEY"], Is.EqualTo("first"));
+                Assert.That(values["key"], Is.EqualTo("second"));
+            }
+        }
+    }
+
+    [Test]
     public void DuplicateKeyAllowsLastWinsWhenConfigured()
     {
         // "Allow" flips the in-file dedup off
