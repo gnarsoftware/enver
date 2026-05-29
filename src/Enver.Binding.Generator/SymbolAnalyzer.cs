@@ -193,6 +193,8 @@ internal static class SymbolAnalyzer
             }
         }
 
+        var keysSeen = new Dictionary<string, string>(StringComparer.Ordinal);
+
         foreach (var prop in EnumerateBindableProperties(targetSymbol))
         {
             if (HasAttribute(prop, AttributeNames.EnvIgnore))
@@ -264,6 +266,19 @@ internal static class SymbolAnalyzer
             {
                 continue; // diagnostic already reported
             }
+
+            if (keysSeen.TryGetValue(member.ResolvedKey, out var firstMember))
+            {
+                diags.Add(
+                    new DiagnosticInfo(
+                        DiagnosticDescriptors.DuplicateResolvedKey,
+                        prop.Locations.FirstOrDefault(),
+                        new(ImmutableArray.Create(prop.Name, member.ResolvedKey, firstMember))
+                    )
+                );
+                continue;
+            }
+            keysSeen[member.ResolvedKey] = prop.Name;
             members.Add(member);
 
             if (!ctorParamNames.Contains(prop.Name))

@@ -161,4 +161,13 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
     );
+
+    public static readonly DiagnosticDescriptor DuplicateResolvedKey = new(
+        id: "ENVR0021",
+        title: "Members resolve to the same environment variable key",
+        messageFormat: "Member '{0}' resolves to env-var key '{1}', which is already used by member '{2}'",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
 }
