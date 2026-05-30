@@ -6,6 +6,8 @@
 #   1. Each project's PublicAPI.Unshipped.txt -> PublicAPI.Shipped.txt
 #   2. The generator's AnalyzerReleases.Unshipped.md -> AnalyzerReleases.Shipped.md
 #      (under a new "## Release <version>" section)
+#   3. CHANGELOG.md "## Unreleased" -> "## [<version>] - YYYY-MM-DD"
+#      (with a fresh empty "## Unreleased" inserted above it)
 #
 # Run on a local branch named release/<semver>. It then builds the solution to
 # validate the promoted files.
@@ -147,7 +149,55 @@ else
 fi
 echo
 
-# --- 3. validate ---
+# --- 3. CHANGELOG.md: "## Unreleased" -> "## [<version>] - <date>" ---
+
+CHANGELOG="CHANGELOG.md"
+TODAY="$(date +%Y-%m-%d)"
+
+echo "CHANGELOG:"
+if [[ ! -f "$CHANGELOG" ]]; then
+  echo "error: $CHANGELOG not found." >&2
+  exit 1
+fi
+
+if ! grep -q '^## Unreleased[[:space:]]*$' "$CHANGELOG"; then
+  echo "error: $CHANGELOG is missing an '## Unreleased' section." >&2
+  exit 1
+fi
+
+# Count entry lines under "## Unreleased" (any non-blank, non-heading line up
+# to the next "## " heading or EOF). Refuse to ship an empty Unreleased.
+UNRELEASED_ENTRY_LINES="$(
+  awk '
+    /^## Unreleased[[:space:]]*$/ { p=1; next }
+    p && /^## / { exit }
+    p && NF && $0 !~ /^#+ / { c++ }
+    END { print c+0 }
+  ' "$CHANGELOG"
+)"
+if [[ "$UNRELEASED_ENTRY_LINES" -eq 0 ]]; then
+  echo "error: '## Unreleased' in $CHANGELOG has no entries. Add changes" >&2
+  echo "       under Added/Changed/Fixed/... before cutting a release." >&2
+  exit 1
+fi
+
+# Rewrite the file: rename "## Unreleased" -> "## [VERSION] - DATE", and
+# insert a fresh empty "## Unreleased" section above it.
+awk -v v="$VERSION" -v d="$TODAY" '
+  /^## Unreleased[[:space:]]*$/ {
+    print "## Unreleased"
+    print ""
+    print "## [" v "] - " d
+    next
+  }
+  { print }
+' "$CHANGELOG" > "$CHANGELOG.tmp"
+mv "$CHANGELOG.tmp" "$CHANGELOG"
+
+echo "  promoted '## Unreleased' -> '## [$VERSION] - $TODAY' (${UNRELEASED_ENTRY_LINES} entry line(s))"
+echo
+
+# --- 4. validate ---
 
 echo "Validating (dotnet build)..."
 if dotnet build Enver.slnx --nologo -v quiet; then
