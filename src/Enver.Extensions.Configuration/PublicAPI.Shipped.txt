@@ -1,1 +1,19 @@
 #nullable enable
+Enver.Extensions.Configuration.ConfigurationEnvReaderExtensions
+Enver.Extensions.Configuration.DotEnvConfigurationExtensions
+Enver.Extensions.Configuration.DotEnvFilesSource
+Enver.Extensions.Configuration.DotEnvFilesSource.Build(Microsoft.Extensions.Configuration.IConfigurationBuilder! builder) -> Microsoft.Extensions.Configuration.IConfigurationProvider!
+Enver.Extensions.Configuration.DotEnvFilesSource.DotEnvFilesSource() -> void
+Enver.Extensions.Configuration.DotEnvFilesSource.FileProvider.get -> Microsoft.Extensions.FileProviders.IFileProvider?
+Enver.Extensions.Configuration.DotEnvFilesSource.FileProvider.set -> void
+Enver.Extensions.Configuration.DotEnvFilesSource.ParseOptions.get -> Enver.Parsing.EnvParseOptions
+Enver.Extensions.Configuration.DotEnvFilesSource.ParseOptions.set -> void
+Enver.Extensions.Configuration.DotEnvFilesSource.Paths.get -> System.Collections.Generic.List<string!>!
+Enver.Extensions.Configuration.DotEnvFilesSource.Paths.set -> void
+Enver.Extensions.Configuration.DotEnvFilesSource.ReloadDelay.get -> System.TimeSpan
+Enver.Extensions.Configuration.DotEnvFilesSource.ReloadDelay.set -> void
+Enver.Extensions.Configuration.DotEnvFilesSource.ReloadOnChange.get -> bool
+Enver.Extensions.Configuration.DotEnvFilesSource.ReloadOnChange.set -> void
+static Enver.Extensions.Configuration.ConfigurationEnvReaderExtensions.AsEnvReader(this Microsoft.Extensions.Configuration.IConfiguration! configuration) -> Enver.IEnvReader!
+static Enver.Extensions.Configuration.DotEnvConfigurationExtensions.AddDotEnvFiles(this Microsoft.Extensions.Configuration.IConfigurationBuilder! builder, System.Collections.Generic.IEnumerable<string!>! paths, System.Action<Enver.Extensions.Configuration.DotEnvFilesSource!>? configureSource = null) -> Microsoft.Extensions.Configuration.IConfigurationBuilder!
+static Enver.Extensions.Configuration.DotEnvConfigurationExtensions.AddDotEnvFiles(this Microsoft.Extensions.Configuration.IConfigurationManager! configuration, System.Action<Enver.Extensions.Configuration.DotEnvFilesSource!>? configureSource = null) -> Microsoft.Extensions.Configuration.IConfigurationManager!

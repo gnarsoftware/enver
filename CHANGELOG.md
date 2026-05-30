@@ -10,6 +10,8 @@ together.
 
 ## Unreleased
 
+## [1.0.0] - 2026-05-29
+
 Initial stable release of the Enver `.env` parser and its integration family.
 
 Targets `net8.0`, `net9.0`, `net10.0`.

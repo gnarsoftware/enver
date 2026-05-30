@@ -1,10 +1,1 @@
 #nullable enable
-Enver.EnvCollection
-Enver.EnvCollection.EnvCollection() -> void
-Enver.EnvDictionaryParser
-Enver.EnvDictionaryParser.EnvDictionaryParser(Enver.EnvCollection! target) -> void
-override Enver.EnvDictionaryParser.SeedScope(Enver.Parsing.EnvParseView scope) -> void
-static Enver.EnvCollection.From(string! path, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> Enver.EnvCollection!
-static Enver.EnvCollection.From(System.Collections.Generic.IEnumerable<string!>! paths, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> Enver.EnvCollection!
-static Enver.EnvCollection.FromAsync(string! path, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Enver.EnvCollection!>!
-static Enver.EnvCollection.FromAsync(System.Collections.Generic.IEnumerable<string!>! paths, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Enver.EnvCollection!>!
