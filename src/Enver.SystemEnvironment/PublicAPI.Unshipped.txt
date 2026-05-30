@@ -1,13 +1,1 @@
 #nullable enable
-Enver.EnvironmentExtensions
-Enver.EnvironmentExtensions.extension(System.Environment!)
-Enver.SystemEnvParser
-Enver.SystemEnvParser.SystemEnvParser(bool overrideExisting = false) -> void
-Enver.SystemEnvReader
-Enver.SystemEnvReader.SystemEnvReader() -> void
-Enver.SystemEnvReader.TryGetValue(string! key, out string? value) -> bool
-static Enver.EnvironmentExtensions.extension(System.Environment!).LoadDotEnv(string! path, bool overrideExisting = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> void
-static Enver.EnvironmentExtensions.extension(System.Environment!).LoadDotEnv(System.Collections.Generic.IEnumerable<string!>! paths, bool overrideExisting = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions)) -> void
-static Enver.EnvironmentExtensions.extension(System.Environment!).LoadDotEnvAsync(string! path, bool overrideExisting = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-static Enver.EnvironmentExtensions.extension(System.Environment!).LoadDotEnvAsync(System.Collections.Generic.IEnumerable<string!>! paths, bool overrideExisting = false, Enver.Parsing.EnvParseOptions parseOptions = default(Enver.Parsing.EnvParseOptions), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-static Enver.EnvironmentExtensions.extension(System.Environment!).Variables.get -> Enver.SystemEnvReader
