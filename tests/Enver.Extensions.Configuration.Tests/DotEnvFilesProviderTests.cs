@@ -31,7 +31,9 @@ public class DotEnvFilesProviderTests
     }
 
     private static IConfigurationRoot BuildFromFile(string path, bool reloadOnChange = false) =>
-        new ConfigurationBuilder().AddDotEnvFile(path, reloadOnChange).Build();
+        new ConfigurationBuilder()
+            .AddDotEnvFiles([path], s => s.ReloadOnChange = reloadOnChange)
+            .Build();
 
     [Test]
     public void LoadsTopLevelKeys()
@@ -87,10 +89,10 @@ public class DotEnvFilesProviderTests
     public void LaterSourcesOverrideEarlierOnes()
     {
         // Standard IConfigurationBuilder last-wins semantics: the in-memory
-        // source added after AddDotEnvFile must override the .env value.
+        // source added after AddDotEnvFiles must override the .env value.
         var path = WriteFixture("KEY=from-env-file\n");
         var config = new ConfigurationBuilder()
-            .AddDotEnvFile(path)
+            .AddDotEnvFiles([path])
             .AddInMemoryCollection([new KeyValuePair<string, string?>("KEY", "from-memory")])
             .Build();
         Assert.That(config["KEY"], Is.EqualTo("from-memory"));
@@ -102,7 +104,7 @@ public class DotEnvFilesProviderTests
         var path = WriteFixture("DB_HOST=from-env-file\n");
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection([new KeyValuePair<string, string?>("PORT", "5432")])
-            .AddDotEnvFile(path)
+            .AddDotEnvFiles([path])
             .Build();
         using (Assert.EnterMultipleScope())
         {
@@ -121,7 +123,7 @@ public class DotEnvFilesProviderTests
         // callers can still inspect the failing variable name.
         var path = WriteFixture("KEY=first\nKEY=second\n");
         var ex = Assert.Throws<InvalidDataException>(() =>
-            new ConfigurationBuilder().AddDotEnvFile(path).Build()
+            new ConfigurationBuilder().AddDotEnvFiles([path]).Build()
         );
         var inner = ex!.InnerException as EnvVariableException;
         Assert.That(inner, Is.Not.Null);
@@ -133,7 +135,10 @@ public class DotEnvFilesProviderTests
     {
         var path = WriteFixture("KEY=first\nKEY=second\n");
         var config = new ConfigurationBuilder()
-            .AddDotEnvFile(path, parseOptions: new EnvParseOptions { AllowDuplicateKeys = true })
+            .AddDotEnvFiles(
+                [path],
+                s => s.ParseOptions = new EnvParseOptions { AllowDuplicateKeys = true }
+            )
             .Build();
         Assert.That(config["KEY"], Is.EqualTo("second"));
     }
@@ -175,5 +180,111 @@ public class DotEnvFilesProviderTests
         var path = WriteFixture("NAME=World\nGREETING=Hello ${NAME}\n");
         var config = BuildFromFile(path);
         Assert.That(config["GREETING"], Is.EqualTo("Hello World"));
+    }
+
+    [Test]
+    public void AddDotEnvFilesLoadsAbsolutePathsAcrossDirectories()
+    {
+        // The single FileProvider can't reach files outside the content root.
+        // Absolute paths in the path list must resolve via direct file I/O.
+        var dirA = Directory.CreateDirectory(Path.Combine(_tempDir, "a")).FullName;
+        var dirB = Directory.CreateDirectory(Path.Combine(_tempDir, "b")).FullName;
+        var pathA = Path.Combine(dirA, ".env");
+        var pathB = Path.Combine(dirB, ".env");
+        File.WriteAllText(pathA, "A=from-a\nSHARED=base\n");
+        File.WriteAllText(pathB, "B=from-b\nSHARED=overridden\n");
+
+        var config = new ConfigurationBuilder().AddDotEnvFiles([pathA, pathB]).Build();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(config["A"], Is.EqualTo("from-a"));
+            Assert.That(config["B"], Is.EqualTo("from-b"));
+            Assert.That(config["SHARED"], Is.EqualTo("overridden"));
+        }
+    }
+
+    [Test]
+    public void AddDotEnvFilesShareInterpolationAcrossAbsolutePaths()
+    {
+        // The whole path list loads under one parse scope, so a later file can
+        // reference a key defined in an earlier file even when they live in
+        // different directories.
+        var dirA = Directory.CreateDirectory(Path.Combine(_tempDir, "a")).FullName;
+        var dirB = Directory.CreateDirectory(Path.Combine(_tempDir, "b")).FullName;
+        File.WriteAllText(Path.Combine(dirA, ".env"), "BASE=foo\n");
+        File.WriteAllText(Path.Combine(dirB, ".env"), "DERIVED=${BASE}-bar\n");
+
+        var config = new ConfigurationBuilder()
+            .AddDotEnvFiles([Path.Combine(dirA, ".env"), Path.Combine(dirB, ".env")])
+            .Build();
+        Assert.That(config["DERIVED"], Is.EqualTo("foo-bar"));
+    }
+
+    [Test]
+    public void AddDotEnvFilesIntegratesWithDotEnvPathsBuilder()
+    {
+        // The motivating use case: builders.Standard("dev").
+        var pathBase = Path.Combine(_tempDir, ".env");
+        var pathDev = Path.Combine(_tempDir, ".env.dev");
+        File.WriteAllText(pathBase, "BASE=1\nFROM=base\n");
+        File.WriteAllText(pathDev, "FROM=dev\n");
+
+        var config = new ConfigurationBuilder()
+            .AddDotEnvFiles(DotEnvPaths.Directory(_tempDir).WithVariant("dev"))
+            .Build();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(config["BASE"], Is.EqualTo("1"));
+            Assert.That(config["FROM"], Is.EqualTo("dev"));
+        }
+    }
+
+    [Test]
+    public void AddDotEnvFilesSmartInsertsBeforeEnvironmentVariablesSource()
+    {
+        // Builder extension version: a value set in the process env must still
+        // beat the .env value even when AddDotEnvFiles is called AFTER
+        // AddEnvironmentVariables. The smart-insert puts the .env source
+        // before the env-vars source so the convention holds.
+        const string testKey = "ENVER_COMPAT_TEST_BUILDER_INSERT_KEY";
+        Environment.SetEnvironmentVariable(testKey, "from-env-var");
+        try
+        {
+            var path = WriteFixture($"{testKey}=from-dotenv\n");
+            var config = new ConfigurationBuilder()
+                .AddEnvironmentVariables()
+                .AddDotEnvFiles([path])
+                .Build();
+            Assert.That(config[testKey], Is.EqualTo("from-env-var"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(testKey, null);
+        }
+    }
+
+    [Test]
+    public void ReloadOnChangePicksUpModificationsToAbsolutePaths()
+    {
+        // Watching for absolute paths goes through a per-directory
+        // PhysicalFileProvider; modifications to those files should still
+        // trigger reload-on-change.
+        var dir = Directory.CreateDirectory(Path.Combine(_tempDir, "remote")).FullName;
+        var path = Path.Combine(dir, ".env");
+        File.WriteAllText(path, "KEY=v1\n");
+
+        var config = new ConfigurationBuilder()
+            .AddDotEnvFiles([path], src => src.ReloadOnChange = true)
+            .Build();
+        Assert.That(config["KEY"], Is.EqualTo("v1"));
+
+        File.WriteAllText(path, "KEY=v2\n");
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < deadline && config["KEY"] != "v2")
+        {
+            Thread.Sleep(50);
+        }
+        Assert.That(config["KEY"], Is.EqualTo("v2"));
     }
 }

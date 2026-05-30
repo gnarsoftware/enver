@@ -1,6 +1,8 @@
 using Enver.Loading;
 using Enver.Parsing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.FileProviders.Physical;
 using Microsoft.Extensions.Primitives;
 
 namespace Enver.Extensions.Configuration;
@@ -9,6 +11,12 @@ internal sealed class DotEnvFilesProvider : ConfigurationProvider, IDisposable
 {
     private readonly DotEnvFilesSource _source;
     private readonly IDisposable? _changeTokenRegistration;
+
+    // Per-directory PhysicalFileProviders for absolute paths in _source.Paths,
+    // keyed on directory.
+    private readonly Dictionary<string, PhysicalFileProvider> _absoluteDirProviders = new(
+        StringComparer.Ordinal
+    );
 
     // Serializes Load() so multiple change-token callbacks can't race
     // each other or a caller-driven Load() to corrupt the rebuilt Data.
@@ -23,7 +31,7 @@ internal sealed class DotEnvFilesProvider : ConfigurationProvider, IDisposable
         ArgumentNullException.ThrowIfNull(source);
         _source = source;
 
-        if (_source.ReloadOnChange && _source.FileProvider is not null)
+        if (_source.ReloadOnChange)
         {
             _changeTokenRegistration = ChangeToken.OnChange(
                 CreateLadderChangeToken,
@@ -62,12 +70,11 @@ internal sealed class DotEnvFilesProvider : ConfigurationProvider, IDisposable
             foreach (var path in _source.Paths)
             {
                 currentPath = path;
-                var fileInfo = _source.FileProvider!.GetFileInfo(path);
-                if (!fileInfo.Exists || fileInfo.IsDirectory)
+                using var stream = OpenStream(path);
+                if (stream is null)
                 {
                     continue;
                 }
-                using var stream = fileInfo.CreateReadStream();
                 EnvStreamReader.Read(stream, parser, _source.ParseOptions, scope);
             }
         }
@@ -93,11 +100,64 @@ internal sealed class DotEnvFilesProvider : ConfigurationProvider, IDisposable
         Data = data;
     }
 
+    private Stream? OpenStream(string path)
+    {
+        if (Path.IsPathRooted(path))
+        {
+            return File.Exists(path) ? File.OpenRead(path) : null;
+        }
+        if (_source.FileProvider is null)
+        {
+            return null;
+        }
+        var fileInfo = _source.FileProvider.GetFileInfo(path);
+        if (!fileInfo.Exists || fileInfo.IsDirectory)
+        {
+            return null;
+        }
+        return fileInfo.CreateReadStream();
+    }
+
     private IChangeToken CreateLadderChangeToken()
     {
-        var tokens = _source.Paths.Select(p => _source.FileProvider!.Watch(p)).ToArray();
+        var tokens = new List<IChangeToken>(_source.Paths.Count);
+        foreach (var path in _source.Paths)
+        {
+            if (Path.IsPathRooted(path))
+            {
+                var dir = Path.GetDirectoryName(path);
+                if (string.IsNullOrEmpty(dir))
+                {
+                    continue;
+                }
+                var provider = GetOrAddAbsoluteDirProvider(dir);
+                tokens.Add(provider.Watch(Path.GetFileName(path)));
+            }
+            else if (_source.FileProvider is not null)
+            {
+                tokens.Add(_source.FileProvider.Watch(path));
+            }
+        }
         return new CompositeChangeToken(tokens);
     }
 
-    public void Dispose() => _changeTokenRegistration?.Dispose();
+    private PhysicalFileProvider GetOrAddAbsoluteDirProvider(string directory)
+    {
+        if (!_absoluteDirProviders.TryGetValue(directory, out var provider))
+        {
+            provider = new PhysicalFileProvider(directory, ExclusionFilters.None);
+            _absoluteDirProviders[directory] = provider;
+        }
+        return provider;
+    }
+
+    public void Dispose()
+    {
+        _changeTokenRegistration?.Dispose();
+        foreach (var provider in _absoluteDirProviders.Values)
+        {
+            provider.Dispose();
+        }
+        _absoluteDirProviders.Clear();
+    }
 }

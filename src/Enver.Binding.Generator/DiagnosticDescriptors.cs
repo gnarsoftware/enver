@@ -156,7 +156,7 @@ internal static class DiagnosticDescriptors
     public static readonly DiagnosticDescriptor TypedRangeNotSupported = new(
         id: "ENVR0020",
         title: "[Range(Type, ...)] is not supported",
-        messageFormat: "The [Range(Type, …)] form on '{0}' is not supported by Enver's reflection-free validation; use the numeric [Range] overload, [CustomValidation], or implement IValidatableObject",
+        messageFormat: "The [Range(Type, ...)] form on '{0}' is not supported by Enver's reflection-free validation; use the numeric [Range] overload, [CustomValidation], or implement IValidatableObject",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true

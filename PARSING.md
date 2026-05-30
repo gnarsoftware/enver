@@ -305,7 +305,6 @@ named choice in your code:
 | Bare `$VAR` throws | `EnvParseOptions { OnUnbracedInterpolation = UnbracedInterpolationBehavior.Literal }` (keep `$` literal) or `… = UnbracedInterpolationBehavior.Interpolate` (expand variable) |
 | Unknown escape in double quotes throws | `EnvParseOptions { AllowUnknownEscapes = true }` (pass the backslash and following char through literally) |
 | Process env preserves existing values | `LoadDotEnv*(overrideExisting: true)` |
-| Missing file throws | `LoadDotEnv*(throwIfMissing: false)` (already the default for directory variants) |
 | Missing key throws | `GetOptional*` (returns `null`) or `Get*(key, defaultValue)` |
 
 ## Ecosystem compatibility

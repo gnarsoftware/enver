@@ -1,10 +1,12 @@
+using Enver;
 using Enver.Binding;
 #pragma warning disable CA1050 // Declare types in namespaces
 // The source generator adds static Bind* factory methods directly to each
 // [EnvBindable] type, so binding is a single method call per config class.
-var app = AppConfig.BindFromAppDirectory();
-var db = DbConfig.BindFromAppDirectory();
-var api = ApiConfig.BindFromAppDirectory();
+var path = DotEnvPaths.AppDirectory();
+var app = AppConfig.Bind(path);
+var db = DbConfig.Bind(path);
+var api = ApiConfig.Bind(path);
 
 Console.WriteLine($"Starting {app.Name}  [{app.Env}]  (debug={app.Debug})");
 Console.WriteLine($"  Database : {db.Host}:{db.Port}/{db.Name}");

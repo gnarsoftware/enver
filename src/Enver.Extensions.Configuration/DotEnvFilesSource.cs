@@ -24,6 +24,11 @@ public sealed class DotEnvFilesSource : IConfigurationSource
 
     /// <summary>
     /// The file provider for the folder where the files in <see cref="Paths"/> lives.
+    /// <br />
+    /// This is only used for relative paths. Absolute paths are handled separately.
+    /// When unset, a <see cref="PhysicalFileProvider"/> is created against
+    /// <c>IHostEnvironment.ContentRootPath</c> if available, otherwise it falls back
+    /// to <see cref="Environment.CurrentDirectory"/>.
     /// </summary>
     public IFileProvider? FileProvider { get; set; }
 

@@ -16,7 +16,7 @@ dotnet add package Gnar.Enver.InMemory
 using Enver;
 
 // Reads .env from the executable's directory.
-var values = EnvCollection.FromAppDirectory();
+var values = EnvCollection.From(DotEnvPaths.AppDirectory());
 
 string dbHost = values.GetString("DB_HOST");
 int    port   = values.GetInt32("DB_PORT");
@@ -37,7 +37,7 @@ foreach (var (key, value) in values)
 using System.Net;
 using Enver;
 
-var values = EnvCollection.FromAppDirectory();
+var values = EnvCollection.From(DotEnvPaths.AppDirectory());
 
 string dbHost    = values.GetString("DB_HOST");
 int    port      = values.GetInt32("DB_PORT", 5432);    // default if missing; 0x/0b prefixes supported
@@ -58,26 +58,61 @@ types.
 
 [main-readme]: https://github.com/gnarsoftware/enver#supported-types
 
-## Loader variants
+## Loading
+
+`EnvCollection.From` has two shapes:
 
 ```csharp
-// Load a specific file. Throws if missing.
-EnvCollection.FromFile("/etc/myapp/.env");
+// Single file. Missing files are silent.
+EnvCollection.From("/etc/myapp/.env");
 
-// Load .env files from the current working directory rather than the app directory.
-EnvCollection.FromWorkingDirectory();
+// Path list. Files load in order; later files override earlier ones, with
+// shared ${VAR} interpolation across the whole sequence. Pair with
+// DotEnvPaths to compose the canonical ladder.
+EnvCollection.From([file1, file2]);
+EnvCollection.From(DotEnvPaths.AppDirectory());                          // .env in app dir
+EnvCollection.From(DotEnvPaths.WorkingDirectory().Standard("dev"));      // 4-tier ladder
+EnvCollection.From(DotEnvPaths.AppDirectory().WithParentDirectories(int.MaxValue)); // walk to root
 
-// Load .env file from a specific directory.
-EnvCollection.FromDirectory("/var/myapp");
+// Async variants:
+await EnvCollection.FromAsync("/etc/myapp/.env");
+await EnvCollection.FromAsync(DotEnvPaths.AppDirectory().Standard("dev"));
+```
 
-// Walk up all parent directories; closer files override farther ones.
-EnvCollection.FromAppDirectory(maxAncestors: int.MaxValue);
+Missing files are silently skipped. Callers needing
+strict "this file must exist" semantics should check with `File.Exists`
+before calling.
 
-// .env then .env.local in the app directory.
-EnvCollection.FromAppDirectory(variant: "local");
+## Composing paths with `DotEnvPaths`
 
-// Async variants for all of the above.
-await EnvCollection.FromAppDirectoryAsync();
+`DotEnvPaths` is a composable builder for the canonical .env load ladder.
+The canonical precedence is fixed:
+
+`.env < .env.{variant} < .env.local < .env.{variant}.local`
+
+```csharp
+// Roots
+DotEnvPaths.AppDirectory()         // AppContext.BaseDirectory
+DotEnvPaths.WorkingDirectory()     // Directory.GetCurrentDirectory() at load time
+DotEnvPaths.Directory("/var/app")  // explicit
+DotEnvPaths.Relative()             // bare filenames; resolution deferred to consumer
+
+// Modifiers
+.WithFileName("config.env")        // base filename (defaults to ".env")
+.WithVariant("dev")                // adds .env.{variant} tier
+.WithLocal()                       // adds .env.local (+ .env.{variant}.local if variant set)
+.WithParentDirectories(2)          // walks ancestors (base + variant only; local stays at start; not supported on Relative)
+.Standard("dev")                   // equivalent to .WithVariant("dev").WithLocal()
+```
+
+A builder implements `IEnumerable<string>`, so it composes directly into
+collection-expression spreads:
+
+```csharp
+EnvCollection.From([
+    .. DotEnvPaths.AppDirectory().Standard("dev"),
+    "/etc/myapp/overrides.env",
+]);
 ```
 
 ## Duplicate-key handling
@@ -93,17 +128,22 @@ new EnvDictionaryParser(coll).Parse("DB_HOST=a\nDB_HOST=b");
 To allow duplicates within a file:
 
 ```csharp
-EnvCollection.FromAppDirectory(
+EnvCollection.From(
+    DotEnvPaths.AppDirectory(),
     parseOptions: new EnvParseOptions { AllowDuplicateKeys = true });
 ```
 
 ---
 
-Across files in a single load (e.g. `.env` then `.env.local`), values are intentionally overridden. Files closer to the source directory override farther files, and variants override the base file.
+Across files in a single load (e.g. `.env` then `.env.local`), values are
+intentionally overridden. Files later in the path list override earlier
+ones. Combined with `DotEnvPaths.WithParentDirectories`, files in closer
+directories override files in farther ancestors.
 
-For example, parsing with:
+For example:
+
 ```csharp
-EnvCollection.FromAppDirectory(variant: "local", maxAncestors: 1);
+EnvCollection.From(DotEnvPaths.AppDirectory().Standard().WithParentDirectories(1));
 ```
 
 with these files:
@@ -111,7 +151,6 @@ with these files:
 ```
 /path/to/your/app/.env.local -> KEY=app root + local
 /path/to/your/app/.env       -> KEY=app root
-/path/to/your/.env.local     -> KEY=parent dir + local
 /path/to/your/.env           -> KEY=parent dir
 ```
 

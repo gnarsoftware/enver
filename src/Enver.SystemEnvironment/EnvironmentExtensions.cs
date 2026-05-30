@@ -1,4 +1,5 @@
 using Enver.Loading;
+using Enver.Parsing;
 
 namespace Enver;
 
@@ -18,170 +19,55 @@ public static class EnvironmentExtensions
         public static SystemEnvReader Variables => default;
 
         /// <summary>
-        /// Load a single .env file at the given path.
+        /// Loads a single .env file into the process environment.
         /// </summary>
         public static void LoadDotEnv(
             string path,
-            bool throwIfMissing = true,
-            bool overrideExisting = false
+            bool overrideExisting = false,
+            EnvParseOptions parseOptions = default
         )
         {
             var parser = new SystemEnvParser(overrideExisting);
-            EnvFileLoader.LoadFile(parser, path, throwIfMissing);
+            EnvFileLoader.Load(parser, path, parseOptions);
         }
 
-        /// <inheritdoc cref="LoadDotEnv(string, bool, bool)"/>
+        /// <summary>
+        /// Loads each file in <paramref name="paths"/> in order into the process
+        /// environment; later files override earlier ones. Pair with
+        /// <see cref="DotEnvPaths"/> to compose the canonical ladder.
+        /// </summary>
+        public static void LoadDotEnv(
+            IEnumerable<string> paths,
+            bool overrideExisting = false,
+            EnvParseOptions parseOptions = default
+        )
+        {
+            var parser = new SystemEnvParser(overrideExisting);
+            EnvFileLoader.Load(parser, paths, parseOptions);
+        }
+
+        /// <inheritdoc cref="LoadDotEnv(string, bool, EnvParseOptions)"/>
         public static Task LoadDotEnvAsync(
             string path,
-            bool throwIfMissing = true,
             bool overrideExisting = false,
+            EnvParseOptions parseOptions = default,
             CancellationToken cancellationToken = default
         )
         {
             var parser = new SystemEnvParser(overrideExisting);
-            return EnvFileLoader.LoadFileAsync(
-                parser,
-                path,
-                throwIfMissing,
-                default,
-                cancellationToken
-            );
+            return EnvFileLoader.LoadAsync(parser, path, parseOptions, cancellationToken);
         }
 
-        /// <summary>
-        /// Load a .env file (and optionally .env.<paramref name="variant"/>) from
-        /// <see cref="AppContext.BaseDirectory"/>, optionally walking up parent directories.
-        /// </summary>
-        public static void LoadDotEnvFromAppDirectory(
-            string fileName = ".env",
-            string? variant = null,
-            int maxAncestors = 0,
-            bool throwIfMissing = false,
-            bool overrideExisting = false
-        )
-        {
-            var parser = new SystemEnvParser(overrideExisting);
-            EnvFileLoader.LoadFromAppDirectory(
-                parser,
-                fileName,
-                variant,
-                maxAncestors,
-                throwIfMissing
-            );
-        }
-
-        /// <inheritdoc cref="LoadDotEnvFromAppDirectory(string, string?, int, bool, bool)"/>
-        public static Task LoadDotEnvFromAppDirectoryAsync(
-            string fileName = ".env",
-            string? variant = null,
-            int maxAncestors = 0,
-            bool throwIfMissing = false,
+        /// <inheritdoc cref="LoadDotEnv(IEnumerable{string}, bool, EnvParseOptions)"/>
+        public static Task LoadDotEnvAsync(
+            IEnumerable<string> paths,
             bool overrideExisting = false,
+            EnvParseOptions parseOptions = default,
             CancellationToken cancellationToken = default
         )
         {
             var parser = new SystemEnvParser(overrideExisting);
-            return EnvFileLoader.LoadFromAppDirectoryAsync(
-                parser,
-                fileName,
-                variant,
-                maxAncestors,
-                throwIfMissing,
-                default,
-                cancellationToken
-            );
-        }
-
-        /// <summary>
-        /// Load a .env file (and optionally .env.<paramref name="variant"/>) from
-        /// <see cref="Directory.GetCurrentDirectory"/>, optionally walking up parent directories.
-        /// </summary>
-        public static void LoadDotEnvFromWorkingDirectory(
-            string fileName = ".env",
-            string? variant = null,
-            int maxAncestors = 0,
-            bool throwIfMissing = false,
-            bool overrideExisting = false
-        )
-        {
-            var parser = new SystemEnvParser(overrideExisting);
-            EnvFileLoader.LoadFromWorkingDirectory(
-                parser,
-                fileName,
-                variant,
-                maxAncestors,
-                throwIfMissing
-            );
-        }
-
-        /// <inheritdoc cref="LoadDotEnvFromWorkingDirectory(string, string?, int, bool, bool)"/>
-        public static Task LoadDotEnvFromWorkingDirectoryAsync(
-            string fileName = ".env",
-            string? variant = null,
-            int maxAncestors = 0,
-            bool throwIfMissing = false,
-            bool overrideExisting = false,
-            CancellationToken cancellationToken = default
-        )
-        {
-            var parser = new SystemEnvParser(overrideExisting);
-            return EnvFileLoader.LoadFromWorkingDirectoryAsync(
-                parser,
-                fileName,
-                variant,
-                maxAncestors,
-                throwIfMissing,
-                default,
-                cancellationToken
-            );
-        }
-
-        /// <summary>
-        /// Load a .env file (and optionally .env.<paramref name="variant"/>) from
-        /// a specified directory, optionally walking up parent directories.
-        /// </summary>
-        public static void LoadDotEnvFromDirectory(
-            string directory,
-            string fileName = ".env",
-            string? variant = null,
-            int maxAncestors = 0,
-            bool throwIfMissing = false,
-            bool overrideExisting = false
-        )
-        {
-            var parser = new SystemEnvParser(overrideExisting);
-            EnvFileLoader.LoadFromDirectory(
-                parser,
-                directory,
-                fileName,
-                variant,
-                maxAncestors,
-                throwIfMissing
-            );
-        }
-
-        /// <inheritdoc cref="LoadDotEnvFromDirectory(string, string, string?, int, bool, bool)"/>
-        public static Task LoadDotEnvFromDirectoryAsync(
-            string directory,
-            string fileName = ".env",
-            string? variant = null,
-            int maxAncestors = 0,
-            bool throwIfMissing = false,
-            bool overrideExisting = false,
-            CancellationToken cancellationToken = default
-        )
-        {
-            var parser = new SystemEnvParser(overrideExisting);
-            return EnvFileLoader.LoadFromDirectoryAsync(
-                parser,
-                directory,
-                fileName,
-                variant,
-                maxAncestors,
-                throwIfMissing,
-                default,
-                cancellationToken
-            );
+            return EnvFileLoader.LoadAsync(parser, paths, parseOptions, cancellationToken);
         }
     }
 }

@@ -21,9 +21,9 @@ using Enver;
 // Reads .env from the executable's directory and writes each entry to the
 // process environment.
 // C# 14+ only
-Environment.LoadDotEnvFromAppDirectory();
+Environment.LoadDotEnv(DotEnvPaths.AppDirectory());
 // OR
-EnvironmentExtensions.LoadDotEnvFromAppDirectory();
+EnvironmentExtensions.LoadDotEnv(DotEnvPaths.AppDirectory());
 
 var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
 ```
@@ -57,37 +57,42 @@ types.
 
 [main-readme]: https://github.com/gnarsoftware/enver#supported-types
 
-## Loader variants
+## Loading
+
+`Environment.LoadDotEnv` has two shapes:
 
 ```csharp
-// Load a specific file. Throws if missing.
+// Single file. Missing files are silent.
 Environment.LoadDotEnv("/etc/myapp/.env");
 
-// Load .env files from the current working directory rather than the app directory.
-Environment.LoadDotEnvFromWorkingDirectory();
+// Path list. Files load in order; later files override earlier ones, with
+// shared ${VAR} interpolation across the whole sequence. Pair with
+// DotEnvPaths to compose the canonical ladder.
+Environment.LoadDotEnv([file1, file2]);
+Environment.LoadDotEnv(DotEnvPaths.AppDirectory());                          // .env in app dir
+Environment.LoadDotEnv(DotEnvPaths.WorkingDirectory().Standard("production")); // 4-tier ladder
+Environment.LoadDotEnv(DotEnvPaths.AppDirectory().WithParentDirectories(int.MaxValue)); // walk to root
 
-// Load .env file from a specific directory.
-Environment.LoadDotEnvFromDirectory("/var/myapp");
-
-// Walk up all parent directories; closer files override farther ones.
-Environment.LoadDotEnvFromAppDirectory(maxAncestors: int.MaxValue);
-
-// .env then .env.production in the app directory.
-Environment.LoadDotEnvFromAppDirectory(variant: "production");
-
-// Async variants for all of the above.
-await Environment.LoadDotEnvFromAppDirectoryAsync();
+// Async variants:
+await Environment.LoadDotEnvAsync("/etc/myapp/.env");
+await Environment.LoadDotEnvAsync(DotEnvPaths.AppDirectory().Standard("production"));
 ```
+
+Missing files are silently skipped. See the
+`DotEnvPaths` reference in
+[Enver.InMemory's README](https://www.nuget.org/packages/Gnar.Enver.InMemory/)
+for the full builder surface.
 
 ## Cross-file precedence
 
 Across files in a single load (e.g. `.env` then `.env.production`), values are
-intentionally overridden. Files closer to the source directory override farther
-files, and variants override the base file.
+intentionally overridden. Files later in the path list override earlier ones.
 
-For example, parsing with:
+For example:
+
 ```csharp
-Environment.LoadDotEnvFromAppDirectory(variant: "production", maxAncestors: 1);
+Environment.LoadDotEnv(
+    DotEnvPaths.AppDirectory().WithVariant("production").WithParentDirectories(1));
 ```
 
 with these files:
@@ -109,7 +114,7 @@ the process environment.
 To make the `.env` file authoritative, pass `overrideExisting: true`:
 
 ```csharp
-Environment.LoadDotEnvFromAppDirectory(overrideExisting: true);
+Environment.LoadDotEnv(DotEnvPaths.AppDirectory(), overrideExisting: true);
 ```
 
 ## License

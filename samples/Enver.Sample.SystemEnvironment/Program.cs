@@ -8,7 +8,7 @@
 using Enver;
 
 // (C# 14 extension-member syntax; use EnvironmentExtensions on older compilers.)
-Environment.LoadDotEnvFromAppDirectory();
+Environment.LoadDotEnv(DotEnvPaths.AppDirectory());
 
 // Legacy-style access
 string? appName = Environment.GetEnvironmentVariable("APP_NAME");
