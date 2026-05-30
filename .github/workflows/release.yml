@@ -74,6 +74,34 @@ jobs:
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
 
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        run: |
+          v="${{ steps.v.outputs.version }}"
+          if [[ ! -f CHANGELOG.md ]]; then
+            echo "::error::CHANGELOG.md not found"
+            exit 1
+          fi
+          # Print everything from the "## [<version>] - <date>" header to the
+          # next "## " heading (exclusive), then trim leading/trailing blank
+          # lines.
+          awk -v v="$v" '
+            $0 ~ "^## \\["v"\\]" { p=1; next }
+            p && /^## / { exit }
+            p { print }
+          ' CHANGELOG.md \
+            | awk 'NF{f=1} f' \
+            | awk '{ lines[NR]=$0 } END { last=NR; while (last>0 && lines[last]=="") last--; for (i=1;i<=last;i++) print lines[i] }' \
+            > release-notes.md
+          if [[ ! -s release-notes.md ]]; then
+            echo "::error::no CHANGELOG.md section matches '## [$v]'"
+            exit 1
+          fi
+          echo "Release notes for v$v:"
+          echo "---"
+          cat release-notes.md
+          echo "---"
+
       - name: Create GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -84,5 +112,5 @@ jobs:
           gh release create "v$v" \
             artifacts/packages/*.nupkg artifacts/packages/*.snupkg \
             --target "${{ github.event.pull_request.merge_commit_sha }}" \
-            --generate-notes \
+            --notes-file release-notes.md \
             $pre
