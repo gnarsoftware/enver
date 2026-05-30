@@ -28,17 +28,17 @@ public partial record DatabaseConfig(string Host, int Port)
 
 // Pick one:
 
-// 1. Bind by loading a .env from the app directory.
-var cfg = DatabaseConfig.BindFromAppDirectory();
+// 1. Bind by loading a single .env file. Missing files are silent.
+var cfg = DatabaseConfig.Bind("/path/to/my/.env");
 
-// 2. Bind by loading a .env from the working directory.
-var cfg = DatabaseConfig.BindFromWorkingDirectory();
+// 2. Bind by loading a path list. Later files override earlier ones, with
+//    shared ${VAR} interpolation across the sequence. Pair with DotEnvPaths
+//    to build the canonical ladder.
+var cfg = DatabaseConfig.Bind(DotEnvPaths.AppDirectory());                   // .env in app dir
+var cfg = DatabaseConfig.Bind(DotEnvPaths.WorkingDirectory().Standard("dev")); // 4-tier ladder
 
-// 3. Bind by loading a specific file.
-var cfg = DatabaseConfig.BindFromFile("/etc/myapp/.env");
-
-// 4. Bind from an existing IEnvReader (EnvCollection, Environment.Variables,
-//    configuration.AsEnvReader(), …)
+// 3. Bind from an existing IEnvReader (EnvCollection, Environment.Variables,
+//    configuration.AsEnvReader(), ...)
 var cfg = DatabaseConfig.Bind(values);
 ```
 
@@ -54,21 +54,11 @@ emits three static factories plus a streaming `Binder`:
 public partial record DatabaseConfig
 {
     public static DatabaseConfig Bind(IEnvReader reader);
-    public static DatabaseConfig BindFromAppDirectory(
-        string fileName = ".env",
-        string? variant = null,
-        int maxAncestors = 0,
-        bool throwIfMissing = false,
-        EnvParseOptions parseOptions = default);
-    public static DatabaseConfig BindFromWorkingDirectory(
-        string fileName = ".env",
-        string? variant = null,
-        int maxAncestors = 0,
-        bool throwIfMissing = false,
-        EnvParseOptions parseOptions = default);
-    public static DatabaseConfig BindFromFile(
+    public static DatabaseConfig Bind(
         string path,
-        bool throwIfMissing = true,
+        EnvParseOptions parseOptions = default);
+    public static DatabaseConfig Bind(
+        IEnumerable<string> paths,
         EnvParseOptions parseOptions = default);
 
     public sealed partial class Binder : EnvParser
@@ -77,6 +67,10 @@ public partial record DatabaseConfig
     }
 }
 ```
+
+The `IEnumerable<string>` overload is the primitive. Pair it with
+`DotEnvPaths` to compose the canonical ladder. Missing files are silently
+skipped.
 
 The same surface is generated on an external host (`[EnvBindable<T>]`),
 with method names suffixed by the target's simple type name
@@ -241,7 +235,7 @@ public partial class ServerConfig
 }
 
 // Throws EnvValidationException if PORT is outside 1..65535 or HOST exceeds 253 chars.
-var cfg = ServerConfig.BindFromAppDirectory();
+var cfg = ServerConfig.Bind(DotEnvPaths.AppDirectory());
 ```
 
 > [!NOTE]
@@ -262,7 +256,7 @@ var cfg = ServerConfig.BindFromAppDirectory();
   `[Range]` on a subsection member is enforced when the parent binds.
 - **Discovered at compile time.** The generator reads your attributes during
   generation and invokes them directly, rather than scanning your type with
-  `Validator.ValidateObject`. `[Display(Name = "…")]` (including resource-based
+  `Validator.ValidateObject`. `[Display(Name = "...")]` (including resource-based
   names) feeds the error messages so they match standard DataAnnotations output.
 
 Custom validators work the same way. Derive from `ValidationAttribute`:

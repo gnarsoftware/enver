@@ -123,8 +123,9 @@ public readonly record struct DotEnvPaths : IEnumerable<string>
     }
 
     /// <summary>
-    /// Sugar for the conventional ladder: adds a variant tier (when provided)
-    /// and local-tier files.
+    /// Adds the conventional ladder: a variant tier (if provided) and local-tier files.
+    /// <br />
+    /// Equivalent to <c>WithVariant(variant).WithLocal()</c>.
     /// </summary>
     public DotEnvPaths Standard(string? variant = null)
     {

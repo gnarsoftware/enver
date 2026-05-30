@@ -35,7 +35,7 @@ public sealed class EnvInterpolationException : EnvVariableException
     }
 
     /// <summary>
-    /// The interpolation reference inside <c>${…}</c> that failed to resolve.
+    /// The interpolation reference inside <c>${...}</c> that failed to resolve.
     /// </summary>
     public string InterpolationKey { get; init; }
 
