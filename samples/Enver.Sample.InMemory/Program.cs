@@ -1,10 +1,10 @@
 // Load .env from the app's output directory.
-// Passing variant: "local" also loads .env.local (if present), with .env.local winning
+// Calling .WithLocal() also loads .env.local (if present), with .env.local winning
 // on any keys that appear in both files. Useful for per-machine developer overrides.
 
 using Enver;
 
-var env = EnvCollection.FromAppDirectory(variant: "local");
+var env = EnvCollection.From(DotEnvPaths.AppDirectory().WithLocal());
 
 // Required values. EnvException is thrown if a key is missing or cannot be parsed.
 string appName = env.GetString("APP_NAME");
