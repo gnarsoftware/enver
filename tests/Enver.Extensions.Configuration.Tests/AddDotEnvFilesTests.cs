@@ -115,14 +115,18 @@ public class AddDotEnvFilesTests
     }
 
     [Test]
-    public void ExplicitEnvironmentNameOverridesAutoDiscovery()
+    public void ConfigureSourceCanReplacePathsToForceEnvironment()
     {
         WriteFile(".env.custom", "KEY=custom\n");
         var config = new ConfigurationManager();
         config.AddInMemoryCollection([
             new KeyValuePair<string, string?>("ASPNETCORE_ENVIRONMENT", "Staging"),
         ]);
-        config.AddDotEnvFiles(s => s.ReloadOnChange = false, environmentName: "custom");
+        config.AddDotEnvFiles(s =>
+        {
+            s.ReloadOnChange = false;
+            s.Paths = [.. DotEnvPaths.Relative().Standard("custom")];
+        });
         Assert.That(config["KEY"], Is.EqualTo("custom"));
     }
 
