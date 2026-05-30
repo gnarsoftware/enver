@@ -219,8 +219,8 @@ public class DotEnvPathsTests
     [Test]
     public void RelativeWithParentDirectoriesThrows()
     {
-        Assert.Throws<InvalidOperationException>(
-            () => DotEnvPaths.Relative().WithParentDirectories(2)
+        Assert.Throws<InvalidOperationException>(() =>
+            DotEnvPaths.Relative().WithParentDirectories(2)
         );
     }
 
