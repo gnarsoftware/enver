@@ -319,7 +319,7 @@ name, and the streaming binder lives alongside them:
 
 ```csharp
 var cfg = Configs.BindCacheConfig(reader);
-var cfg = Configs.BindCacheConfigFromAppDirectory();
+var cfg = Configs.BindCacheConfig(DotEnvPaths.AppDirectory());
 var binder = new Configs.CacheConfigBinder();
 ```
 

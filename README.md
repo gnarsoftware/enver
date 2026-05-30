@@ -54,7 +54,7 @@ dotnet add package Gnar.Enver.InMemory
 using Enver;
 
 // Reads .env from the executable's directory.
-var values = EnvCollection.FromAppDirectory();
+var values = EnvCollection.From(DotEnvPaths.AppDirectory());
 
 var dbHost = values["DB_HOST"];
 ```
@@ -71,9 +71,9 @@ dotnet add package Gnar.Enver.SystemEnvironment
 using Enver;
 
 // C# 14+ only
-Environment.LoadDotEnvFromAppDirectory();
+Environment.LoadDotEnv(DotEnvPaths.AppDirectory());
 // OR
-EnvironmentExtensions.LoadDotEnvFromAppDirectory();
+EnvironmentExtensions.LoadDotEnv(DotEnvPaths.AppDirectory());
 
 var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
 ```
@@ -112,7 +112,7 @@ public partial record DatabaseConfig(string Host, int Port)
     public bool UseSsl { get; init; } = true;
 }
 
-var cfg = DatabaseConfig.BindFromAppDirectory();
+var cfg = DatabaseConfig.Bind(DotEnvPaths.AppDirectory());
 // property names map to UPPER_SNAKE_CASE: Host -> HOST, UseSsl -> USE_SSL
 ```
 
@@ -139,7 +139,7 @@ and `configuration.AsEnvReader()` (Enver.Extensions.Configuration) all expose th
 using System.Net;
 using Enver;
 
-var values = EnvCollection.FromAppDirectory();
+var values = EnvCollection.From(DotEnvPaths.AppDirectory());
 
 string dbHost     = values.GetString("DB_HOST");
 int    port       = values.GetInt32("DB_PORT", 5432);    // default if missing; 0x/0b prefixes supported
