@@ -14,6 +14,12 @@ namespace Enver.Binding.Generator;
 [Generator(LanguageNames.CSharp)]
 public sealed class EnvConfigGenerator : IIncrementalGenerator
 {
+    /// <summary>
+    /// Tracking name on the source-emitting host model node. Exposed so tests can
+    /// assert the node stays cached across edits that don't change binding shape.
+    /// </summary>
+    public const string HostTrackingName = "EnverBindingHost";
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         // [EnvBindable]
@@ -59,25 +65,40 @@ public sealed class EnvConfigGenerator : IIncrementalGenerator
             )
             .SelectMany(static (results, _) => results.AsImmutableArray());
 
-        context.RegisterSourceOutput(selfHosts, static (spc, result) => Emit(spc, result));
-        context.RegisterSourceOutput(externalHosts, static (spc, result) => Emit(spc, result));
+        RegisterHosts(context, selfHosts);
+        RegisterHosts(context, externalHosts);
     }
 
-    private static void Emit(SourceProductionContext spc, SymbolAnalyzer.Result result)
+    private static void RegisterHosts(
+        IncrementalGeneratorInitializationContext context,
+        IncrementalValuesProvider<SymbolAnalyzer.Result> results
+    )
     {
-        // Surface every diagnostic the analyzer collected.
-        foreach (var di in result.Diagnostics.AsImmutableArray())
-        {
-            spc.ReportDiagnostic(di.ToDiagnostic());
-        }
+        context.RegisterSourceOutput(
+            results.Select(static (result, _) => result.Host).WithTrackingName(HostTrackingName),
+            static (spc, host) => EmitSource(spc, host)
+        );
+        context.RegisterSourceOutput(
+            results.Select(static (result, _) => result.Diagnostics),
+            static (spc, diagnostics) =>
+            {
+                foreach (var di in diagnostics.AsImmutableArray())
+                {
+                    spc.ReportDiagnostic(di.ToDiagnostic());
+                }
+            }
+        );
+    }
 
-        if (result.Host is null)
+    private static void EmitSource(SourceProductionContext spc, BindingHost? host)
+    {
+        if (host is null)
         {
             return;
         }
 
-        var source = Emitter.Emit(result.Host);
-        spc.AddSource(HintName(result.Host), SourceText.From(source, Encoding.UTF8));
+        var source = Emitter.Emit(host);
+        spc.AddSource(HintName(host), SourceText.From(source, Encoding.UTF8));
     }
 
     private static string HintName(BindingHost host)
