@@ -266,8 +266,7 @@ internal static class SymbolAnalyzer
             bool propHasKey = HasAttribute(prop, AttributeNames.EnvKey);
             if (
                 TypeDispatch.Resolve(prop.Type) == TypeDispatchKind.Unsupported
-                && !prop.Type.IsNullable()
-                && prop.Type is INamedTypeSymbol namedPropType
+                && prop.Type.UnwrapNullable() is INamedTypeSymbol namedPropType
                 && (propHasKey || IsSubSectionCandidate(namedPropType))
             )
             {
@@ -1267,34 +1266,51 @@ internal static class SymbolAnalyzer
 
     private static IEnumerable<IPropertySymbol> EnumerateBindableProperties(INamedTypeSymbol type)
     {
-        foreach (var m in type.GetMembers())
+        // Walk the inheritance chain so properties declared on a base class or
+        // base record are bound too.
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (
+            INamedTypeSymbol? current = type;
+            current is not null && current.SpecialType != SpecialType.System_Object;
+            current = current.BaseType
+        )
         {
-            if (m is not IPropertySymbol prop)
+            foreach (var m in current.GetMembers())
             {
-                continue;
-            }
+                if (m is not IPropertySymbol prop || prop.IsIndexer)
+                {
+                    continue;
+                }
 
-            if (prop.IsStatic || prop.IsIndexer)
-            {
-                continue;
-            }
+                // A name decided by a more-derived declaration masks every base
+                // member of that name, whether or not it ends up bindable.
+                if (!seen.Add(prop.Name))
+                {
+                    continue;
+                }
 
-            // Public by default; non-public with [EnvKey] is opt-in.
-            if (
-                prop.DeclaredAccessibility is not Accessibility.Public
-                && !HasAttribute(prop, AttributeNames.EnvKey)
-            )
-            {
-                continue;
-            }
+                if (prop.IsStatic)
+                {
+                    continue;
+                }
 
-            // Must have a setter (init or set).
-            if (prop.SetMethod is null)
-            {
-                continue;
-            }
+                // Public by default; non-public with [EnvKey] is opt-in.
+                if (
+                    prop.DeclaredAccessibility is not Accessibility.Public
+                    && !HasAttribute(prop, AttributeNames.EnvKey)
+                )
+                {
+                    continue;
+                }
 
-            yield return prop;
+                // Must have a setter (init or set).
+                if (prop.SetMethod is null)
+                {
+                    continue;
+                }
+
+                yield return prop;
+            }
         }
     }
 
