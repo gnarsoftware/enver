@@ -13,6 +13,8 @@ together.
 ### Fixed
 
 - Fixed issue in `Enver.Binding` source generation causing excessive re-runs
+- Fixed binding when target type is subclassed in `Enver.Binding`
+- Fixed binding to nullable subsections in `Enver.Binding`
 
 ## [1.0.0] - 2026-05-29
 

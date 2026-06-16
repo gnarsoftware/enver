@@ -1157,4 +1157,188 @@ public class GeneratorDriverTests
 
         Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Contain("ENVR0024"));
     }
+
+    // --- Inheritance ---
+
+    [Test]
+    public void BindsInheritedRecordPositionalParameters()
+    {
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            namespace Test;
+
+            public record BaseConfig(string Host);
+
+            [Enver.Binding.EnvBindable]
+            public partial record AppConfig(string Host, int Port) : BaseConfig(Host);
+            """
+        );
+
+        var src = result.SingleSource().Text;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(src, Does.Contain("_val_Host"));
+            Assert.That(src, Does.Contain("_val_Port"));
+            Assert.That(src, Does.Contain("\"HOST\"u8"));
+            Assert.That(src, Does.Contain("\"PORT\"u8"));
+            // Both are constructor parameters of the derived record.
+            Assert.That(src, Does.Contain("Host:"));
+            Assert.That(src, Does.Contain("Port:"));
+        }
+    }
+
+    [Test]
+    public void BindsInheritedClassProperties()
+    {
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            namespace Test;
+
+            public class BaseConfig
+            {
+                public string Host { get; init; } = "";
+            }
+
+            [Enver.Binding.EnvBindable]
+            public partial class AppConfig : BaseConfig
+            {
+                public int Port { get; init; }
+            }
+            """
+        );
+
+        var src = result.SingleSource().Text;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(src, Does.Contain("_val_Host"));
+            Assert.That(src, Does.Contain("_val_Port"));
+        }
+    }
+
+    [Test]
+    public void BindsInheritedRequiredClassProperty()
+    {
+        // A `required` property declared on the base must be set in the generated
+        // object initializer, otherwise the emitted code does not compile.
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            namespace Test;
+
+            public class BaseConfig
+            {
+                public required string Host { get; init; }
+            }
+
+            [Enver.Binding.EnvBindable]
+            public partial class AppConfig : BaseConfig
+            {
+                public int Port { get; init; }
+            }
+            """
+        );
+
+        var src = result.SingleSource().Text;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(src, Does.Contain("Host = "));
+            Assert.That(src, Does.Contain("_val_Port"));
+        }
+    }
+
+    [Test]
+    public void DerivedPropertyShadowsInheritedOneByName()
+    {
+        // A `new` declaration on the derived type wins over the base member of the
+        // same name; the base one must not be bound a second time.
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            namespace Test;
+
+            public class BaseConfig
+            {
+                public string Value { get; init; } = "";
+            }
+
+            [Enver.Binding.EnvBindable]
+            public partial class AppConfig : BaseConfig
+            {
+                public new int Value { get; init; }
+            }
+            """
+        );
+
+        var src = result.SingleSource().Text;
+        using (Assert.EnterMultipleScope())
+        {
+            // Bound exactly once, as the derived int (GetNumber), not the base string.
+            Assert.That(src, Does.Contain("_val_Value"));
+            Assert.That(src, Does.Contain("GetNumber<int>"));
+            Assert.That(src, Does.Not.Contain("GetString(reader, \"VALUE\""));
+        }
+    }
+
+    // --- Nullable subsections ---
+
+    [Test]
+    public void BindsNullableReferenceSubSection()
+    {
+        // A nullable subsection binds exactly like a non-nullable one
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            namespace Test;
+
+            [Enver.Binding.EnvBindable]
+            public partial class Host
+            {
+                public required string Name { get; init; }
+                public Sub? Nested { get; init; }
+            }
+
+            [Enver.Binding.EnvConfig]
+            public class Sub
+            {
+                public string Host { get; init; } = "";
+            }
+            """
+        );
+
+        var src = result.SingleSource().Text;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(src, Does.Contain("_val_Nested_Host"));
+            Assert.That(src, Does.Contain("\"NESTED_HOST\"u8"));
+            // Constructs a non-null instance, assigned to the nullable member.
+            Assert.That(src, Does.Contain("new global::Test.Sub()"));
+        }
+    }
+
+    [Test]
+    public void BindsNullableValueTypeSubSection()
+    {
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            namespace Test;
+
+            [Enver.Binding.EnvBindable]
+            public partial class Host
+            {
+                public required string Name { get; init; }
+                public Sub? Nested { get; init; }
+            }
+
+            public struct Sub
+            {
+                [Enver.Binding.EnvKey("PORT")]
+                public int Port { get; init; }
+            }
+            """
+        );
+
+        var src = result.SingleSource().Text;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(src, Does.Contain("_val_Nested_Port"));
+            Assert.That(src, Does.Contain("\"NESTED_PORT\"u8"));
+        }
+    }
 }
