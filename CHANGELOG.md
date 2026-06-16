@@ -10,6 +10,8 @@ together.
 
 ## Unreleased
 
+## [1.0.1] - 2026-06-15
+
 ### Fixed
 
 - Fixed issue in `Enver.Binding` source generation causing excessive re-runs
