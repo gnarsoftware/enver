@@ -10,6 +10,10 @@ together.
 
 ## Unreleased
 
+### Fixed
+
+- Fixed issue in `Enver.Binding` source generation causing excessive re-runs
+
 ## [1.0.0] - 2026-05-29
 
 Initial stable release of the Enver `.env` parser and its integration family.

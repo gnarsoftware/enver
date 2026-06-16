@@ -27,12 +27,9 @@ internal static class GeneratorTestHarness
     public sealed record GeneratedSource(string HintName, string Text);
 
     /// <summary>
-    /// Compile <paramref name="source"/> into an in-memory assembly, run the
-    /// generator over it, and report what came out: the diagnostics the
-    /// generator itself raised, the files it emitted, and any compile errors
-    /// in the combined (input + generated) compilation.
+    /// Build an in-memory C# compilation from <paramref name="source"/>.
     /// </summary>
-    public static Result Run(string source)
+    public static CSharpCompilation CreateCompilation(string source, string? assemblyName = null)
     {
         var syntaxTree = CSharpSyntaxTree.ParseText(
             source,
@@ -41,8 +38,8 @@ internal static class GeneratorTestHarness
 
         var tpa = (string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!;
 
-        var compilation = CSharpCompilation.Create(
-            assemblyName: "EnverGeneratorTestAssembly",
+        return CSharpCompilation.Create(
+            assemblyName ?? "EnverGeneratorTestAssembly",
             syntaxTrees: [syntaxTree],
             references: tpa.Split(Path.PathSeparator)
                 .Where(p => Path.GetFileNameWithoutExtension(p) != "Enver.Binding.Generator")
@@ -53,6 +50,17 @@ internal static class GeneratorTestHarness
                 nullableContextOptions: NullableContextOptions.Enable
             )
         );
+    }
+
+    /// <summary>
+    /// Compile <paramref name="source"/> into an in-memory assembly, run the
+    /// generator over it, and report what came out: the diagnostics the
+    /// generator itself raised, the files it emitted, and any compile errors
+    /// in the combined (input + generated) compilation.
+    /// </summary>
+    public static Result Run(string source)
+    {
+        var compilation = CreateCompilation(source);
 
         var driver = CSharpGeneratorDriver.Create(new EnvConfigGenerator());
         driver = (CSharpGeneratorDriver)
@@ -110,23 +118,10 @@ internal static class GeneratorTestHarness
     /// </summary>
     public static object? Execute(string source, string entryType, string entryMethod)
     {
-        var syntaxTree = CSharpSyntaxTree.ParseText(
+        // Unique name so repeated Execute calls don't collide in the load context.
+        var compilation = CreateCompilation(
             source,
-            new CSharpParseOptions(LanguageVersion.Latest)
-        );
-        var tpa = (string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!;
-        var compilation = CSharpCompilation.Create(
-            // Unique name so repeated Execute calls don't collide in the load context.
-            assemblyName: "EnverGeneratorRun_" + Guid.NewGuid().ToString("N"),
-            syntaxTrees: [syntaxTree],
-            references: tpa.Split(Path.PathSeparator)
-                .Where(p => Path.GetFileNameWithoutExtension(p) != "Enver.Binding.Generator")
-                .Select(p => MetadataReference.CreateFromFile(p))
-                .ToImmutableArray(),
-            options: new CSharpCompilationOptions(
-                OutputKind.DynamicallyLinkedLibrary,
-                nullableContextOptions: NullableContextOptions.Enable
-            )
+            assemblyName: "EnverGeneratorRun_" + Guid.NewGuid().ToString("N")
         );
 
         var driver = CSharpGeneratorDriver.Create(new EnvConfigGenerator());

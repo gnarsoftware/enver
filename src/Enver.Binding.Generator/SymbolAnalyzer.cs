@@ -40,7 +40,7 @@ internal static class SymbolAnalyzer
         {
             var d = ImmutableArray.CreateBuilder<DiagnosticInfo>();
             d.Add(
-                new DiagnosticInfo(
+                DiagnosticInfo.Create(
                     DiagnosticDescriptors.NoUsableConstructor,
                     hostSymbol.Locations.FirstOrDefault(),
                     new(ImmutableArray.Create(targetType.ToDisplayString()))
@@ -64,7 +64,7 @@ internal static class SymbolAnalyzer
         if (!IsDeclaredPartial(hostSymbol))
         {
             diags.Add(
-                new DiagnosticInfo(
+                DiagnosticInfo.Create(
                     DiagnosticDescriptors.NotPartial,
                     hostSymbol.Locations.FirstOrDefault(),
                     new(ImmutableArray.Create(hostSymbol.Name))
@@ -83,7 +83,7 @@ internal static class SymbolAnalyzer
             if (!IsDeclaredPartial(enclosing))
             {
                 diags.Add(
-                    new DiagnosticInfo(
+                    DiagnosticInfo.Create(
                         DiagnosticDescriptors.EnclosingTypeNotPartial,
                         hostSymbol.Locations.FirstOrDefault(),
                         new(ImmutableArray.Create(hostSymbol.Name, enclosing.Name))
@@ -97,7 +97,7 @@ internal static class SymbolAnalyzer
         if (targetSymbol.IsStatic)
         {
             diags.Add(
-                new DiagnosticInfo(
+                DiagnosticInfo.Create(
                     DiagnosticDescriptors.TargetTypeStatic,
                     hostSymbol.Locations.FirstOrDefault(),
                     new(ImmutableArray.Create(targetSymbol.Name))
@@ -113,7 +113,7 @@ internal static class SymbolAnalyzer
         )
         {
             diags.Add(
-                new DiagnosticInfo(
+                DiagnosticInfo.Create(
                     DiagnosticDescriptors.TargetTypeOpenGeneric,
                     hostSymbol.Locations.FirstOrDefault(),
                     new(ImmutableArray.Create(targetSymbol.Name))
@@ -175,7 +175,7 @@ internal static class SymbolAnalyzer
         )
         {
             diags.Add(
-                new DiagnosticInfo(
+                DiagnosticInfo.Create(
                     DiagnosticDescriptors.PrefixCasingMismatch,
                     configAttr?.ApplicationSyntaxReference?.GetSyntax().GetLocation()
                         ?? targetSymbol.Locations.FirstOrDefault(),
@@ -207,7 +207,7 @@ internal static class SymbolAnalyzer
         if (construction is null)
         {
             diags.Add(
-                new DiagnosticInfo(
+                DiagnosticInfo.Create(
                     DiagnosticDescriptors.NoUsableConstructor,
                     targetSymbol.Locations.FirstOrDefault(),
                     new(ImmutableArray.Create(targetSymbol.Name))
@@ -232,7 +232,7 @@ internal static class SymbolAnalyzer
             {
                 var keyAttr = FindAttribute(noSetter, AttributeNames.EnvKey);
                 diags.Add(
-                    new DiagnosticInfo(
+                    DiagnosticInfo.Create(
                         DiagnosticDescriptors.KeyOnSetterlessMember,
                         keyAttr?.ApplicationSyntaxReference?.GetSyntax().GetLocation()
                             ?? noSetter.Locations.FirstOrDefault(),
@@ -252,7 +252,7 @@ internal static class SymbolAnalyzer
                 if (HasAttribute(prop, AttributeNames.EnvKey))
                 {
                     diags.Add(
-                        new DiagnosticInfo(
+                        DiagnosticInfo.Create(
                             DiagnosticDescriptors.RedundantKeyOnIgnoredMember,
                             prop.Locations.FirstOrDefault(),
                             new(ImmutableArray.Create(prop.Name))
@@ -290,7 +290,7 @@ internal static class SymbolAnalyzer
                     if (generatePopulate && subSection.IsInitOnly)
                     {
                         diags.Add(
-                            new DiagnosticInfo(
+                            DiagnosticInfo.Create(
                                 DiagnosticDescriptors.PopulateMemberSkipped,
                                 prop.Locations.FirstOrDefault(),
                                 new(ImmutableArray.Create(prop.Name))
@@ -319,7 +319,7 @@ internal static class SymbolAnalyzer
             if (keysSeen.TryGetValue(member.ResolvedKey, out var firstMember))
             {
                 diags.Add(
-                    new DiagnosticInfo(
+                    DiagnosticInfo.Create(
                         DiagnosticDescriptors.DuplicateResolvedKey,
                         prop.Locations.FirstOrDefault(),
                         new(ImmutableArray.Create(prop.Name, member.ResolvedKey, firstMember))
@@ -338,7 +338,7 @@ internal static class SymbolAnalyzer
             if (generatePopulate && member.IsInitOnly)
             {
                 diags.Add(
-                    new DiagnosticInfo(
+                    DiagnosticInfo.Create(
                         DiagnosticDescriptors.PopulateMemberSkipped,
                         prop.Locations.FirstOrDefault(),
                         new(ImmutableArray.Create(prop.Name))
@@ -350,7 +350,7 @@ internal static class SymbolAnalyzer
         if (members.Count == 0 && subSections.Count == 0)
         {
             diags.Add(
-                new DiagnosticInfo(
+                DiagnosticInfo.Create(
                     DiagnosticDescriptors.NoBindableMembers,
                     targetSymbol.Locations.FirstOrDefault(),
                     new(ImmutableArray.Create(targetSymbol.Name))
@@ -365,7 +365,7 @@ internal static class SymbolAnalyzer
             if (!anyMutable)
             {
                 diags.Add(
-                    new DiagnosticInfo(
+                    DiagnosticInfo.Create(
                         DiagnosticDescriptors.PopulateNoMutableMembers,
                         FindAttribute(targetSymbol, AttributeNames.EnvConfig)
                             ?.ApplicationSyntaxReference?.GetSyntax()
@@ -442,7 +442,7 @@ internal static class SymbolAnalyzer
             if (keyAttr is not null)
             {
                 diags.Add(
-                    new DiagnosticInfo(
+                    DiagnosticInfo.Create(
                         DiagnosticDescriptors.KeyOnInaccessibleMember,
                         keyAttr.ApplicationSyntaxReference?.GetSyntax().GetLocation()
                             ?? prop.Locations.FirstOrDefault(),
@@ -468,7 +468,7 @@ internal static class SymbolAnalyzer
         if (!s_validKeyPattern.IsMatch(resolvedKey))
         {
             diags.Add(
-                new DiagnosticInfo(
+                DiagnosticInfo.Create(
                     DiagnosticDescriptors.InvalidResolvedKey,
                     prop.Locations.FirstOrDefault(),
                     new(ImmutableArray.Create(prop.Name, resolvedKey))
@@ -483,7 +483,7 @@ internal static class SymbolAnalyzer
         if (dispatch == TypeDispatchKind.Unsupported)
         {
             diags.Add(
-                new DiagnosticInfo(
+                DiagnosticInfo.Create(
                     DiagnosticDescriptors.UnsupportedMemberType,
                     prop.Locations.FirstOrDefault(),
                     new(ImmutableArray.Create(prop.Name, prop.Type.ToDisplayString()))
@@ -503,7 +503,7 @@ internal static class SymbolAnalyzer
         )
         {
             diags.Add(
-                new DiagnosticInfo(
+                DiagnosticInfo.Create(
                     DiagnosticDescriptors.Utf8OnlyTypeNotStringBindable,
                     prop.Locations.FirstOrDefault(),
                     new(ImmutableArray.Create(prop.Name, prop.Type.ToDisplayString()))
@@ -521,7 +521,7 @@ internal static class SymbolAnalyzer
             if (dispatch is not TypeDispatchKind.Uri)
             {
                 diags.Add(
-                    new DiagnosticInfo(
+                    DiagnosticInfo.Create(
                         DiagnosticDescriptors.UriAttributeOnNonUri,
                         prop.Locations.FirstOrDefault(),
                         new(ImmutableArray.Create(prop.Name, prop.Type.ToDisplayString()))
@@ -558,7 +558,7 @@ internal static class SymbolAnalyzer
         )
         {
             diags.Add(
-                new DiagnosticInfo(
+                DiagnosticInfo.Create(
                     DiagnosticDescriptors.FormatProviderHasNoEffect,
                     prop.Locations.FirstOrDefault(),
                     new(
@@ -581,7 +581,7 @@ internal static class SymbolAnalyzer
         if (requirement == EnvRequirement.Optional && !typeIsNullable && initializer is null)
         {
             diags.Add(
-                new DiagnosticInfo(
+                DiagnosticInfo.Create(
                     DiagnosticDescriptors.RequiredOptionalOnNonNullableNoDefault,
                     prop.Locations.FirstOrDefault(),
                     new(ImmutableArray.Create(prop.Name, prop.Type.ToDisplayString()))
@@ -699,7 +699,7 @@ internal static class SymbolAnalyzer
             if (IsTypedRange(attr))
             {
                 diags.Add(
-                    new DiagnosticInfo(
+                    DiagnosticInfo.Create(
                         DiagnosticDescriptors.TypedRangeNotSupported,
                         attr.ApplicationSyntaxReference?.GetSyntax().GetLocation()
                             ?? prop.Locations.FirstOrDefault(),
@@ -1385,7 +1385,7 @@ internal static class SymbolAnalyzer
         if (member is null)
         {
             diags.Add(
-                new DiagnosticInfo(
+                DiagnosticInfo.Create(
                     DiagnosticDescriptors.FormatProviderMemberInvalid,
                     location,
                     new(
