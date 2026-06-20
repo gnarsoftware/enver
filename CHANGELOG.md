@@ -10,6 +10,10 @@ together.
 
 ## Unreleased
 
+### Fixed
+
+- `Enver.Extensions.Configuration`: Added plain `environment` key to the host environment lookup.
+
 ## [1.0.1] - 2026-06-15
 
 ### Fixed
