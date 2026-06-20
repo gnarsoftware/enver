@@ -59,7 +59,8 @@ public static class DotEnvConfigurationExtensions
         ArgumentNullException.ThrowIfNull(configuration);
 
         var environmentName =
-            configuration["ASPNETCORE_ENVIRONMENT"]?.ToLowerInvariant()
+            configuration["environment"]?.ToLowerInvariant()
+            ?? configuration["ASPNETCORE_ENVIRONMENT"]?.ToLowerInvariant()
             ?? configuration["DOTNET_ENVIRONMENT"]?.ToLowerInvariant()
             ?? "production";
 

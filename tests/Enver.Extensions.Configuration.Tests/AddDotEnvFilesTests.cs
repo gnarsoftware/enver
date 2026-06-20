@@ -78,36 +78,61 @@ public class AddDotEnvFilesTests
     }
 
     [Test]
-    public void AspNetCoreEnvironmentIsAutoDiscoveredFromConfiguration()
+    [TestCase("environment")]
+    [TestCase("ASPNETCORE_ENVIRONMENT")]
+    [TestCase("DOTNET_ENVIRONMENT")]
+    public void EnvironmentIsAutoDiscoveredFromConfiguration(string envKey)
     {
         WriteFile(".env.staging", "KEY=staging\n");
         var config = new ConfigurationManager();
-        config.AddInMemoryCollection([
-            new KeyValuePair<string, string?>("ASPNETCORE_ENVIRONMENT", "Staging"),
-        ]);
+        config.AddInMemoryCollection([new KeyValuePair<string, string?>(envKey, "Staging")]);
         config.AddDotEnvFiles(s => s.ReloadOnChange = false);
         Assert.That(config["KEY"], Is.EqualTo("staging"));
     }
 
     [Test]
-    public void DotNetEnvironmentIsUsedWhenAspNetCoreEnvironmentIsAbsent()
+    public void EnvironmentKeyWinsOverPrefixedKeys()
     {
-        // DOTNET_ENVIRONMENT is the generic-host fallback; ASP.NET Core
-        // recognizes both with ASPNETCORE_ taking priority.
-        WriteFile(".env.staging", "KEY=staging\n");
+        // "environment" is HostDefaults.EnvironmentKey -- the single key the host
+        // resolves IHostEnvironment.EnvironmentName from, after the prefixed env
+        // vars are stripped into it. It holds the winning value (including a
+        // command-line --environment override), so Enver honors it first.
+        WriteFile(".env.staging", "KEY=from-environment\n");
+        WriteFile(".env.development", "KEY=from-aspnetcore\n");
+        WriteFile(".env.production", "KEY=from-dotnet\n");
         var config = new ConfigurationManager();
         config.AddInMemoryCollection([
-            new KeyValuePair<string, string?>("DOTNET_ENVIRONMENT", "Staging"),
+            new KeyValuePair<string, string?>("environment", "Staging"),
+            new KeyValuePair<string, string?>("ASPNETCORE_ENVIRONMENT", "Development"),
+            new KeyValuePair<string, string?>("DOTNET_ENVIRONMENT", "Production"),
         ]);
         config.AddDotEnvFiles(s => s.ReloadOnChange = false);
-        Assert.That(config["KEY"], Is.EqualTo("staging"));
+        Assert.That(config["KEY"], Is.EqualTo("from-environment"));
+    }
+
+    [Test]
+    public void AspNetCoreEnvironmentWinsOverDotNetEnvironment()
+    {
+        // When the stripped "environment" key is absent, ASPNETCORE_ENVIRONMENT
+        // takes priority over DOTNET_ENVIRONMENT, matching ASP.NET Core: its
+        // prefixed source is added after the generic host's DOTNET_ one.
+        WriteFile(".env.development", "KEY=from-aspnetcore\n");
+        WriteFile(".env.production", "KEY=from-dotnet\n");
+        var config = new ConfigurationManager();
+        config.AddInMemoryCollection([
+            new KeyValuePair<string, string?>("ASPNETCORE_ENVIRONMENT", "Development"),
+            new KeyValuePair<string, string?>("DOTNET_ENVIRONMENT", "Production"),
+        ]);
+        config.AddDotEnvFiles(s => s.ReloadOnChange = false);
+        Assert.That(config["KEY"], Is.EqualTo("from-aspnetcore"));
     }
 
     [Test]
     public void DefaultsToProductionWhenNoEnvironmentVariableIsSet()
     {
-        // ASP.NET Core's documented default is "Production" when neither
-        // ASPNETCORE_ENVIRONMENT nor DOTNET_ENVIRONMENT is set.
+        // ASP.NET Core's documented default is "Production" when none of the
+        // discovered keys (environment, ASPNETCORE_ENVIRONMENT, DOTNET_ENVIRONMENT)
+        // is set.
         WriteFile(".env.production", "KEY=prod\n");
         var config = new ConfigurationManager();
         config.AddDotEnvFiles(s => s.ReloadOnChange = false);
