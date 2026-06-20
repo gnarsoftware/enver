@@ -59,9 +59,9 @@ extensions for when you need more control.
 
 Mirrors how the default host already loads `appsettings.json` +
 `appsettings.{Environment}.json`. Both files are optional; the
-environment name is auto-discovered from the configuration tree (reading
-`ASPNETCORE_ENVIRONMENT` then `DOTNET_ENVIRONMENT`, falling back to
-`Production`), and `reloadOnChange` defaults to `true`.
+environment name is auto-discovered from the configuration tree (reading 
+`environment` then `ASPNETCORE_ENVIRONMENT` then `DOTNET_ENVIRONMENT`,
+falling back to `Production`), and `reloadOnChange` defaults to `true`.
 
 ```csharp
 builder.Configuration.AddDotEnvFiles();
