@@ -53,7 +53,7 @@ public class FromTests
         await File.WriteAllTextAsync(path, "KEY=value");
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-        Assert.ThrowsAsync<TaskCanceledException>(async () =>
+        await Assert.ThrowsAsync<TaskCanceledException>(async () =>
             await EnvCollection.FromAsync(path, cancellationToken: cts.Token)
         );
     }
