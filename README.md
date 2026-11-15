@@ -202,7 +202,7 @@ the full typed surface then applies via extension methods.
 
 ## Supported runtimes
 
-`net8.0`, `net9.0`, `net10.0`.
+`net10.0`, `net11.0`.
 
 The `Environment.LoadDotEnv*` extension-member call syntax requires C# 14.
 Earlier C# versions can call the same methods via `EnvironmentExtensions.LoadDotEnv*` directly.

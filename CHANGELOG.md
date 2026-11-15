@@ -10,6 +10,8 @@ together.
 
 ## Unreleased
 
+- Added dotnet 11 target, and removed dotnet 8 & 9.
+
 ## [1.0.2] - 2026-06-19
 
 ### Fixed
