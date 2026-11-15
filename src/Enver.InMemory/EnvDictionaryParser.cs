@@ -24,12 +24,7 @@ public sealed class EnvDictionaryParser(EnvCollection target) : EnvParser
     {
         Span<char> stack = stackalloc char[256];
         var keyChars = DecodeKey(key, stack);
-
-#if NET9_0_OR_GREATER
         target.GetAlternateLookup<ReadOnlySpan<char>>()[keyChars] = value.AsString();
-#else
-        target[keyChars.ToString()] = value.AsString();
-#endif
         return true;
     }
 

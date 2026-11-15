@@ -1,4 +1,5 @@
 ---
+
 name: Bug report
 about: Something isn't working as expected
 labels: bug
@@ -13,11 +14,13 @@ labels: bug
 <!-- Minimal .env content and code that reproduces the issue. -->
 
 **.env**
+
 ```
 KEY=value
 ```
 
 **Code**
+
 ```csharp
 
 ```
@@ -31,5 +34,5 @@ KEY=value
 ## Environment
 
 - Enver package(s) and version(s):
-- .NET runtime: <!-- net8.0 / net9.0 / net10.0 -->
+- .NET runtime:
 - OS:

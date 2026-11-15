@@ -68,21 +68,7 @@ public static class EnvValueParser
     /// </summary>
     public static Guid ParseGuid(ReadOnlySpan<byte> utf8, IFormatProvider? provider = null)
     {
-#if NET10_0_OR_GREATER
         return Guid.Parse(utf8, provider);
-#else
-        utf8 = utf8.Trim(Constants.KeyTrivia);
-        if (utf8.Length > 256)
-        {
-            // prevents overflow by bounding to reasonable length
-            // 257-chararcter uuid is *techincally* possible but
-            // not likely to ever be an issue.
-            throw new FormatException("Input is too long.");
-        }
-        Span<char> u16 = stackalloc char[Encoding.UTF8.GetCharCount(utf8)];
-        int len = Encoding.UTF8.GetChars(utf8, u16);
-        return Guid.Parse(u16.Slice(0, len), provider);
-#endif
     }
 
     /// <summary>
@@ -93,21 +79,7 @@ public static class EnvValueParser
     /// </summary>
     public static Version ParseVersion(ReadOnlySpan<byte> utf8)
     {
-#if NET10_0_OR_GREATER
         return Version.Parse(utf8);
-#else
-        utf8 = utf8.Trim(Constants.KeyTrivia);
-        if (utf8.Length > 256)
-        {
-            // prevents overflow by bounding to reasonable length
-            // 257-chararcter version is *techincally* possible but
-            // not likely to ever be an issue.
-            throw new FormatException("Input is too long.");
-        }
-        Span<char> u16 = stackalloc char[Encoding.UTF8.GetCharCount(utf8)];
-        int len = Encoding.UTF8.GetChars(utf8, u16);
-        return Version.Parse(u16.Slice(0, len));
-#endif
     }
 
     /// <summary>

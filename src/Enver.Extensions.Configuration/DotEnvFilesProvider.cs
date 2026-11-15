@@ -20,11 +20,7 @@ internal sealed class DotEnvFilesProvider : ConfigurationProvider, IDisposable
 
     // Serializes Load() so multiple change-token callbacks can't race
     // each other or a caller-driven Load() to corrupt the rebuilt Data.
-#if NET9_0_OR_GREATER
     private readonly Lock _loadLock = new();
-#else
-    private readonly object _loadLock = new();
-#endif
 
     public DotEnvFilesProvider(DotEnvFilesSource source)
     {
