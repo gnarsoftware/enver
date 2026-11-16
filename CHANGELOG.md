@@ -55,6 +55,12 @@ together.
   requires Roslyn 5.0, the compiler in every .NET 10 SDK; older SDKs could not
   build `net10.0` consumers anyway.
 
+### Fixed
+
+- `Enver.Binding`: a default on a record's primary-constructor parameter
+  (`record Db(string Host, int Port = 5432)`) now makes the member optional with that
+  default, like a property initializer. Previously the key was required.
+
 ## [1.0.2] - 2026-06-19
 
 ### Fixed

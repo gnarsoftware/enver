@@ -382,13 +382,15 @@ Each member is classified as **required**, **optional**, or
 
 1. `required` modifier -> required
 2. Nullable value or reference type -> optional
-3. Property initializer -> optional with default
+3. Property initializer, or a default on the record constructor parameter that
+   binds it (`record Db(string Host, int Port = 5432)`) -> optional with default
 4. Non-nullable type -> required
 5. Reference type under `#nullable disable` -> optional
 
 Required members that are missing throw `EnvMissingVariableException` at `Bind()` time
 with the failing key. Optional members fall back to `default(T)` or the
-declared initializer.
+declared default. The same rules decide whether a
+[subsection is optional](#optional-subsections).
 
 Override the inferred classification with
 `[EnvKey(Requirement = EnvRequirement.Required | .Optional)]`.
