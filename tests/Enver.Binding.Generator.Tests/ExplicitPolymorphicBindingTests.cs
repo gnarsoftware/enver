@@ -20,7 +20,7 @@ public class ExplicitPolymorphicBindingTests
     [Test]
     public void ListedCaseIsSelectedByTheTypeKey()
     {
-        var body =
+        const string body =
             StorageHierarchy + "\n[EnvBindable] public partial record AppConfig(Storage Storage);";
 
         // Type key last: the Binder must defer until it has seen it.
@@ -43,7 +43,7 @@ public class ExplicitPolymorphicBindingTests
     [Test]
     public void CaseNamePrecedenceIsAttributeThenEnvCaseThenDefault()
     {
-        var body = """
+        const string body = """
             [EnvDerivedType<RemoteStorage>("CLOUD")]
             [EnvDerivedType<LocalStorage>]
             [EnvDerivedType<MemoryStorage>]
@@ -107,7 +107,7 @@ public class ExplicitPolymorphicBindingTests
     [Test]
     public void ConcreteBaseCanListItself()
     {
-        var body = """
+        const string body = """
             [EnvDerivedType<Retry>("FIXED")]
             [EnvDerivedType<BackoffRetry>("BACKOFF")]
             public record Retry(int Attempts);
