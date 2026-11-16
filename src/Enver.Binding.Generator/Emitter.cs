@@ -911,8 +911,7 @@ internal static partial class Emitter
         for (int mi = 0; mi < membersWithValidators.Length; mi++)
         {
             var m = membersWithValidators[mi];
-            var displayExpr =
-                m.DisplayNameExpression
+            var displayExpr = m.DisplayNameExpression
                 ?? Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(
                     m.MemberName,
                     quote: true

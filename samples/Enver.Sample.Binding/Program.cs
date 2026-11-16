@@ -26,7 +26,12 @@ Console.WriteLine(
 
 [EnvConfig]
 [EnvBindable]
-public partial record Configuration(AppConfig App, DbConfig Db, ApiConfig Api, StorageConfig Storage);
+public partial record Configuration(
+    AppConfig App,
+    DbConfig Db,
+    ApiConfig Api,
+    StorageConfig Storage
+);
 
 [EnvConfig]
 public partial record AppConfig(

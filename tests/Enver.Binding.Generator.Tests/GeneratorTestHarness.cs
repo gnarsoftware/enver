@@ -94,16 +94,12 @@ internal static class GeneratorTestHarness
         var result = Run(source);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(
-                result.GeneratorDiagnostics,
-                Is.Empty,
-                () => "Generator raised diagnostics:\n" + Describe(result.GeneratorDiagnostics)
+            Assert.That(result.GeneratorDiagnostics, Is.Empty, () =>
+                "Generator raised diagnostics:\n" + Describe(result.GeneratorDiagnostics)
             );
             Assert.That(result.GeneratedSources, Is.Not.Empty, "Generator emitted no sources");
-            Assert.That(
-                result.CompilationErrors,
-                Is.Empty,
-                () => "Generated code did not compile:\n" + Describe(result.CompilationErrors)
+            Assert.That(result.CompilationErrors, Is.Empty, () =>
+                "Generated code did not compile:\n" + Describe(result.CompilationErrors)
             );
         }
 
@@ -130,20 +126,15 @@ internal static class GeneratorTestHarness
 
         using var ms = new MemoryStream();
         var emit = outputCompilation.Emit(ms);
-        Assert.That(
-            emit.Success,
-            Is.True,
-            () =>
-                "Generated code did not compile:\n"
-                + Describe([.. emit.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)])
+        Assert.That(emit.Success, Is.True, () =>
+            "Generated code did not compile:\n"
+            + Describe([.. emit.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)])
         );
 
         var assembly = Assembly.Load(ms.ToArray());
-        var type =
-            assembly.GetType(entryType)
+        var type = assembly.GetType(entryType)
             ?? throw new InvalidOperationException($"Entry type '{entryType}' not found.");
-        var method =
-            type.GetMethod(entryMethod, BindingFlags.Public | BindingFlags.Static)
+        var method = type.GetMethod(entryMethod, BindingFlags.Public | BindingFlags.Static)
             ?? throw new InvalidOperationException(
                 $"Entry method '{entryType}.{entryMethod}' not found."
             );

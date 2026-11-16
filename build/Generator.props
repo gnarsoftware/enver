@@ -12,8 +12,7 @@
   <PropertyGroup>
     <EnverRoslynVersion Condition="'$(EnverRoslynVersion)' == ''">4.8</EnverRoslynVersion>
     <DefineConstants Condition="'$(EnverRoslynVersion)' == '5.12'"
-      >$(DefineConstants);ROSLYN_5_12</DefineConstants
-    >
+      >$(DefineConstants);ROSLYN_5_12</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup>

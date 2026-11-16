@@ -1095,10 +1095,9 @@ internal static partial class SymbolAnalyzer
                 {
                     return null;
                 }
-                var elementType =
-                    (c.Type as IArrayTypeSymbol)?.ElementType.ToDisplayString(
-                        SymbolDisplayFormat.FullyQualifiedFormat
-                    ) ?? "object";
+                var elementType = (c.Type as IArrayTypeSymbol)?.ElementType.ToDisplayString(
+                    SymbolDisplayFormat.FullyQualifiedFormat
+                ) ?? "object";
                 var parts = new List<string>(c.Values.Length);
                 foreach (var el in c.Values)
                 {
@@ -1463,8 +1462,8 @@ internal static partial class SymbolAnalyzer
             return null;
         }
 
-        var location =
-            attr.ApplicationSyntaxReference?.GetSyntax().GetLocation() ?? fallbackLocation;
+        var location = attr.ApplicationSyntaxReference?.GetSyntax().GetLocation()
+            ?? fallbackLocation;
 
         var member = providerType
             .GetMembers(memberName)
