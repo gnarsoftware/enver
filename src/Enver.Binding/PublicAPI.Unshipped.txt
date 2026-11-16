@@ -1,1 +1,17 @@
 #nullable enable
+Enver.Binding.EnvCaseAttribute
+Enver.Binding.EnvCaseAttribute.EnvCaseAttribute(string! name) -> void
+Enver.Binding.EnvCaseAttribute.Name.get -> string!
+Enver.Binding.EnvCaseKeyStyle
+Enver.Binding.EnvCaseKeyStyle.Inherit = 0 -> Enver.Binding.EnvCaseKeyStyle
+Enver.Binding.EnvCaseKeyStyle.Scoped = 2 -> Enver.Binding.EnvCaseKeyStyle
+Enver.Binding.EnvCaseKeyStyle.Shared = 1 -> Enver.Binding.EnvCaseKeyStyle
+Enver.Binding.EnvPolymorphicAttribute
+Enver.Binding.EnvPolymorphicAttribute.CaseKeys.get -> Enver.Binding.EnvCaseKeyStyle
+Enver.Binding.EnvPolymorphicAttribute.CaseKeys.init -> void
+Enver.Binding.EnvPolymorphicAttribute.EnvPolymorphicAttribute() -> void
+Enver.Binding.EnvPolymorphicAttribute.TypeKey.get -> string?
+Enver.Binding.EnvPolymorphicAttribute.TypeKey.init -> void
+Enver.Binding.EnvDerivedTypeAttribute<T>
+Enver.Binding.EnvDerivedTypeAttribute<T>.EnvDerivedTypeAttribute(string? name = null) -> void
+Enver.Binding.EnvDerivedTypeAttribute<T>.Name.get -> string?

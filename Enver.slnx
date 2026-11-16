@@ -6,6 +6,7 @@
     <Project Path="src/Enver.Extensions.Configuration/Enver.Extensions.Configuration.csproj" />
     <Project Path="src/Enver.Binding/Enver.Binding.csproj" />
     <Project Path="src/Enver.Binding.Generator/Enver.Binding.Generator.csproj" />
+    <Project Path="src/Enver.Binding.Generator.Roslyn5.12/Enver.Binding.Generator.Roslyn5.12.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Enver.Tests/Enver.Tests.csproj" />

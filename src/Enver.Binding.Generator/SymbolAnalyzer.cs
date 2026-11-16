@@ -7,7 +7,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Enver.Binding.Generator;
 
-internal static class SymbolAnalyzer
+internal static partial class SymbolAnalyzer
 {
     // Valid env-var identifier shape
     private static readonly Regex s_validKeyPattern = new(
@@ -130,6 +130,7 @@ internal static class SymbolAnalyzer
             hostSymbol,
             compilation,
             diags,
+            new HelperIdAllocator(isSelfBindable ? "" : targetSymbol.Name),
             generatePopulate: generatePopulate
         );
         if (targetModel is null)
@@ -156,9 +157,11 @@ internal static class SymbolAnalyzer
         INamedTypeSymbol hostSymbol,
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
+        HelperIdAllocator helperIds,
         EnvKeyNamingConvention parentNaming = EnvKeyNamingConvention.UpperSnakeCase,
         bool generatePopulate = false,
-        string? accumulatedPrefix = null
+        string? accumulatedPrefix = null,
+        bool isPolymorphicCase = false
     )
     {
         var configAttr = FindAttribute(targetSymbol, AttributeNames.EnvConfig);
@@ -218,6 +221,7 @@ internal static class SymbolAnalyzer
 
         var members = ImmutableArray.CreateBuilder<BindingMember>();
         var subSections = ImmutableArray.CreateBuilder<SubSection>();
+        var polymorphics = ImmutableArray.CreateBuilder<PolymorphicMember>();
         var initOnlyMembers = ImmutableArray.CreateBuilder<string>();
 
         // Warn about [EnvKey] on properties that have no setter and therefore
@@ -262,6 +266,63 @@ internal static class SymbolAnalyzer
                 continue;
             }
 
+            if (ReportPolymorphicUnavailable(prop, diags))
+            {
+                continue;
+            }
+
+            // closed types and unions bind polymorphically
+            if (
+                TypeDispatch.Resolve(prop.Type) == TypeDispatchKind.Unsupported
+                && prop.Type.UnwrapNullable() is INamedTypeSymbol polyType
+                && IsPolymorphicType(polyType)
+            )
+            {
+                var poly = TryAnalyzePolymorphic(
+                    prop,
+                    polyType,
+                    hostSymbol,
+                    compilation,
+                    diags,
+                    helperIds,
+                    resolvedNaming,
+                    effectivePrefix,
+                    defaultFormatProvider
+                );
+                if (poly is null)
+                {
+                    continue; // diagnostic already reported (or member quietly dropped)
+                }
+                if (keysSeen.TryGetValue(poly.Key, out var firstKeyMember))
+                {
+                    diags.Add(
+                        DiagnosticInfo.Create(
+                            DiagnosticDescriptors.DuplicateResolvedKey,
+                            prop.Locations.FirstOrDefault(),
+                            new(ImmutableArray.Create(prop.Name, poly.Key, firstKeyMember))
+                        )
+                    );
+                    continue;
+                }
+                keysSeen[poly.Key] = prop.Name;
+                polymorphics.Add(poly);
+                if (!ctorParamNames.Contains(prop.Name))
+                {
+                    initOnlyMembers.Add(prop.Name);
+                }
+                if (generatePopulate && poly.IsInitOnly)
+                {
+                    diags.Add(
+                        DiagnosticInfo.Create(
+                            DiagnosticDescriptors.PopulateMemberSkipped,
+                            prop.Locations.FirstOrDefault(),
+                            new(ImmutableArray.Create(prop.Name))
+                        )
+                    );
+                }
+                continue;
+            }
+
             // check whether the member type qualifies as a subsection
             bool propHasKey = HasAttribute(prop, AttributeNames.EnvKey);
             if (
@@ -276,6 +337,7 @@ internal static class SymbolAnalyzer
                     hostSymbol,
                     compilation,
                     diags,
+                    helperIds,
                     resolvedNaming,
                     effectivePrefix
                 );
@@ -346,7 +408,14 @@ internal static class SymbolAnalyzer
             }
         }
 
-        if (members.Count == 0 && subSections.Count == 0)
+        // A memberless polymorphic case (e.g. `record NoAuth : Auth`) is selected
+        // by its type key alone, so it is legitimately empty.
+        if (
+            !isPolymorphicCase
+            && members.Count == 0
+            && subSections.Count == 0
+            && polymorphics.Count == 0
+        )
         {
             diags.Add(
                 DiagnosticInfo.Create(
@@ -360,7 +429,9 @@ internal static class SymbolAnalyzer
         if (generatePopulate)
         {
             bool anyMutable =
-                members.Any(m => !m.IsInitOnly) || subSections.Any(s => !s.IsInitOnly);
+                members.Any(m => !m.IsInitOnly)
+                || subSections.Any(s => !s.IsInitOnly)
+                || polymorphics.Any(p => !p.IsInitOnly);
             if (!anyMutable)
             {
                 diags.Add(
@@ -382,7 +453,10 @@ internal static class SymbolAnalyzer
         // the per-member diagnostic already explains why. Bail rather than
         // emit a Construction that references members the Members list doesn't contain.
         var survivingMemberNames = new HashSet<string>(
-            members.Select(m => m.MemberName).Concat(subSections.Select(s => s.MemberName)),
+            members
+                .Select(m => m.MemberName)
+                .Concat(subSections.Select(s => s.MemberName))
+                .Concat(polymorphics.Select(p => p.MemberName)),
             StringComparer.Ordinal
         );
         foreach (var ctorParam in ctorParamNames)
@@ -412,6 +486,7 @@ internal static class SymbolAnalyzer
             Construction: finalConstruction,
             Members: new(members),
             SubSections: new(subSections),
+            Polymorphics: new(polymorphics),
             DefaultFormatProvider: defaultFormatProvider,
             GeneratePopulate: generatePopulate,
             ImplementsIValidatableObject: ImplementsIValidatableObject(targetSymbol)
@@ -1157,6 +1232,7 @@ internal static class SymbolAnalyzer
         INamedTypeSymbol hostSymbol,
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
+        HelperIdAllocator helperIds,
         EnvKeyNamingConvention parentNaming,
         string parentEffectivePrefix
     )
@@ -1170,6 +1246,7 @@ internal static class SymbolAnalyzer
             hostSymbol,
             compilation,
             diags,
+            helperIds,
             parentNaming,
             accumulatedPrefix: CombineKey(
                 ignorePrefix ? null : parentEffectivePrefix,

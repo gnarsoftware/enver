@@ -14,20 +14,38 @@
       ReferenceOutputAssembly="false"
       PrivateAssets="all"
     />
+    <ProjectReference
+      Include="../Enver.Binding.Generator.Roslyn5.12/Enver.Binding.Generator.Roslyn5.12.csproj"
+      ReferenceOutputAssembly="false"
+      PrivateAssets="all"
+    />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
+  <!--
+    One generator build per supported Roslyn version. The SDK picks the newest
+    roslyn{X.Y} folder its compiler supports: the 4.8 build serves older SDKs,
+    the 5.12 build (.NET 11 SDK) adds polymorphic binding for closed types and
+    unions. Do not also pack an unversioned analyzers/dotnet/cs copy, or both
+    builds would load.
+  -->
   <PropertyGroup>
-    <_GeneratorAssemblyPath>$(ArtifactsPath)/bin/Enver.Binding.Generator/$(Configuration.ToLowerInvariant())_netstandard2.0/Enver.Binding.Generator.dll</_GeneratorAssemblyPath>
+    <_GeneratorOutputSuffix>$(Configuration.ToLowerInvariant())_netstandard2.0/Enver.Binding.Generator.dll</_GeneratorOutputSuffix>
   </PropertyGroup>
   <ItemGroup>
     <None
-      Include="$(_GeneratorAssemblyPath)"
+      Include="$(ArtifactsPath)/bin/Enver.Binding.Generator/$(_GeneratorOutputSuffix)"
       Pack="true"
-      PackagePath="analyzers/dotnet/cs"
+      PackagePath="analyzers/dotnet/roslyn4.8/cs"
+      Visible="false"
+    />
+    <None
+      Include="$(ArtifactsPath)/bin/Enver.Binding.Generator.Roslyn5.12/$(_GeneratorOutputSuffix)"
+      Pack="true"
+      PackagePath="analyzers/dotnet/roslyn5.12/cs"
       Visible="false"
     />
   </ItemGroup>

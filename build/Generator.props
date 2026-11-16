@@ -1,6 +1,25 @@
 <Project>
+  <!--
+    The generator is built once per supported Roslyn version and packed into
+    analyzers/dotnet/roslyn{X.Y}/cs. The SDK loads the newest build its compiler
+    can host, so older SDKs keep working while newer ones light up features that
+    need newer compiler APIs.
+
+    Projects importing this file set EnverRoslynVersion (major.minor) *before*
+    the import; it defaults to the baseline. Newer builds get a ROSLYN_X_Y
+    define so version-gated code can be compiled in.
+  -->
+  <PropertyGroup>
+    <EnverRoslynVersion Condition="'$(EnverRoslynVersion)' == ''">4.8</EnverRoslynVersion>
+    <DefineConstants Condition="'$(EnverRoslynVersion)' == '5.12'"
+      >$(DefineConstants);ROSLYN_5_12</DefineConstants
+    >
+  </PropertyGroup>
+
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <AssemblyName>Enver.Binding.Generator</AssemblyName>
+    <RootNamespace>Enver.Binding.Generator</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsRoslynComponent>true</IsRoslynComponent>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
@@ -13,6 +32,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference
+      Include="Microsoft.CodeAnalysis.CSharp"
+      VersionOverride="$(EnverRoslynVersion).0"
+      PrivateAssets="all"
+    />
   </ItemGroup>
 </Project>

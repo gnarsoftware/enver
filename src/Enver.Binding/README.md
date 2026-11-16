@@ -188,12 +188,146 @@ partial class Base
 type's `[EnvConfig]` prefix. Requiredness is controlled the same way as a
 leaf member, with `[EnvKey(Requirement = ...)]`.
 
+## Polymorphic binding
+
+A property is bound polymorphically when its type is:
+
+- a base class, record, or interface that lists its cases with
+  `[EnvDerivedType<T>]` (any SDK), or
+- a C# 15 `closed` class/record or `union`, which is detected automatically
+  (**.NET 11 SDK** only).
+
+### Explicit derived types: `[EnvDerivedType<T>]`
+
+List each concrete case on the base type, as with System.Text.Json's
+`[JsonDerivedType]`:
+
+```csharp
+[EnvDerivedType<RemoteStorage>]
+[EnvDerivedType<LocalStorage>("DISK")]
+public abstract record Storage;
+public sealed record RemoteStorage(string Bucket, string Region) : Storage;
+public sealed record LocalStorage(string Path) : Storage;
+```
+
+- Listed types must be concrete and derive from (or implement) the annotated
+  type. A concrete base may list itself.
+- The optional name overrides the case name. Without it, the case type's
+  `[EnvCase]` applies, then the default name.
+- The list is authoritative: unlisted subtypes are not bindable. Placed on a
+  `closed` type, it also takes precedence over the discovered subtypes.
+- The cases of a generic base (`Option<T>`) can't be listed, because C# doesn't
+  allow type parameters in attribute arguments. Make the base `closed` instead
+  (.NET 11 SDK), or list cases on a non-generic base.
+- On SDKs before .NET 11, `[EnvPolymorphic]` on a type with no
+  `[EnvDerivedType<T>]` reports **ENVR0031**, since closed types and unions can't
+  be detected there.
+
+Everything below applies to explicit hierarchies and closed types alike.
+
+### Object cases: selected by a type key
+
+When the cases are config objects (explicit derived types, closed types, or a
+union of config records), a **type key** under the property's
+section prefix names the case to bind. The type key is always required to
+select a case: there is no guessing from which keys happen to be present.
+
+```csharp
+public closed record Storage;
+public sealed record RemoteStorage(string Bucket, string Region) : Storage;
+public sealed record LocalStorage(string Path) : Storage;
+
+[EnvBindable]
+public partial record AppConfig(Storage Storage);
+```
+
+```sh
+STORAGE_TYPE=REMOTE
+STORAGE_BUCKET=media
+STORAGE_REGION=eu-west-1
+```
+
+The same works for a `closed` hierarchy or a union of config types:
+
+```csharp
+public closed record Storage;          // RemoteStorage / LocalStorage derive from it
+public union Storage(RemoteStorage, LocalStorage);
+```
+
+- **Case names** default to the case type's name with the polymorphic type's
+  name trimmed off (`RemoteStorage` in `Storage` -> `Remote`), run through the
+  naming convention (`REMOTE`). Set one explicitly with `[EnvCase("...")]` on
+  the case type, or with the `[EnvDerivedType<T>]` name. Names that contain
+  digits are split like keys (`S3Storage` -> `S_3`), so use `[EnvCase("S3")]`
+  for those.
+- **Type key values match case-insensitively.** An unknown value throws
+  `EnvInvalidValueException` listing the valid names.
+- **Only the selected case is parsed.** Keys belonging to other cases are
+  ignored, even if they hold values the other cases couldn't parse.
+- **Nested closed hierarchies are flattened** to their concrete types, including
+  a closed type used as a union case. Members declared on the closed base bind
+  for every case.
+- **Required vs. optional** follows the usual rules. A required member whose
+  type key is missing throws `EnvMissingVariableException`; an optional one
+  falls back to `null` or its initializer.
+- Prefixes compose like a [subsection](#subsections): the outer prefix, then the
+  property's segment (or its `[EnvKey]` name), then the polymorphic type's
+  `[EnvConfig]` prefix.
+
+#### Key layout: `[EnvPolymorphic]`
+
+`[EnvPolymorphic]` on the polymorphic type sets its defaults; on a property, it
+overrides them for that property.
+
+| `CaseKeys` | Keys for `RemoteStorage.Bucket` | Use when |
+|---|---|---|
+| `Shared` (default) | `STORAGE_BUCKET` | Cases are alternatives; one set of keys at a time |
+| `Scoped` | `STORAGE_REMOTE_BUCKET` | Several cases' keys must coexist in one file |
+
+```csharp
+[EnvPolymorphic(TypeKey = "KIND", CaseKeys = EnvCaseKeyStyle.Scoped)]
+public closed record Storage;
+// STORAGE_KIND=REMOTE
+// STORAGE_REMOTE_BUCKET=media
+```
+
+`TypeKey` is a literal (not run through the naming convention) and defaults to
+`TYPE`.
+
+### Scalar unions: tried in order (.NET 11 SDK)
+
+A union whose cases are all scalar types binds from a single key. The value is
+parsed against each case **in declaration order**, and the first case that
+accepts it wins:
+
+```csharp
+public union Timeout(int, TimeSpan);
+// TIMEOUT=30        -> int
+// TIMEOUT=00:00:30  -> TimeSpan
+```
+
+If no case accepts the value, `EnvInvalidValueException` lists every case tried.
+A `string` case accepts anything, so declare it last; cases after it are
+unreachable (**ENVR0029**). A union cannot mix scalar and object cases
+(**ENVR0028**).
+
+### Streaming binder
+
+The generated `Binder` buffers the raw values of a polymorphic member's keys
+and resolves them in `Build()`, so the type key may appear anywhere in the
+input, including after the case's own keys. With `GeneratePopulate`, the
+binder's `Populate` replaces a polymorphic member only when its type key (or
+scalar key) was seen.
+
 ## Other attributes
 
 | Attribute | Effect |
 |---|---|
 | `[EnvIgnore]` | Skip a member that would otherwise be bound. |
 | `[EnvUri(UriKind)]` | Specify `UriKind` for `Uri` members (default `Absolute`). |
+| `[EnvDerivedType<T>(name?)]` | List a concrete case of a polymorphic base type. See [Polymorphic binding](#polymorphic-binding). |
+| `[EnvPolymorphic]` | Type key name and key layout for a polymorphic member. |
+| `[EnvCase(name)]` | Name a polymorphic case type is selected by. |
 | `[EnvFormatProvider(type, memberName)]` | Point at a static `IFormatProvider` member used when parsing numbers, dates, etc. Applies type-wide when placed on the class/struct; per-member when placed on a field/property. |
 
 ## Required vs. optional

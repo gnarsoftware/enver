@@ -58,3 +58,12 @@ jobs:
 
       - name: Pack (verification only)
         run: dotnet pack Enver.slnx --configuration Release --no-build
+
+      # The generator ships one build per Roslyn version. The step above tests
+      # the newest; re-run its suite against the baseline (Roslyn 4.8) build
+      # that older SDKs load.
+      - name: Test baseline generator build (Roslyn 4.8)
+        run: >-
+          dotnet test tests/Enver.Binding.Generator.Tests/Enver.Binding.Generator.Tests.csproj
+          --configuration Release -p:EnverGeneratorRoslyn=4.8
+          --logger "console;verbosity=normal"

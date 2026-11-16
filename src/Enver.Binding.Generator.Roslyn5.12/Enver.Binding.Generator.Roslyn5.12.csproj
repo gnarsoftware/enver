@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Roslyn 5.12 (.NET 11 SDK) build of Enver.Binding.Generator. Compiles the
+    same sources with ROSLYN_5_12 defined, which enables polymorphic binding
+    (closed types and unions) through the compiler's IsClosed / IsUnion APIs.
+  -->
+  <PropertyGroup>
+    <EnverRoslynVersion>5.12</EnverRoslynVersion>
+  </PropertyGroup>
+
+  <Import Project="../../build/Generator.props" />
+
+  <PropertyGroup>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="../Enver.Binding.Generator/**/*.cs"
+      Exclude="../Enver.Binding.Generator/obj/**;../Enver.Binding.Generator/bin/**"
+    />
+    <AdditionalFiles Include="../Enver.Binding.Generator/AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="../Enver.Binding.Generator/AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+</Project>
