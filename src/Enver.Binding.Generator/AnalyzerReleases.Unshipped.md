@@ -13,3 +13,4 @@ ENVR0029 | EnverBinding | Warning | Union case is unreachable
 ENVR0030 | EnverBinding | Error | Invalid polymorphic case name
 ENVR0031 | EnverBinding | Warning | Polymorphic type needs [EnvDerivedType<T>] on this SDK
 ENVR0032 | EnverBinding | Error | Closed types and unions need the .NET 11 SDK generator
+ENVR0033 | EnverBinding | Error | Config type contains itself

@@ -7,10 +7,10 @@ namespace Enver.Binding;
 public enum EnvKeyNamingConvention
 {
     /// <summary>
-    /// Use the convention from the nearest enclosing parent with
-    /// <see cref="EnvConfigAttribute"/>.
+    /// Use the enclosing convention: the nearest outer <see cref="EnvKeyAttribute.KeyNaming"/>
+    /// override, else the root's <see cref="EnvBindableAttribute.KeyNaming"/>.
     /// <para>
-    /// Falls back to <see cref="UpperSnakeCase"/> when no outer scope sets one.
+    /// On <see cref="EnvBindableAttribute"/> itself this means <see cref="UpperSnakeCase"/>.
     /// </para>
     /// </summary>
     Inherit = 0,

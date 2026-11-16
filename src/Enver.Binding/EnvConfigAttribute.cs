@@ -1,8 +1,8 @@
 namespace Enver.Binding;
 
 /// <summary>
-/// When applied to a class, this configures the naming strategy for properties when
-/// binding to environment variables.
+/// Replaced by the <c>prefix</c>, <c>KeyNaming</c> and <c>GeneratePopulate</c> settings on
+/// <see cref="EnvBindableAttribute"/> and <see cref="EnvBindableAttribute{T}"/>.
 /// </summary>
 /// <param name="prefix">
 /// Sets an optional prefix to prepend to all key names used within this type. Prefix
@@ -10,6 +10,12 @@ namespace Enver.Binding;
 /// <br />
 /// example: <c>[EnvConfig("DB")] record DbConfig(int Port);</c> will look for DB_PORT
 /// </param>
+[Obsolete(
+    "Move the prefix and settings to [EnvBindable(...)] or [EnvBindable<T>(...)]. On a "
+        + "subsection type, remove it: subsections are detected automatically and named by "
+        + "their property ([EnvKey] to rename).",
+    error: true
+)]
 [AttributeUsage(
     AttributeTargets.Class | AttributeTargets.Struct,
     AllowMultiple = false,

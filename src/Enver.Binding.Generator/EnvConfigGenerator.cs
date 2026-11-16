@@ -28,7 +28,11 @@ public sealed class EnvConfigGenerator : IIncrementalGenerator
             predicate: static (_, _) => true,
             transform: static (ctx, _) =>
                 ctx.TargetSymbol is INamedTypeSymbol nts
-                    ? SymbolAnalyzer.AnalyzeSelfTarget(nts, ctx.SemanticModel.Compilation)
+                    ? SymbolAnalyzer.AnalyzeSelfTarget(
+                        nts,
+                        ctx.Attributes[0],
+                        ctx.SemanticModel.Compilation
+                    )
                     : new SymbolAnalyzer.Result(null, EquatableArray<DiagnosticInfo>.Empty)
         );
 
@@ -55,6 +59,7 @@ public sealed class EnvConfigGenerator : IIncrementalGenerator
                                 SymbolAnalyzer.AnalyzeExternalTarget(
                                     host,
                                     cls.TypeArguments[0],
+                                    attr,
                                     compilation
                                 )
                             );

@@ -95,7 +95,6 @@ internal sealed class MapReader(Dictionary<string, string?> map) : IEnvReader
     {
         var result = Exec(
             """
-            [EnvConfig]
             public class Sub
             {
                 public string Host { get; init; } = "";

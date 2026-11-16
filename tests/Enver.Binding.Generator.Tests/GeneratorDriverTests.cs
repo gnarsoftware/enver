@@ -61,14 +61,13 @@ public class GeneratorDriverTests
     }
 
     [Test]
-    public void AppliesPrefixAndKeyNamingFromEnvConfig()
+    public void AppliesPrefixAndKeyNamingFromEnvBindable()
     {
         var result = GeneratorTestHarness.RunExpectingSuccess(
             """
             namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            [Enver.Binding.EnvConfig("DB", KeyNaming = Enver.Binding.EnvKeyNamingConvention.UpperSnakeCase)]
+            [Enver.Binding.EnvBindable("DB", KeyNaming = Enver.Binding.EnvKeyNamingConvention.UpperSnakeCase)]
             public partial record PrefixedConfig(string HostName);
             """
         );
@@ -393,8 +392,7 @@ public class GeneratorDriverTests
             """
             namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            [Enver.Binding.EnvConfig("bad-prefix")]
+            [Enver.Binding.EnvBindable("bad-prefix")]
             public partial record InvalidKeyConfig(int Port);
             """
         );
@@ -544,8 +542,7 @@ public class GeneratorDriverTests
             """
             namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            [Enver.Binding.EnvConfig("Db", KeyNaming = Enver.Binding.EnvKeyNamingConvention.UpperSnakeCase)]
+            [Enver.Binding.EnvBindable("Db", KeyNaming = Enver.Binding.EnvKeyNamingConvention.UpperSnakeCase)]
             public partial record MixedPrefix(string Host);
             """
         );
@@ -632,8 +629,7 @@ public class GeneratorDriverTests
             """
             namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            [Enver.Binding.EnvConfig("APP")]
+            [Enver.Binding.EnvBindable("APP")]
             public partial class Config
             {
                 public required string Version { get; init; }
@@ -662,7 +658,7 @@ public class GeneratorDriverTests
     }
 
     [Test]
-    public void SubSectionDetectedViaEnvConfigAttribute()
+    public void SubSectionDetectedWithoutOptIn()
     {
         var result = GeneratorTestHarness.RunExpectingSuccess(
             """
@@ -674,7 +670,6 @@ public class GeneratorDriverTests
                 public required Sub Section { get; init; }
             }
 
-            [Enver.Binding.EnvConfig]
             public class Sub
             {
                 public required string Val { get; init; }
@@ -693,15 +688,14 @@ public class GeneratorDriverTests
     [Test]
     public void SubSectionInheritsKeyNamingFromParent()
     {
-        // The parent uses SnakeCase. The subsection type has no [EnvConfig],
-        // so KeyNaming = Inherit. Its members should be keyed using the parent's
-        // SnakeCase convention, not the UpperSnakeCase default.
+        // The parent uses SnakeCase and the subsection property sets no KeyNaming,
+        // so its members are keyed with the parent's SnakeCase convention, not
+        // the UpperSnakeCase default.
         var result = GeneratorTestHarness.RunExpectingSuccess(
             """
             namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            [Enver.Binding.EnvConfig(KeyNaming = Enver.Binding.EnvKeyNamingConvention.SnakeCase)]
+            [Enver.Binding.EnvBindable(KeyNaming = Enver.Binding.EnvKeyNamingConvention.SnakeCase)]
             public partial class Config
             {
                 public required Sub Database { get; init; }
@@ -731,20 +725,21 @@ public class GeneratorDriverTests
     [Test]
     public void SubSectionWithExplicitKeyNamingOverridesInheritance()
     {
-        // The parent uses SnakeCase but the subsection declares its own UpperSnakeCase.
-        // The subsection's explicit convention must win.
+        // The parent uses SnakeCase but the subsection property asks for
+        // UpperSnakeCase, which applies to its segment and everything beneath it.
         var result = GeneratorTestHarness.RunExpectingSuccess(
             """
             namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            [Enver.Binding.EnvConfig(KeyNaming = Enver.Binding.EnvKeyNamingConvention.SnakeCase)]
+            [Enver.Binding.EnvBindable(KeyNaming = Enver.Binding.EnvKeyNamingConvention.SnakeCase)]
             public partial class Config
             {
+                public required string AppName { get; init; }
+
+                [Enver.Binding.EnvKey(KeyNaming = Enver.Binding.EnvKeyNamingConvention.UpperSnakeCase)]
                 public required Sub Database { get; init; }
             }
 
-            [Enver.Binding.EnvConfig(KeyNaming = Enver.Binding.EnvKeyNamingConvention.UpperSnakeCase)]
             public class Sub
             {
                 public required int MaxConnections { get; init; }
@@ -755,9 +750,8 @@ public class GeneratorDriverTests
         var src = result.SingleSource().Text;
         using (Assert.EnterMultipleScope())
         {
-            // Property segment "database" uses the parent's SnakeCase; the leaf
-            // member uses the subsection's own UpperSnakeCase.
-            Assert.That(src, Does.Contain("\"database_MAX_CONNECTIONS\"u8"));
+            Assert.That(src, Does.Contain("\"app_name\"u8"));
+            Assert.That(src, Does.Contain("\"DATABASE_MAX_CONNECTIONS\"u8"));
             Assert.That(src, Does.Not.Contain("\"database_max_connections\"u8"));
         }
     }
@@ -807,22 +801,38 @@ public class GeneratorDriverTests
     }
 
     [Test]
-    public void SubSectionTypeConfigPrefixComposed()
+    public void SubSectionIgnoresItsTypesRootPrefix()
     {
+        // Sub is bindable on its own under INNER, but as a subsection it's named by
+        // the property that holds it.
         var result = GeneratorTestHarness.RunExpectingSuccess(
             """
             namespace Test;
 
-            [Enver.Binding.EnvConfig("INNER")]
-            public record Sub(string Val);
+            [Enver.Binding.EnvBindable("INNER")]
+            public partial record Sub(string Val);
 
             [Enver.Binding.EnvBindable]
-            public partial record Base([property: Enver.Binding.EnvKey] Sub Sub);
+            public partial record Base(Sub Sub);
             """
         );
 
-        var src = result.SingleSource().Text;
-        Assert.That(src, Does.Contain("\"SUB_INNER_VAL\"u8"));
+        var subSrc = result
+            .GeneratedSources.Single(s =>
+                s.HintName.StartsWith("Test.Sub.", StringComparison.Ordinal)
+            )
+            .Text;
+        var baseSrc = result
+            .GeneratedSources.Single(s =>
+                s.HintName.StartsWith("Test.Base.", StringComparison.Ordinal)
+            )
+            .Text;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(subSrc, Does.Contain("\"INNER_VAL\"u8"));
+            Assert.That(baseSrc, Does.Contain("\"SUB_VAL\"u8"));
+            Assert.That(baseSrc, Does.Not.Contain("INNER"));
+        }
     }
 
     [Test]
@@ -834,34 +844,13 @@ public class GeneratorDriverTests
 
             public record Sub(string Val);
 
-            [Enver.Binding.EnvBindable]
-            [Enver.Binding.EnvConfig("OUTER")]
+            [Enver.Binding.EnvBindable("OUTER")]
             public partial record Base([property: Enver.Binding.EnvKey] Sub Sub);
             """
         );
 
         var src = result.SingleSource().Text;
         Assert.That(src, Does.Contain("\"OUTER_SUB_VAL\"u8"));
-    }
-
-    [Test]
-    public void SubSectionParentAndTypeConfigPrefixComposed()
-    {
-        var result = GeneratorTestHarness.RunExpectingSuccess(
-            """
-            namespace Test;
-
-            [Enver.Binding.EnvConfig("INNER")]
-            public record Sub(string Val);
-
-            [Enver.Binding.EnvBindable]
-            [Enver.Binding.EnvConfig("OUTER")]
-            public partial record Base([property: Enver.Binding.EnvKey] Sub Sub);
-            """
-        );
-
-        var src = result.SingleSource().Text;
-        Assert.That(src, Does.Contain("\"OUTER_SUB_INNER_VAL\"u8"));
     }
 
     [Test]
@@ -893,11 +882,9 @@ public class GeneratorDriverTests
             """
             namespace Test;
 
-            [Enver.Binding.EnvConfig("INNER")]
             public record Sub(string Val);
 
-            [Enver.Binding.EnvBindable]
-            [Enver.Binding.EnvConfig("OUTER")]
+            [Enver.Binding.EnvBindable("OUTER")]
             public partial record Base(
                 [property: Enver.Binding.EnvKey(IgnorePrefix = true)] Sub Sub
             );
@@ -907,8 +894,8 @@ public class GeneratorDriverTests
         var src = result.SingleSource().Text;
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(src, Does.Contain("\"SUB_INNER_VAL\"u8"));
-            Assert.That(src, Does.Not.Contain("\"OUTER_SUB_INNER_VAL\"u8"));
+            Assert.That(src, Does.Contain("\"SUB_VAL\"u8"));
+            Assert.That(src, Does.Not.Contain("\"OUTER_SUB_VAL\"u8"));
         }
     }
 
@@ -959,7 +946,6 @@ public class GeneratorDriverTests
                 public Sub Database { get; init; } = new();
             }
 
-            [Enver.Binding.EnvConfig("DB")]
             public class Sub
             {
                 public string Host { get; init; } = "";
@@ -980,8 +966,7 @@ public class GeneratorDriverTests
             """
             namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            [Enver.Binding.EnvConfig(GeneratePopulate = true)]
+            [Enver.Binding.EnvBindable(GeneratePopulate = true)]
             public partial class Config
             {
                 public string Name { get; set; } = "";
@@ -1015,8 +1000,7 @@ public class GeneratorDriverTests
             """
             namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            [Enver.Binding.EnvConfig(GeneratePopulate = true)]
+            [Enver.Binding.EnvBindable(GeneratePopulate = true)]
             public partial class Config
             {
                 public string Mutable { get; set; } = "";
@@ -1044,8 +1028,7 @@ public class GeneratorDriverTests
             """
             namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            [Enver.Binding.EnvConfig(GeneratePopulate = true)]
+            [Enver.Binding.EnvBindable(GeneratePopulate = true)]
             public partial class Config
             {
                 public string Name { get; init; } = "";
@@ -1065,8 +1048,7 @@ public class GeneratorDriverTests
             """
             namespace Test;
 
-            [Enver.Binding.EnvBindable]
-            [Enver.Binding.EnvConfig(GeneratePopulate = true)]
+            [Enver.Binding.EnvBindable(GeneratePopulate = true)]
             public partial class Config
             {
                 public string Name { get; set; } = "";
@@ -1294,7 +1276,6 @@ public class GeneratorDriverTests
                 public Sub? Nested { get; init; }
             }
 
-            [Enver.Binding.EnvConfig]
             public class Sub
             {
                 public string Host { get; init; } = "";

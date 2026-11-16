@@ -15,9 +15,27 @@ together.
 - **Breaking:** dropped the `net8.0` and `net9.0` targets, which are no longer
   supported by Microsoft. All packages now target `net10.0` and `net11.0`.
 
+### Changed
+
+- **Breaking:** `Enver.Binding`: `[EnvConfig]` is replaced by settings on
+  `[EnvBindable]` and `[EnvBindable<T>]`: `[EnvBindable("DB", KeyNaming = ...,
+  GeneratePopulate = true)]`. `[EnvConfig]` is now an obsolete-as-error attribute
+  whose message explains the move. A type's prefix applies only when it is bound as
+  the root; as a subsection it is named by its property, so the old
+  `SUB_<prefix>_VAL` stacking is gone.
+- **Breaking:** `Enver.Binding`: subsections are detected automatically. Any member
+  typed as a non-abstract class or struct with bindable members (excluding
+  collections and `System.*`/`Microsoft.*` types) binds as a subsection; `[EnvKey]`
+  or `[EnvConfig]` is no longer needed to opt in. Types that previously reported
+  ENVR0010 may now bind; apply `[EnvIgnore]` to skip them.
+
 ### Added
 
 - `net11.0` target for all packages.
+- `Enver.Binding`: `[EnvKey(KeyNaming = ...)]` overrides the naming convention for
+  a member's derived key and, on a subsection, everything beneath it.
+- `Enver.Binding`: ENVR0033 reports a config type that contains itself, which
+  previously overflowed the generator's stack.
 - `Enver.Binding`: polymorphic binding. List a base type's cases with
   `[EnvDerivedType<T>]` (any SDK), or use C# 15 `closed` types and `union`s, detected
   automatically with the .NET 11 SDK. Object cases are selected by a type key

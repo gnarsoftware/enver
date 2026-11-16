@@ -22,6 +22,20 @@ internal static partial class SymbolAnalyzer
     /// as the generated Bind methods so several [EnvBindable&lt;T&gt;] targets on
     /// one host don't collide.
     /// </summary>
+    /// <summary>
+    /// The types currently being analyzed, outermost first. A type that reappears
+    /// in its own members (directly, through a subsection, or through a polymorphic
+    /// case) can't be bound.
+    /// </summary>
+    internal sealed class SubSectionPath
+    {
+        private readonly HashSet<INamedTypeSymbol> _types = new(SymbolEqualityComparer.Default);
+
+        public bool TryEnter(INamedTypeSymbol type) => _types.Add(type);
+
+        public void Exit(INamedTypeSymbol type) => _types.Remove(type);
+    }
+
     internal sealed class HelperIdAllocator(string infix)
     {
         private int _next;
@@ -148,6 +162,7 @@ internal static partial class SymbolAnalyzer
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
         HelperIdAllocator helperIds,
+        SubSectionPath path,
         EnvKeyNamingConvention parentNaming,
         string parentEffectivePrefix,
         FormatProviderRef? defaultFormatProvider
@@ -272,7 +287,8 @@ internal static partial class SymbolAnalyzer
             }
         }
 
-        var (explicitName, ignorePrefix, requirement) = ReadKey(keyAttr);
+        var (explicitName, ignorePrefix, requirement, keyNaming) = ReadKey(keyAttr);
+        var naming = keyNaming == EnvKeyNamingConvention.Inherit ? parentNaming : keyNaming;
         var typeIsNullable = prop.Type.IsNullable();
         var initializer = GetInitializerExpression(prop);
 
@@ -292,7 +308,7 @@ internal static partial class SymbolAnalyzer
         if (kind == PolymorphicKind.Scalar)
         {
             // Keyed exactly like a leaf member.
-            var baseName = explicitName ?? KeyNameTransformer.Transform(prop.Name, parentNaming);
+            var baseName = explicitName ?? KeyNameTransformer.Transform(prop.Name, naming);
             key =
                 !ignorePrefix && !string.IsNullOrEmpty(parentEffectivePrefix)
                     ? $"{parentEffectivePrefix}_{baseName}"
@@ -311,17 +327,10 @@ internal static partial class SymbolAnalyzer
         else
         {
             // The section is keyed like a subsection: inherited prefix, then the
-            // property's segment, then the polymorphic type's own [EnvConfig] prefix.
-            var (typePrefix, typeNaming) = ReadConfig(
-                FindAttribute(polyType, AttributeNames.EnvConfig)
-            );
-            var naming = typeNaming == EnvKeyNamingConvention.Inherit ? parentNaming : typeNaming;
+            // property's segment.
             var sectionPrefix = CombineKey(
-                CombineKey(
-                    ignorePrefix ? null : parentEffectivePrefix,
-                    explicitName ?? KeyNameTransformer.Transform(prop.Name, parentNaming)
-                ),
-                typePrefix
+                ignorePrefix ? null : parentEffectivePrefix,
+                explicitName ?? KeyNameTransformer.Transform(prop.Name, naming)
             );
 
             // A property-level [EnvPolymorphic] overrides the type-level one.
@@ -352,6 +361,7 @@ internal static partial class SymbolAnalyzer
                 compilation,
                 diags,
                 helperIds,
+                path,
                 naming,
                 sectionPrefix,
                 style,
@@ -680,6 +690,7 @@ internal static partial class SymbolAnalyzer
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
         HelperIdAllocator helperIds,
+        SubSectionPath path,
         EnvKeyNamingConvention naming,
         string sectionPrefix,
         EnvCaseKeyStyle style,
@@ -763,6 +774,7 @@ internal static partial class SymbolAnalyzer
                 compilation,
                 diags,
                 helperIds,
+                path,
                 naming,
                 accumulatedPrefix: style == EnvCaseKeyStyle.Scoped
                     ? CombineKey(sectionPrefix, caseName)

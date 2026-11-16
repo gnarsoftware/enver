@@ -7,11 +7,10 @@ namespace Enver.Binding;
 /// to the property and not the parameter by using <c>[property: EnvKey]</c>
 /// </para>
 /// <para>
-/// When placed on a property whose type is itself a bindable config type, the
-/// property is bound as a subsection and <paramref name="name"/> becomes the
-/// prefix segment prepended to every key in that subsection. The property name
-/// (run through the naming convention) is used when no explicit name is given;
-/// an empty name (<c>[EnvKey("")]</c>) drops the segment entirely.
+/// On a subsection property (one whose type is itself a config object),
+/// <paramref name="name"/> is the segment prepended to every key in that subsection.
+/// The property name (run through the naming convention) is used when no name is
+/// given; an empty name (<c>[EnvKey("")]</c>) drops the segment entirely.
 /// </para>
 /// </summary>
 /// <param name="name">
@@ -36,8 +35,7 @@ public sealed class EnvKeyAttribute(string? name = null) : Attribute
     /// prepend any prefixes to the name of the key to map.
     /// <para>
     /// On a subsection property this drops only the inherited (ancestor)
-    /// prefix; the property's own segment and the subsection type's
-    /// <see cref="EnvConfigAttribute"/> prefix are still applied.
+    /// prefix; the property's own segment is still applied.
     /// </para>
     /// </summary>
     public bool IgnorePrefix { get; init; }
@@ -52,4 +50,11 @@ public sealed class EnvKeyAttribute(string? name = null) : Attribute
     /// change this behavior.
     /// </summary>
     public EnvRequirement Requirement { get; init; }
+
+    /// <summary>
+    /// Overrides the naming convention for this member's derived key and, on a
+    /// subsection, for every key beneath it. Defaults to
+    /// <see cref="EnvKeyNamingConvention.Inherit"/>, the enclosing convention.
+    /// </summary>
+    public EnvKeyNamingConvention KeyNaming { get; init; }
 }

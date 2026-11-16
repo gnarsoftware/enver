@@ -77,15 +77,13 @@ with method names suffixed by the target's simple type name
 (`Configs.BindCacheConfig(...)` / `Configs.CacheConfigBinder`). See
 [External host](#external-host-enverbindablet) below.
 
-## Naming and prefix: `[EnvConfig]`
+## Prefix and naming
 
-`[EnvConfig]` configures how member names map to keys. It does **not**
-trigger generation on its own. Pair it with `[EnvBindable]` on the same
-type:
+`[EnvBindable]` (and `[EnvBindable<T>]`) takes an optional key prefix and the
+naming convention used for member names:
 
 ```csharp
-[EnvBindable]
-[EnvConfig("DB", KeyNaming = EnvKeyNamingConvention.UpperSnakeCase)]
+[EnvBindable("DB", KeyNaming = EnvKeyNamingConvention.UpperSnakeCase)]
 public partial record DatabaseConfig(string Host, int Port);
 // Reads DB_HOST and DB_PORT.
 ```
@@ -95,18 +93,19 @@ Naming conventions:
 - `UpperSnakeCase` (default): `HostName` -> `HOST_NAME`
 - `SnakeCase`: `HostName` -> `host_name`
 - `PreserveOriginal`: `HostName` -> `HostName`
-- `Inherit`: use the nearest enclosing `[EnvConfig]` (falls back to
-  `UpperSnakeCase`)
+- `Inherit`: use the enclosing convention (on `[EnvBindable]` itself, `UpperSnakeCase`)
 
 > [!NOTE]
-> Prefixes and names set with `[EnvKey]` are not passed through
-> the `KeyNaming` convention.
+> Prefixes and names set with `[EnvKey]` are used literally. They are not passed
+> through the `KeyNaming` convention.
+
+The prefix applies only when the type is bound as the root. A type used as a
+[subsection](#subsections) is named by the property that holds it.
 
 ## Per-member overrides: `[EnvKey]`
 
 ```csharp
-[EnvBindable]
-[EnvConfig("APP")]
+[EnvBindable("APP")]
 public partial class AppConfig
 {
     // Map to APP_CUSTOM_NAME
@@ -116,6 +115,10 @@ public partial class AppConfig
     // Map to GLOBAL_SETTING
     [EnvKey(IgnorePrefix = true)]
     public string GlobalSetting { get; init; } = "";
+
+    // Map to APP_LogLevel
+    [EnvKey(KeyNaming = EnvKeyNamingConvention.PreserveOriginal)]
+    public string LogLevel { get; init; } = "";
 
     // Force optional
     [EnvKey(Requirement = EnvRequirement.Optional)]
@@ -134,59 +137,49 @@ public partial class AppConfig
 
 ## Subsections
 
-A property whose type is itself a bindable config type is bound as a
-**subsection**: its members are read from the same flat key space, under a
-prefix derived from the outer property. A property is treated as a subsection
-when any of these hold:
-
-- the property is annotated with `[EnvKey]`
-- the property's type carries `[EnvConfig]`
-- the property's type has a member annotated with `[EnvKey]`
+A property whose type is another config object is bound as a **subsection**: its
+members are read from the same flat key space, under a prefix derived from the
+property. No opt-in is needed. A type is treated as a config object when it is a
+non-abstract class or struct that isn't a collection or a `System.*` /
+`Microsoft.*` framework type, and it has members to bind. Anything else is
+reported as an unsupported member type (ENVR0010); apply `[EnvIgnore]` to skip it.
 
 A subsection key is composed, in order, of:
 
-1. the outer type's prefix (its `[EnvConfig]` prefix plus anything inherited
-   from further-out subsections)
+1. the outer prefix (the root's `[EnvBindable]` prefix plus the segments of any
+   further-out subsections)
 2. the subsection property's segment (its `[EnvKey]` name, or the property
    name run through the naming convention)
-3. the subsection type's own `[EnvConfig]` prefix
-4. the member's key
+3. the member's key
 
 ```csharp
-record Sub(string Val);
+public record Sub(string Val);
 
 [EnvBindable]
-partial class Base
-{
-    [EnvKey]
-    public required Sub Sub { get; init; }
-}
+public partial record Base(Sub Sub);
 // Sub.Val -> SUB_VAL
+
+[EnvBindable("APP")]
+public partial record Prefixed(Sub Sub);
+// Sub.Val -> APP_SUB_VAL
 ```
 
-| Attributes | Key for `Sub.Val` |
+`[EnvKey]` on the subsection property adjusts its segment:
+
+| Property attribute | Key for `Sub.Val` (root prefix `APP`) |
 |---|---|
-| (as above) | `SUB_VAL` |
-| `Sub` has `[EnvConfig("K1")]` | `SUB_K1_VAL` |
-| `Base` has `[EnvConfig("K2")]` | `K2_SUB_VAL` |
-| both of the above | `K2_SUB_K1_VAL` |
+| (none) | `APP_SUB_VAL` |
+| `[EnvKey("S")]` | `APP_S_VAL` |
+| `[EnvKey("")]` | `APP_VAL` |
+| `[EnvKey(IgnorePrefix = true)]` | `SUB_VAL` |
+| `[EnvKey(KeyNaming = SnakeCase)]` | `APP_sub_val` |
 
-Opt out of the property-name segment with an empty key:
+`IgnorePrefix` drops the inherited prefix but keeps the property's own segment.
+`KeyNaming` applies to the segment and every key beneath it. Requiredness is
+controlled the same way as a leaf member, with `[EnvKey(Requirement = ...)]`.
 
-```csharp
-[EnvBindable]
-partial class Base
-{
-    [EnvKey("")]
-    public required Sub Sub { get; init; }
-}
-// Sub.Val -> VAL
-```
-
-`[EnvKey(IgnorePrefix = true)]` on a subsection property drops the inherited
-(ancestor) prefix but keeps the property's own segment and the subsection
-type's `[EnvConfig]` prefix. Requiredness is controlled the same way as a
-leaf member, with `[EnvKey(Requirement = ...)]`.
+A type can't contain itself, directly or through its members (ENVR0033). Use
+`[EnvIgnore]` on the member that leads back to it.
 
 ## Polymorphic binding
 
@@ -271,8 +264,7 @@ public union Storage(RemoteStorage, LocalStorage);
   type key is missing throws `EnvMissingVariableException`; an optional one
   falls back to `null` or its initializer.
 - Prefixes compose like a [subsection](#subsections): the outer prefix, then the
-  property's segment (or its `[EnvKey]` name), then the polymorphic type's
-  `[EnvConfig]` prefix.
+  property's segment (or its `[EnvKey]` name).
 
 #### Key layout: `[EnvPolymorphic]`
 
