@@ -24,24 +24,21 @@ Console.WriteLine(
 // [EnvBindable] triggers the source generator.
 // The type must be partial so the generator can augment it with the Bind* methods.
 
-[EnvConfig]
 [EnvBindable]
 public partial record Configuration(
-    AppConfig App,
-    DbConfig Db,
-    ApiConfig Api,
-    StorageConfig Storage
+    [property: EnvKey] AppConfig App,
+    [property: EnvKey] DbConfig Db,
+    [property: EnvKey] ApiConfig Api,
+    [property: EnvKey] StorageConfig Storage
 );
 
-[EnvConfig]
-public partial record AppConfig(
+public record AppConfig(
     string Name, // APP_NAME - required
     string Env, // APP_ENV - required
     bool Debug // APP_DEBUG - required
 );
 
-[EnvConfig]
-public partial class DbConfig
+public class DbConfig
 {
     public required string Host { get; init; } // DB_HOST - required
     public required int Port { get; init; } // DB_PORT - required
@@ -57,18 +54,23 @@ public class PoolConfig
     public int MaxSize { get; init; } = 10; // DB_POOL_MAX_SIZE - optional, default 10
 }
 
-[EnvConfig]
-public partial class ApiConfig
+public class ApiConfig
 {
     public required Uri Url { get; init; } // API_URL - requred
     public int TimeoutSeconds { get; init; } = 30; // API_TIMEOUT_SECONDS - optional, default 30
     public int MaxRetries { get; init; } = 3; // API_MAX_RETRIES - optional, default 3
 }
 
-[EnvPolymorphic(TypeKey = "TYPE")] // Explicitly set type key. Not required for 'TYPE'.
+// Polymorphic binding:
+// Binds automatically to closed types or unions.
+// Use [EnvPolymorphic(TypeKey = "TYPE")] to manually opt in on any type along
+// with [EnvDerivedType<T>] for each bindable case.
+// [EnvPolymorphic] can also be used on closed/union types to set an alternative type key
+// or case style.
+
 public closed record StorageConfig; // STORAGE_TYPE - required
 
-[EnvCase("REMOTE")] // explicitly set the case name. Not required in this case.
+// Use [EnvCase("REMOTE")] to explicitly set the case name.
 public sealed record RemoteStorageConfig( // STORAGE_TYPE=remote
     string Bucket, // STORAGE_BUCKET - required in this case
     string Region // STORAGE_REGION - required in this case
