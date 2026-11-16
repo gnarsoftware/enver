@@ -1,3 +1,0 @@
-# Uses C# 15 syntax (closed types), which the pinned CSharpier (1.2.6) can't
-# parse. Remove once CSharpier is bumped to a release with C# 15 support (1.4.0+).
-samples/Enver.Sample.Binding/Program.cs

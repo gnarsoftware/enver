@@ -705,8 +705,7 @@ internal static partial class SymbolAnalyzer
             var caseAttr = FindAttribute(caseType, AttributeNames.EnvCase);
             if (c.ExplicitName is not null || caseAttr is not null)
             {
-                var explicitName =
-                    c.ExplicitName
+                var explicitName = c.ExplicitName
                     ?? (
                         caseAttr!.ConstructorArguments.Length > 0
                             ? caseAttr.ConstructorArguments[0].Value as string

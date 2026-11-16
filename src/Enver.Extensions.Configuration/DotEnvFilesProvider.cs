@@ -29,17 +29,14 @@ internal sealed class DotEnvFilesProvider : ConfigurationProvider, IDisposable
 
         if (_source.ReloadOnChange)
         {
-            _changeTokenRegistration = ChangeToken.OnChange(
-                CreateLadderChangeToken,
-                () =>
-                {
-                    // Debounce: file editors often emit multiple events
-                    // (write then truncate-then-write) in rapid succession.
-                    Thread.Sleep(_source.ReloadDelay);
-                    Load();
-                    OnReload();
-                }
-            );
+            _changeTokenRegistration = ChangeToken.OnChange(CreateLadderChangeToken, () =>
+            {
+                // Debounce: file editors often emit multiple events
+                // (write then truncate-then-write) in rapid succession.
+                Thread.Sleep(_source.ReloadDelay);
+                Load();
+                OnReload();
+            });
         }
     }
 

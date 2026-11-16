@@ -75,13 +75,10 @@ public class IncrementalCachingTests
                 Is.Not.Empty,
                 "Expected a tracked host-model step on the second run."
             );
-            Assert.That(
-                hostReasons,
-                Is.All.EqualTo(IncrementalStepRunReason.Unchanged),
-                () =>
-                    "The source-emitting host model changed after an unrelated edit. "
-                    + "Reasons: "
-                    + string.Join(", ", hostReasons)
+            Assert.That(hostReasons, Is.All.EqualTo(IncrementalStepRunReason.Unchanged), () =>
+                "The source-emitting host model changed after an unrelated edit. "
+                + "Reasons: "
+                + string.Join(", ", hostReasons)
             );
         }
     }

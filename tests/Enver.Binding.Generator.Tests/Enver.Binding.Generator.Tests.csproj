@@ -14,14 +14,11 @@
   <PropertyGroup>
     <EnverGeneratorRoslyn Condition="'$(EnverGeneratorRoslyn)' == ''">5.12</EnverGeneratorRoslyn>
     <DefineConstants Condition="'$(EnverGeneratorRoslyn)' == '5.12'"
-      >$(DefineConstants);ENVER_GENERATOR_ROSLYN_5_12</DefineConstants
-    >
+      >$(DefineConstants);ENVER_GENERATOR_ROSLYN_5_12</DefineConstants>
     <_EnverGeneratorProject Condition="'$(EnverGeneratorRoslyn)' == '5.12'"
-      >../../src/Enver.Binding.Generator.Roslyn5.12/Enver.Binding.Generator.Roslyn5.12.csproj</_EnverGeneratorProject
-    >
+      >../../src/Enver.Binding.Generator.Roslyn5.12/Enver.Binding.Generator.Roslyn5.12.csproj</_EnverGeneratorProject>
     <_EnverGeneratorProject Condition="'$(EnverGeneratorRoslyn)' != '5.12'"
-      >../../src/Enver.Binding.Generator/Enver.Binding.Generator.csproj</_EnverGeneratorProject
-    >
+      >../../src/Enver.Binding.Generator/Enver.Binding.Generator.csproj</_EnverGeneratorProject>
   </PropertyGroup>
 
   <ItemGroup>
