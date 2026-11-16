@@ -146,18 +146,31 @@ internal static partial class SymbolAnalyzer
             );
         }
 
-        var targetModel = AnalyzeTarget(
-            targetSymbol,
-            hostSymbol,
-            compilation,
-            diags,
-            new HelperIdAllocator(isSelfBindable ? "" : targetSymbol.Name),
-            new SubSectionPath(),
-            root.KeyNaming,
-            generatePopulate: root.GeneratePopulate,
-            accumulatedPrefix: root.Prefix,
-            populateLocation: AttributeLocation(bindableAttr, hostSymbol)
-        );
+        var helperIds = new HelperIdAllocator(isSelfBindable ? "" : targetSymbol.Name);
+        var targetModel =
+            IsPolymorphicRoot(targetSymbol, hostSymbol, diags, out bool rootReported)
+                ? AnalyzePolymorphicRoot(
+                    targetSymbol,
+                    hostSymbol,
+                    bindableAttr,
+                    root,
+                    compilation,
+                    diags,
+                    helperIds
+                )
+            : rootReported ? null
+            : AnalyzeTarget(
+                targetSymbol,
+                hostSymbol,
+                compilation,
+                diags,
+                helperIds,
+                new SubSectionPath(),
+                root.KeyNaming,
+                generatePopulate: root.GeneratePopulate,
+                accumulatedPrefix: root.Prefix,
+                populateLocation: AttributeLocation(bindableAttr, hostSymbol)
+            );
         if (targetModel is null)
         {
             return new Result(null, new(diags));
@@ -1553,6 +1566,11 @@ internal static partial class SymbolAnalyzer
 
     private static string GetTypeKeyword(INamedTypeSymbol type)
     {
+        // Partial declarations must all use the same keyword.
+        if (IsUnionType(type))
+        {
+            return "union";
+        }
         if (type.IsRecord)
         {
             return type.TypeKind == TypeKind.Struct ? "record struct" : "record";

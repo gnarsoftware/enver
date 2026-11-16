@@ -40,9 +40,11 @@ together.
   `[EnvDerivedType<T>]` (any SDK), or use C# 15 `closed` types and `union`s, detected
   automatically with the .NET 11 SDK. Object cases are selected by a type key
   (`STORAGE_TYPE=REMOTE`) with a shared or scoped key layout; all-scalar unions
-  parse the value against each case in order. New `[EnvDerivedType<T>]`,
-  `[EnvPolymorphic]` and `[EnvCase]` attributes, the `EnvCaseKeyStyle` enum, and
-  diagnostics ENVR0025-ENVR0032.
+  parse the value against each case in order. A polymorphic type can also be the
+  binding root (`[EnvBindable] closed partial record Deployment`), selected by
+  `TYPE` under the root prefix. New `[EnvDerivedType<T>]`, `[EnvPolymorphic]` and
+  `[EnvCase]` attributes, the `EnvCaseKeyStyle` enum, and diagnostics
+  ENVR0025-ENVR0032, ENVR0034 and ENVR0035.
 - `Enver.Binding`: the package now ships one generator build per Roslyn version
   (`analyzers/dotnet/roslyn5.0` and `roslyn5.12`). The baseline build now
   requires Roslyn 5.0, the compiler in every .NET 10 SDK; older SDKs could not

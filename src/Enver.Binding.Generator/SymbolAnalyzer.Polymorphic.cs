@@ -56,6 +56,118 @@ internal static partial class SymbolAnalyzer
 #endif
     }
 
+    /// <summary>
+    /// Whether the root target must be bound by selecting a case. On the baseline
+    /// build a closed or union root can't be detected properly, so it's reported
+    /// (ENVR0032) instead of being constructed directly, which wouldn't compile.
+    /// </summary>
+    private static bool IsPolymorphicRoot(
+        INamedTypeSymbol target,
+        INamedTypeSymbol hostSymbol,
+        ImmutableArray<DiagnosticInfo>.Builder diags,
+        out bool reported
+    )
+    {
+        reported = false;
+        if (IsPolymorphicType(target))
+        {
+            return true;
+        }
+#if !ROSLYN_5_12
+        if (DescribeUndetectablePolymorphicType(target) is { } description)
+        {
+            diags.Add(
+                DiagnosticInfo.Create(
+                    DiagnosticDescriptors.PolymorphicTypeRequiresNewerGenerator,
+                    hostSymbol.Locations.FirstOrDefault(),
+                    new(ImmutableArray.Create(target.Name, description))
+                )
+            );
+            reported = true;
+        }
+#endif
+        return false;
+    }
+
+    private static BindingTarget? AnalyzePolymorphicRoot(
+        INamedTypeSymbol target,
+        INamedTypeSymbol hostSymbol,
+        AttributeData bindableAttr,
+        (string? Prefix, EnvKeyNamingConvention KeyNaming, bool GeneratePopulate) root,
+        Compilation compilation,
+        ImmutableArray<DiagnosticInfo>.Builder diags,
+        HelperIdAllocator helperIds
+    )
+    {
+        var location = target.Locations.FirstOrDefault() ?? hostSymbol.Locations.FirstOrDefault();
+
+        // Populate assigns into an existing instance, which can't change its case.
+        if (root.GeneratePopulate)
+        {
+            diags.Add(
+                DiagnosticInfo.Create(
+                    DiagnosticDescriptors.PopulateOnPolymorphicRoot,
+                    AttributeLocation(bindableAttr, hostSymbol),
+                    new(ImmutableArray.Create(target.Name))
+                )
+            );
+        }
+
+        var path = new SubSectionPath();
+        path.TryEnter(target);
+        var self = AnalyzePolymorphic(
+            new PolySite(
+                target.Name,
+                target,
+                location,
+                AttributeSource: null,
+                IsRoot: true,
+                IsRequired: true,
+                Initializer: null,
+                IsInitOnly: false
+            ),
+            target,
+            hostSymbol,
+            compilation,
+            diags,
+            helperIds,
+            path,
+            root.KeyNaming,
+            root.Prefix ?? string.Empty,
+            ReadFormatProvider(
+                FindAttribute(target, AttributeNames.EnvFormatProvider),
+                hostSymbol,
+                compilation,
+                location,
+                diags
+            )
+        );
+        if (self is null)
+        {
+            return null;
+        }
+
+        var fqn = target.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        return new BindingTarget(
+            FullyQualifiedTypeName: fqn,
+            SimpleTypeName: target.Name,
+            ConstructionExpression: fqn,
+            Prefix: root.Prefix,
+            KeyNaming: root.KeyNaming,
+            Construction: new ConstructionStrategy(
+                EquatableArray<string>.Empty,
+                EquatableArray<string>.Empty
+            ),
+            Members: EquatableArray<BindingMember>.Empty,
+            SubSections: EquatableArray<SubSection>.Empty,
+            Polymorphics: new(ImmutableArray.Create(self)),
+            DefaultFormatProvider: null,
+            GeneratePopulate: false,
+            ImplementsIValidatableObject: false,
+            Self: self
+        );
+    }
+
     private static bool IsUnionType(ITypeSymbol type)
     {
 #if ROSLYN_5_12
@@ -191,7 +303,62 @@ internal static partial class SymbolAnalyzer
             return null;
         }
 
-        var location = prop.Locations.FirstOrDefault();
+        return AnalyzePolymorphic(
+            new PolySite(
+                prop.Name,
+                prop.Type,
+                prop.Locations.FirstOrDefault(),
+                prop,
+                IsRoot: false,
+                prop.IsRequired,
+                GetInitializerExpression(prop),
+                prop.SetMethod?.IsInitOnly ?? false
+            ),
+            polyType,
+            hostSymbol,
+            compilation,
+            diags,
+            helperIds,
+            path,
+            parentNaming,
+            parentEffectivePrefix,
+            defaultFormatProvider
+        );
+    }
+
+    /// <summary>
+    /// Where a polymorphic type is bound: a property, or the root type itself. The
+    /// root has no segment or attributes of its own and is always required.
+    /// </summary>
+    private readonly record struct PolySite(
+        string Name,
+        ITypeSymbol Type,
+        Location? Location,
+        ISymbol? AttributeSource,
+        bool IsRoot,
+        bool IsRequired,
+        string? Initializer,
+        bool IsInitOnly
+    )
+    {
+        public AttributeData? Find(string attributeName) =>
+            AttributeSource is null ? null : FindAttribute(AttributeSource, attributeName);
+    }
+
+    private static PolymorphicMember? AnalyzePolymorphic(
+        PolySite site,
+        INamedTypeSymbol polyType,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation,
+        ImmutableArray<DiagnosticInfo>.Builder diags,
+        HelperIdAllocator helperIds,
+        SubSectionPath path,
+        EnvKeyNamingConvention parentNaming,
+        string parentEffectivePrefix,
+        FormatProviderRef? defaultFormatProvider
+    )
+    {
+        var location = site.Location;
         var polyDisplay = polyType.ToDisplayString(s_typeDisplayFormat);
 
         var cases = ExpandCases(polyType, location, diags);
@@ -212,7 +379,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.PolymorphicNoCases,
                     location,
-                    new(ImmutableArray.Create(prop.Name, polyDisplay))
+                    new(ImmutableArray.Create(site.Name, polyDisplay))
                 )
             );
             return null;
@@ -287,10 +454,31 @@ internal static partial class SymbolAnalyzer
             }
         }
 
-        var (explicitName, ignorePrefix, requirement, keyNaming) = ReadKey(keyAttr);
+        // A scalar union is one value under one key; as the root it has no key.
+        if (site.IsRoot && kind == PolymorphicKind.Scalar)
+        {
+            diags.Add(
+                DiagnosticInfo.Create(
+                    DiagnosticDescriptors.ScalarUnionRoot,
+                    location,
+                    new(ImmutableArray.Create(polyDisplay))
+                )
+            );
+            return null;
+        }
+
+        var (explicitName, ignorePrefix, requirement, keyNaming) = ReadKey(
+            site.Find(AttributeNames.EnvKey)
+        );
+        if (site.IsRoot)
+        {
+            // The root's keys sit directly under its prefix.
+            explicitName = string.Empty;
+            requirement = EnvRequirement.Required;
+        }
         var naming = keyNaming == EnvKeyNamingConvention.Inherit ? parentNaming : keyNaming;
-        var typeIsNullable = prop.Type.IsNullable();
-        var initializer = GetInitializerExpression(prop);
+        var typeIsNullable = site.Type.IsNullable();
+        var initializer = site.Initializer;
 
         if (requirement == EnvRequirement.Optional && !typeIsNullable && initializer is null)
         {
@@ -298,7 +486,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.RequiredOptionalOnNonNullableNoDefault,
                     location,
-                    new(ImmutableArray.Create(prop.Name, prop.Type.ToDisplayString()))
+                    new(ImmutableArray.Create(site.Name, site.Type.ToDisplayString()))
                 )
             );
         }
@@ -308,16 +496,16 @@ internal static partial class SymbolAnalyzer
         if (kind == PolymorphicKind.Scalar)
         {
             // Keyed exactly like a leaf member.
-            var baseName = explicitName ?? KeyNameTransformer.Transform(prop.Name, naming);
+            var baseName = explicitName ?? KeyNameTransformer.Transform(site.Name, naming);
             key =
                 !ignorePrefix && !string.IsNullOrEmpty(parentEffectivePrefix)
                     ? $"{parentEffectivePrefix}_{baseName}"
                     : baseName;
-            if (!ValidateKey(prop, key, diags))
+            if (!ValidateKey(site.Name, location, key, diags))
             {
                 return null;
             }
-            var scalarCases = AnalyzeScalarCases(prop, polyType, cases, location, diags);
+            var scalarCases = AnalyzeScalarCases(site.Name, polyType, cases, location, diags);
             if (scalarCases is null)
             {
                 return null;
@@ -330,12 +518,12 @@ internal static partial class SymbolAnalyzer
             // property's segment.
             var sectionPrefix = CombineKey(
                 ignorePrefix ? null : parentEffectivePrefix,
-                explicitName ?? KeyNameTransformer.Transform(prop.Name, naming)
+                explicitName ?? KeyNameTransformer.Transform(site.Name, naming)
             );
 
             // A property-level [EnvPolymorphic] overrides the type-level one.
             var (propTypeKey, propStyle) = ReadPolymorphic(
-                FindAttribute(prop, AttributeNames.EnvPolymorphic)
+                site.Find(AttributeNames.EnvPolymorphic)
             );
             var (typeTypeKey, typeStyle) = ReadPolymorphic(
                 FindAttribute(polyType, AttributeNames.EnvPolymorphic)
@@ -349,7 +537,7 @@ internal static partial class SymbolAnalyzer
                 sectionPrefix,
                 propTypeKey ?? typeTypeKey ?? KeyNameTransformer.Transform("Type", naming)
             );
-            if (!ValidateKey(prop, key, diags))
+            if (!ValidateKey(site.Name, location, key, diags))
             {
                 return null;
             }
@@ -375,7 +563,7 @@ internal static partial class SymbolAnalyzer
         }
 
         UriKind? uriKind = null;
-        var uriAttr = FindAttribute(prop, AttributeNames.EnvUri);
+        var uriAttr = site.Find(AttributeNames.EnvUri);
         if (
             uriAttr is { ConstructorArguments.Length: > 0 }
             && uriAttr.ConstructorArguments[0].Value is int kindValue
@@ -384,11 +572,11 @@ internal static partial class SymbolAnalyzer
             uriKind = (UriKind)kindValue;
         }
 
-        var underlying = prop.Type.UnwrapNullable();
+        var underlying = site.Type.UnwrapNullable();
         return new PolymorphicMember(
             HelperName: helperIds.Next(),
-            MemberName: prop.Name,
-            TypeFullyQualifiedName: prop.Type.ToDisplayString(
+            MemberName: site.Name,
+            TypeFullyQualifiedName: site.Type.ToDisplayString(
                 SymbolDisplayFormat.FullyQualifiedFormat
             ),
             UnderlyingTypeFullyQualifiedName: underlying.ToDisplayString(
@@ -402,12 +590,12 @@ internal static partial class SymbolAnalyzer
             Key: key,
             Cases: new(modelCases),
             Requirement: requirement,
-            HasRequiredKeyword: prop.IsRequired,
+            HasRequiredKeyword: site.IsRequired,
             CSharpInitializerExpression: initializer,
-            IsInitOnly: prop.SetMethod?.IsInitOnly ?? false,
+            IsInitOnly: site.IsInitOnly,
             UriKind: uriKind,
             FormatProvider: ReadFormatProvider(
-                FindAttribute(prop, AttributeNames.EnvFormatProvider),
+                site.Find(AttributeNames.EnvFormatProvider),
                 hostSymbol,
                 compilation,
                 location,
@@ -610,7 +798,7 @@ internal static partial class SymbolAnalyzer
         TypeDispatch.Resolve(type) != TypeDispatchKind.Unsupported;
 
     private static ImmutableArray<PolymorphicCase>? AnalyzeScalarCases(
-        IPropertySymbol prop,
+        string memberName,
         INamedTypeSymbol polyType,
         List<CaseCandidate> cases,
         Location? location,
@@ -635,7 +823,7 @@ internal static partial class SymbolAnalyzer
                     DiagnosticInfo.Create(
                         DiagnosticDescriptors.Utf8OnlyTypeNotStringBindable,
                         location,
-                        new(ImmutableArray.Create(prop.Name, display))
+                        new(ImmutableArray.Create(memberName, display))
                     )
                 );
                 ok = false;
@@ -827,7 +1015,8 @@ internal static partial class SymbolAnalyzer
     }
 
     private static bool ValidateKey(
-        IPropertySymbol prop,
+        string memberName,
+        Location? location,
         string key,
         ImmutableArray<DiagnosticInfo>.Builder diags
     )
@@ -839,8 +1028,8 @@ internal static partial class SymbolAnalyzer
         diags.Add(
             DiagnosticInfo.Create(
                 DiagnosticDescriptors.InvalidResolvedKey,
-                prop.Locations.FirstOrDefault(),
-                new(ImmutableArray.Create(prop.Name, key))
+                location,
+                new(ImmutableArray.Create(memberName, key))
             )
         );
         return false;

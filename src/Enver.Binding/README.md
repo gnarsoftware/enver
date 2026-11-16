@@ -303,6 +303,30 @@ A `string` case accepts anything, so declare it last; cases after it are
 unreachable (**ENVR0029**). A union cannot mix scalar and object cases
 (**ENVR0028**).
 
+### Polymorphic root
+
+A polymorphic type can be bound directly. The type key and case keys sit under
+the root prefix:
+
+```csharp
+[EnvBindable]
+public closed partial record Deployment(string Region);
+public sealed record Canary(string Region, int Percent) : Deployment(Region);
+public sealed record BlueGreen(string Region, string Slot) : Deployment(Region);
+
+// TYPE=CANARY, REGION=eu-west-1, PERCENT=10
+var deployment = Deployment.Bind(DotEnvPaths.AppDirectory());
+```
+
+The same works with `[EnvDerivedType<T>]` on any SDK, with an object union, and on
+an external host (`[EnvBindable<Deployment>("DEPLOY")]` reads `DEPLOY_TYPE`). The
+type key is always required. Two limits:
+
+- A scalar union has no key of its own, so it can't be the root (**ENVR0034**).
+  Bind it as a member instead.
+- `GeneratePopulate` is ignored (**ENVR0035**): an existing instance can't change
+  its case.
+
 ### Streaming binder
 
 The generated `Binder` buffers the raw values of a polymorphic member's keys

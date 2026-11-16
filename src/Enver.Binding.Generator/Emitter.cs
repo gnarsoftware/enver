@@ -81,9 +81,16 @@ internal static partial class Emitter
         w.WriteLine($"public static {t} Bind{methodInfix}(global::Enver.IEnvReader reader)");
         w.WriteLine("{");
         w.Indent++;
-        w.Write("return ");
-        EmitInlineObjectConstructionForReader(w, target);
-        w.WriteLine(";");
+        if (target.Self is { } self)
+        {
+            w.WriteLine($"return {self.HelperName}(reader);");
+        }
+        else
+        {
+            w.Write("return ");
+            EmitInlineObjectConstructionForReader(w, target);
+            w.WriteLine(";");
+        }
         w.Indent--;
         w.WriteLine("}");
         w.WriteLine();
@@ -618,6 +625,15 @@ internal static partial class Emitter
         w.WriteLine($"public {target.FullyQualifiedTypeName} Build()");
         w.WriteLine("{");
         w.Indent++;
+
+        if (target.Self is { } self)
+        {
+            // Every key was buffered; the case is chosen from the type key now.
+            w.WriteLine($"return {self.HelperName}({BufferedReaderExpression});");
+            w.Indent--;
+            w.WriteLine("}");
+            return;
+        }
 
         // Check required flat members.
         foreach (var m in target.Members.AsImmutableArray())
