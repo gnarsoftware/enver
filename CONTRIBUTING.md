@@ -2,7 +2,9 @@
 
 ## Prerequisites
 
-- .NET SDK 8, 9, or 10
+- .NET SDK 11 (the repo targets `net10.0` and `net11.0`, and builds a Roslyn 5.12
+  variant of the binding generator). Install the .NET 10 runtime as well to run
+  the `net10.0` tests.
 
 ## Building
 
@@ -10,10 +12,22 @@
 dotnet build Enver.slnx
 ```
 
+The solution includes the sample apps under `samples/`, so they build (and must
+keep compiling) along with the libraries.
+
 ## Testing
 
 ```sh
 dotnet test Enver.slnx
+```
+
+The binding source generator ships two builds: a baseline one (Roslyn 4.8) for
+older SDKs and a Roslyn 5.12 one that adds polymorphic binding for `closed` types
+and unions. The generator tests run against the 5.12 build by default; CI also
+runs them against the baseline build:
+
+```sh
+dotnet test tests/Enver.Binding.Generator.Tests -p:EnverGeneratorRoslyn=4.8
 ```
 
 ## Formatting

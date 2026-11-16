@@ -10,17 +10,21 @@ together.
 
 ## Unreleased
 
-- Added dotnet 11 target, and removed dotnet 8 & 9.
+### Removed
+
+- **Breaking:** dropped the `net8.0` and `net9.0` targets, which are no longer
+  supported by Microsoft. All packages now target `net10.0` and `net11.0`.
 
 ### Added
 
+- `net11.0` target for all packages.
 - `Enver.Binding`: polymorphic binding. List a base type's cases with
   `[EnvDerivedType<T>]` (any SDK), or use C# 15 `closed` types and `union`s, detected
   automatically with the .NET 11 SDK. Object cases are selected by a type key
   (`STORAGE_TYPE=REMOTE`) with a shared or scoped key layout; all-scalar unions
   parse the value against each case in order. New `[EnvDerivedType<T>]`,
   `[EnvPolymorphic]` and `[EnvCase]` attributes, the `EnvCaseKeyStyle` enum, and
-  diagnostics ENVR0025-ENVR0031.
+  diagnostics ENVR0025-ENVR0032.
 - `Enver.Binding`: the package now ships one generator build per Roslyn version
   (`analyzers/dotnet/roslyn4.8` and `roslyn5.12`). Older SDKs keep the existing
   behavior.
