@@ -33,10 +33,16 @@ public class ConstructorDefaultTests
             );
             """;
 
+        // Formatted invariantly: record ToString() uses the current culture, which
+        // renders infinity and decimal separators differently across machines.
         AssertBoth(
-            Exec(body, "c.ToString()", ("HOST", "h")),
-            "AppConfig { Host = h, Port = 5432, Name = app, Mode = On, Ratio = 0.5, "
-                + "Scale = 1.5, Price = 9.99, Limit = 7, Tag = , Ceiling = ∞ }"
+            Exec(
+                body,
+                "FormattableString.Invariant($\"{c.Host}|{c.Port}|{c.Name}|{c.Mode}|{c.Ratio}|"
+                    + "{c.Scale}|{c.Price}|{c.Limit}|{c.Tag}|{c.Ceiling}\")",
+                ("HOST", "h")
+            ),
+            "h|5432|app|On|0.5|1.5|9.99|7||Infinity"
         );
         AssertBoth(
             Exec(body, "c.Port + \"|\" + c.Mode", ("HOST", "h"), ("PORT", "1"), ("MODE", "Off")),
