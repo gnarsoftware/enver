@@ -57,7 +57,7 @@ internal static class DiagnosticDescriptors
     public static readonly DiagnosticDescriptor PrefixCasingMismatch = new(
         id: "ENVR0007",
         title: "Prefix casing does not match KeyNaming",
-        messageFormat: "[EnvConfig] Prefix '{0}' is used literally and does not match KeyNaming = {1}",
+        messageFormat: "[EnvBindable] prefix '{0}' is used literally and does not match KeyNaming = {1}",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Info,
         isEnabledByDefault: true
@@ -75,7 +75,7 @@ internal static class DiagnosticDescriptors
     public static readonly DiagnosticDescriptor UnsupportedMemberType = new(
         id: "ENVR0010",
         title: "Member type is not supported by the generator",
-        messageFormat: "Member '{0}' has type '{1}', which is not supported by the binder (use a primitive, enum, Uri, Version, a type implementing IUtf8SpanParsable/ISpanParsable/IParsable, or apply [EnvIgnore])",
+        messageFormat: "Member '{0}' has type '{1}', which is not supported by the binder (use a primitive, enum, Uri, Version, a type implementing IUtf8SpanParsable/ISpanParsable/IParsable, a config object with bindable members, or apply [EnvIgnore])",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -264,9 +264,36 @@ internal static class DiagnosticDescriptors
     public static readonly DiagnosticDescriptor PolymorphicTypeRequiresNewerGenerator = new(
         id: "ENVR0032",
         title: "Closed types and unions need the .NET 11 SDK generator",
-        messageFormat: "Member '{0}' is typed as {1}, which the baseline Enver generator cannot bind; closed types and unions need the Roslyn 5.12 generator build (.NET 11 SDK or later, or a reference to Enver.Binding.Generator.Roslyn5.12). To bind it on any SDK, list its cases with [EnvDerivedType<T>] on the base type.",
+        messageFormat: "'{0}' is {1}, which the baseline Enver generator cannot bind; closed types and unions need the Roslyn 5.12 generator build (.NET 11 SDK or later, or a reference to Enver.Binding.Generator.Roslyn5.12). To bind it on any SDK, list its cases with [EnvDerivedType<T>] on the base type.",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    public static readonly DiagnosticDescriptor RecursiveSubSection = new(
+        id: "ENVR0033",
+        title: "Config type contains itself",
+        messageFormat: "'{0}' is reachable from its own members, so binding it would never end; apply [EnvIgnore] to the member that leads back to it",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    public static readonly DiagnosticDescriptor ScalarUnionRoot = new(
+        id: "ENVR0034",
+        title: "A scalar union cannot be bound as the root",
+        messageFormat: "'{0}' is a union of scalar values, which is read from a single key; as the root it has no key of its own, so bind it as a member of a config type instead",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    public static readonly DiagnosticDescriptor PopulateOnPolymorphicRoot = new(
+        id: "ENVR0035",
+        title: "Populate is not generated for a polymorphic root",
+        messageFormat: "GeneratePopulate is ignored for '{0}': its case is chosen by the type key, and an existing instance can't change its case",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true
     );
 }

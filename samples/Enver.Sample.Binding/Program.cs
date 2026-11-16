@@ -20,16 +20,20 @@ Console.WriteLine(
     }
 );
 
-// [EnvConfig] sets a key prefix and naming convention (default: UPPER_SNAKE_CASE).
-// [EnvBindable] triggers the source generator.
+// [EnvBindable] triggers the source generator. It can also set a key prefix and
+// naming convention (default: UPPER_SNAKE_CASE), e.g. [EnvBindable("MYAPP")].
 // The type must be partial so the generator can augment it with the Bind* methods.
+//
+// Members typed as other config objects bind as subsections, keyed by the
+// property name: App.Name reads APP_NAME. Use [EnvKey("...")] on the property to
+// rename the segment, or [EnvKey("")] to drop it.
 
 [EnvBindable]
 public partial record Configuration(
-    [property: EnvKey] AppConfig App,
-    [property: EnvKey] DbConfig Db,
-    [property: EnvKey] ApiConfig Api,
-    [property: EnvKey] StorageConfig Storage
+    AppConfig App,
+    DbConfig Db,
+    ApiConfig Api,
+    StorageConfig Storage
 );
 
 public record AppConfig(
@@ -43,9 +47,7 @@ public class DbConfig
     public required string Host { get; init; } // DB_HOST - required
     public required int Port { get; init; } // DB_PORT - required
     public required string Name { get; init; } // DB_NAME - required
-
-    [EnvKey("POOL")]
-    public required PoolConfig Pool { get; init; }
+    public required PoolConfig Pool { get; init; } // DB_POOL_* - subsection
 }
 
 public class PoolConfig
@@ -56,7 +58,7 @@ public class PoolConfig
 
 public class ApiConfig
 {
-    public required Uri Url { get; init; } // API_URL - requred
+    public required Uri Url { get; init; } // API_URL - required
     public int TimeoutSeconds { get; init; } = 30; // API_TIMEOUT_SECONDS - optional, default 30
     public int MaxRetries { get; init; } = 3; // API_MAX_RETRIES - optional, default 3
 }

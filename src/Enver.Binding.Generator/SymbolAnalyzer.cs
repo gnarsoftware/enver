@@ -24,14 +24,19 @@ internal static partial class SymbolAnalyzer
 
     public sealed record Result(BindingHost? Host, EquatableArray<DiagnosticInfo> Diagnostics);
 
-    public static Result AnalyzeSelfTarget(INamedTypeSymbol hostSymbol, Compilation compilation)
+    public static Result AnalyzeSelfTarget(
+        INamedTypeSymbol hostSymbol,
+        AttributeData bindableAttr,
+        Compilation compilation
+    )
     {
-        return BuildHost(hostSymbol, hostSymbol, isSelfBindable: true, compilation);
+        return BuildHost(hostSymbol, hostSymbol, bindableAttr, isSelfBindable: true, compilation);
     }
 
     public static Result AnalyzeExternalTarget(
         INamedTypeSymbol hostSymbol,
         ITypeSymbol targetType,
+        AttributeData bindableAttr,
         Compilation compilation
     )
     {
@@ -48,12 +53,13 @@ internal static partial class SymbolAnalyzer
             );
             return new Result(null, new(d));
         }
-        return BuildHost(hostSymbol, target, isSelfBindable: false, compilation);
+        return BuildHost(hostSymbol, target, bindableAttr, isSelfBindable: false, compilation);
     }
 
     private static Result BuildHost(
         INamedTypeSymbol hostSymbol,
         INamedTypeSymbol targetSymbol,
+        AttributeData bindableAttr,
         bool isSelfBindable,
         Compilation compilation
     )
@@ -122,17 +128,49 @@ internal static partial class SymbolAnalyzer
             return new Result(null, new(diags));
         }
 
-        var rootConfigAttr = FindAttribute(targetSymbol, AttributeNames.EnvConfig);
-        bool generatePopulate = ReadGeneratePopulate(rootConfigAttr);
+        var root = ReadBindable(bindableAttr);
 
-        var targetModel = AnalyzeTarget(
-            targetSymbol,
-            hostSymbol,
-            compilation,
-            diags,
-            new HelperIdAllocator(isSelfBindable ? "" : targetSymbol.Name),
-            generatePopulate: generatePopulate
-        );
+        // A literal prefix that the KeyNaming convention would re-case produces
+        // keys with inconsistent casing (e.g. "Db_HOST_NAME").
+        if (
+            root.Prefix is { Length: > 0 }
+            && KeyNameTransformer.Transform(root.Prefix, root.KeyNaming) != root.Prefix
+        )
+        {
+            diags.Add(
+                DiagnosticInfo.Create(
+                    DiagnosticDescriptors.PrefixCasingMismatch,
+                    AttributeLocation(bindableAttr, hostSymbol),
+                    new(ImmutableArray.Create(root.Prefix, root.KeyNaming.ToString()))
+                )
+            );
+        }
+
+        var helperIds = new HelperIdAllocator(isSelfBindable ? "" : targetSymbol.Name);
+        var targetModel =
+            IsPolymorphicRoot(targetSymbol, hostSymbol, diags, out bool rootReported)
+                ? AnalyzePolymorphicRoot(
+                    targetSymbol,
+                    hostSymbol,
+                    bindableAttr,
+                    root,
+                    compilation,
+                    diags,
+                    helperIds
+                )
+            : rootReported ? null
+            : AnalyzeTarget(
+                targetSymbol,
+                hostSymbol,
+                compilation,
+                diags,
+                helperIds,
+                new SubSectionPath(),
+                root.KeyNaming,
+                generatePopulate: root.GeneratePopulate,
+                accumulatedPrefix: root.Prefix,
+                populateLocation: AttributeLocation(bindableAttr, hostSymbol)
+            );
         if (targetModel is null)
         {
             return new Result(null, new(diags));
@@ -158,34 +196,67 @@ internal static partial class SymbolAnalyzer
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
         HelperIdAllocator helperIds,
-        EnvKeyNamingConvention parentNaming = EnvKeyNamingConvention.UpperSnakeCase,
+        SubSectionPath path,
+        EnvKeyNamingConvention naming,
         bool generatePopulate = false,
         string? accumulatedPrefix = null,
-        bool isPolymorphicCase = false
+        bool isPolymorphicCase = false,
+        Location? populateLocation = null,
+        bool isSubSection = false
     )
     {
-        var configAttr = FindAttribute(targetSymbol, AttributeNames.EnvConfig);
-        var (prefix, keyNaming) = ReadConfig(configAttr);
-        var resolvedNaming = keyNaming == EnvKeyNamingConvention.Inherit ? parentNaming : keyNaming;
-
-        var effectivePrefix = CombineKey(accumulatedPrefix, prefix);
-
-        // A literal [EnvConfig] Prefix that the KeyNaming convention would
-        // re-case produces keys with inconsistent casing (e.g. "Db_HOST_NAME").
-        if (
-            prefix is { Length: > 0 }
-            && KeyNameTransformer.Transform(prefix, resolvedNaming) != prefix
-        )
+        // A type reachable from its own members would recurse forever.
+        if (!path.TryEnter(targetSymbol))
         {
             diags.Add(
                 DiagnosticInfo.Create(
-                    DiagnosticDescriptors.PrefixCasingMismatch,
-                    configAttr?.ApplicationSyntaxReference?.GetSyntax().GetLocation()
-                        ?? targetSymbol.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(prefix, resolvedNaming.ToString()))
+                    DiagnosticDescriptors.RecursiveSubSection,
+                    targetSymbol.Locations.FirstOrDefault(),
+                    new(ImmutableArray.Create(targetSymbol.ToDisplayString(s_typeDisplayFormat)))
                 )
             );
+            return null;
         }
+        try
+        {
+            return AnalyzeTargetCore(
+                targetSymbol,
+                hostSymbol,
+                compilation,
+                diags,
+                helperIds,
+                path,
+                naming,
+                generatePopulate,
+                accumulatedPrefix,
+                isPolymorphicCase,
+                populateLocation,
+                isSubSection
+            );
+        }
+        finally
+        {
+            path.Exit(targetSymbol);
+        }
+    }
+
+    private static BindingTarget? AnalyzeTargetCore(
+        INamedTypeSymbol targetSymbol,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation,
+        ImmutableArray<DiagnosticInfo>.Builder diags,
+        HelperIdAllocator helperIds,
+        SubSectionPath path,
+        EnvKeyNamingConvention naming,
+        bool generatePopulate,
+        string? accumulatedPrefix,
+        bool isPolymorphicCase,
+        Location? populateLocation,
+        bool isSubSection
+    )
+    {
+        var resolvedNaming = naming;
+        var effectivePrefix = accumulatedPrefix ?? string.Empty;
 
         // Type-level [EnvFormatProvider] is the default for every member that
         // doesn't specify its own.
@@ -285,6 +356,7 @@ internal static partial class SymbolAnalyzer
                     compilation,
                     diags,
                     helperIds,
+                    path,
                     resolvedNaming,
                     effectivePrefix,
                     defaultFormatProvider
@@ -323,12 +395,11 @@ internal static partial class SymbolAnalyzer
                 continue;
             }
 
-            // check whether the member type qualifies as a subsection
-            bool propHasKey = HasAttribute(prop, AttributeNames.EnvKey);
+            // Any other object-shaped type is a subsection.
             if (
                 TypeDispatch.Resolve(prop.Type) == TypeDispatchKind.Unsupported
                 && prop.Type.UnwrapNullable() is INamedTypeSymbol namedPropType
-                && (propHasKey || IsSubSectionCandidate(namedPropType))
+                && IsSubSectionCandidate(namedPropType)
             )
             {
                 var subSection = TryAnalyzeSubSection(
@@ -338,9 +409,15 @@ internal static partial class SymbolAnalyzer
                     compilation,
                     diags,
                     helperIds,
+                    path,
                     resolvedNaming,
-                    effectivePrefix
+                    effectivePrefix,
+                    out bool subSectionReported
                 );
+                if (subSectionReported)
+                {
+                    continue;
+                }
                 if (subSection is not null)
                 {
                     subSections.Add(subSection);
@@ -360,8 +437,8 @@ internal static partial class SymbolAnalyzer
                     }
                     continue;
                 }
-                // If subsection analysis failed, fall through so AnalyzeMember emits
-                // UnsupportedMemberType
+                // Not a config object after all: fall through so AnalyzeMember
+                // reports UnsupportedMemberType.
             }
 
             var member = AnalyzeMember(
@@ -410,8 +487,11 @@ internal static partial class SymbolAnalyzer
 
         // A memberless polymorphic case (e.g. `record NoAuth : Auth`) is selected
         // by its type key alone, so it is legitimately empty.
+        // A subsection with nothing to bind is reported by its caller as an
+        // unsupported member type instead.
         if (
             !isPolymorphicCase
+            && !isSubSection
             && members.Count == 0
             && subSections.Count == 0
             && polymorphics.Count == 0
@@ -437,10 +517,7 @@ internal static partial class SymbolAnalyzer
                 diags.Add(
                     DiagnosticInfo.Create(
                         DiagnosticDescriptors.PopulateNoMutableMembers,
-                        FindAttribute(targetSymbol, AttributeNames.EnvConfig)
-                            ?.ApplicationSyntaxReference?.GetSyntax()
-                            .GetLocation()
-                            ?? targetSymbol.Locations.FirstOrDefault(),
+                        populateLocation ?? targetSymbol.Locations.FirstOrDefault(),
                         new(ImmutableArray.Create(targetSymbol.Name))
                     )
                 );
@@ -481,7 +558,7 @@ internal static partial class SymbolAnalyzer
             ConstructionExpression: targetSymbol.ToDisplayString(
                 SymbolDisplayFormat.FullyQualifiedFormat
             ),
-            Prefix: prefix,
+            Prefix: accumulatedPrefix,
             KeyNaming: resolvedNaming,
             Construction: finalConstruction,
             Members: new(members),
@@ -527,11 +604,15 @@ internal static partial class SymbolAnalyzer
             return null;
         }
 
-        var (explicitName, ignorePrefix, requirement) = ReadKey(keyAttr);
+        var (explicitName, ignorePrefix, requirement, memberNaming) = ReadKey(keyAttr);
 
         // Key resolution: explicit name from [EnvKey] beats naming convention.
         // Prefix prepended unless IgnorePrefix.
-        var baseName = explicitName ?? KeyNameTransformer.Transform(prop.Name, keyNaming);
+        var baseName = explicitName
+            ?? KeyNameTransformer.Transform(
+                prop.Name,
+                memberNaming == EnvKeyNamingConvention.Inherit ? keyNaming : memberNaming
+            );
 
         var resolvedKey =
             !ignorePrefix && !string.IsNullOrEmpty(prefix) ? $"{prefix}_{baseName}" : baseName;
@@ -1128,36 +1209,54 @@ internal static partial class SymbolAnalyzer
         return false;
     }
 
-    private static (string? Prefix, EnvKeyNamingConvention KeyNaming) ReadConfig(
-        AttributeData? attr
-    )
+    /// <summary>
+    /// Root settings from <c>[EnvBindable(prefix)]</c> / <c>[EnvBindable&lt;T&gt;(prefix)]</c>.
+    /// </summary>
+    private static (
+        string? Prefix,
+        EnvKeyNamingConvention KeyNaming,
+        bool GeneratePopulate
+    ) ReadBindable(AttributeData attr)
     {
-        if (attr is null)
-        {
-            return (null, EnvKeyNamingConvention.Inherit);
-        }
         string? prefix =
             attr.ConstructorArguments.Length > 0
                 ? attr.ConstructorArguments[0].Value as string
                 : null;
-        var naming = EnvKeyNamingConvention.Inherit;
+        var naming = EnvKeyNamingConvention.UpperSnakeCase;
+        bool populate = false;
         foreach (var named in attr.NamedArguments)
         {
-            if (named.Key == "KeyNaming" && named.Value.Value is int v)
+            switch (named.Key)
             {
-                naming = (EnvKeyNamingConvention)v;
+                case "KeyNaming" when named.Value.Value is int v:
+                    naming = (EnvKeyNamingConvention)v;
+                    break;
+                case "GeneratePopulate" when named.Value.Value is bool b:
+                    populate = b;
+                    break;
             }
         }
-        return (prefix, naming);
+        if (naming == EnvKeyNamingConvention.Inherit)
+        {
+            naming = EnvKeyNamingConvention.UpperSnakeCase;
+        }
+        return (prefix, naming, populate);
     }
 
-    private static (string? Name, bool IgnorePrefix, EnvRequirement Requirement) ReadKey(
-        AttributeData? attr
-    )
+    private static Location? AttributeLocation(AttributeData attr, ISymbol fallback) =>
+        attr.ApplicationSyntaxReference?.GetSyntax().GetLocation()
+        ?? fallback.Locations.FirstOrDefault();
+
+    private static (
+        string? Name,
+        bool IgnorePrefix,
+        EnvRequirement Requirement,
+        EnvKeyNamingConvention KeyNaming
+    ) ReadKey(AttributeData? attr)
     {
         if (attr is null)
         {
-            return (null, false, EnvRequirement.Inferred);
+            return (null, false, EnvRequirement.Inferred, EnvKeyNamingConvention.Inherit);
         }
         string? name =
             attr.ConstructorArguments.Length > 0
@@ -1165,6 +1264,7 @@ internal static partial class SymbolAnalyzer
                 : null;
         bool ignorePrefix = false;
         var requirement = EnvRequirement.Inferred;
+        var naming = EnvKeyNamingConvention.Inherit;
         foreach (var named in attr.NamedArguments)
         {
             switch (named.Key)
@@ -1175,9 +1275,12 @@ internal static partial class SymbolAnalyzer
                 case "Requirement" when named.Value.Value is int rv:
                     requirement = (EnvRequirement)rv;
                     break;
+                case "KeyNaming" when named.Value.Value is int kn:
+                    naming = (EnvKeyNamingConvention)kn;
+                    break;
             }
         }
-        return (name, ignorePrefix, requirement);
+        return (name, ignorePrefix, requirement, naming);
     }
 
     private static string CombineKey(string? left, string? right)
@@ -1193,36 +1296,47 @@ internal static partial class SymbolAnalyzer
         return $"{left}_{right}";
     }
 
-    private static bool ReadGeneratePopulate(AttributeData? attr)
+    /// <summary>
+    /// Whether a member type is shaped like a config object. Candidates are bound as
+    /// subsections; anything else (or a candidate that turns out to have nothing to
+    /// bind) is reported as an unsupported member type.
+    /// </summary>
+    private static bool IsSubSectionCandidate(INamedTypeSymbol type)
     {
-        if (attr is null)
+        if (
+            type.TypeKind is not (TypeKind.Class or TypeKind.Struct)
+            || type.IsAbstract
+            || type.IsStatic
+            || type.SpecialType != SpecialType.None
+        )
         {
             return false;
         }
-        foreach (var named in attr.NamedArguments)
+        // Framework types (HttpClient, StringBuilder, ...) often have settable
+        // properties but are never config sections; binding them would be a surprise.
+        if (IsFrameworkNamespace(type.ContainingNamespace))
         {
-            if (named.Key == "GeneratePopulate" && named.Value.Value is bool b)
+            return false;
+        }
+        // Collections aren't supported yet; don't bind their Count/Capacity as keys.
+        foreach (var iface in type.AllInterfaces)
+        {
+            if (iface.SpecialType == SpecialType.System_Collections_IEnumerable)
             {
-                return b;
+                return false;
             }
         }
-        return false;
+        return true;
     }
 
-    private static bool IsSubSectionCandidate(INamedTypeSymbol type)
+    private static bool IsFrameworkNamespace(INamespaceSymbol? ns)
     {
-        if (HasAttribute(type, AttributeNames.EnvConfig))
+        // Walk to the outermost named namespace.
+        while (ns?.ContainingNamespace is { IsGlobalNamespace: false } parent)
         {
-            return true;
+            ns = parent;
         }
-        foreach (var member in type.GetMembers())
-        {
-            if (member is IPropertySymbol && HasAttribute(member, AttributeNames.EnvKey))
-            {
-                return true;
-            }
-        }
-        return false;
+        return ns?.Name is "System" or "Microsoft";
     }
 
     private static SubSection? TryAnalyzeSubSection(
@@ -1232,28 +1346,58 @@ internal static partial class SymbolAnalyzer
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
         HelperIdAllocator helperIds,
+        SubSectionPath path,
         EnvKeyNamingConvention parentNaming,
-        string parentEffectivePrefix
+        string parentEffectivePrefix,
+        out bool reported
     )
     {
-        var (explicitName, ignorePrefix, requirement) = ReadKey(
+        reported = false;
+        var (explicitName, ignorePrefix, requirement, keyNaming) = ReadKey(
             FindAttribute(prop, AttributeNames.EnvKey)
         );
+        var naming = keyNaming == EnvKeyNamingConvention.Inherit ? parentNaming : keyNaming;
 
+        // Analyze into a scratch list first: a type that turns out to have nothing to
+        // bind isn't a config object, so it's reported as an unsupported member type
+        // (by the caller) rather than with diagnostics about its insides.
+        var nestedDiags = ImmutableArray.CreateBuilder<DiagnosticInfo>();
         var target = AnalyzeTarget(
             nestedType,
             hostSymbol,
             compilation,
-            diags,
+            nestedDiags,
             helperIds,
-            parentNaming,
+            path,
+            naming,
             accumulatedPrefix: CombineKey(
                 ignorePrefix ? null : parentEffectivePrefix,
-                explicitName ?? KeyNameTransformer.Transform(prop.Name, parentNaming)
-            )
+                explicitName ?? KeyNameTransformer.Transform(prop.Name, naming)
+            ),
+            isSubSection: true
         );
 
-        if (target is null)
+        bool hasMembers =
+            target is not null
+            && (
+                target.Members.Length > 0
+                || target.SubSections.Length > 0
+                || target.Polymorphics.Length > 0
+            );
+        if (hasMembers)
+        {
+            diags.AddRange(nestedDiags);
+        }
+        else if (target is null && nestedType.DeclaringSyntaxReferences.Length > 0)
+        {
+            // A config type declared in this compilation that can't be bound: its own
+            // diagnostics explain why better than "unsupported member type" would.
+            diags.AddRange(nestedDiags);
+            reported = true;
+            return null;
+        }
+
+        if (!hasMembers || target is null)
         {
             return null;
         }
@@ -1422,6 +1566,11 @@ internal static partial class SymbolAnalyzer
 
     private static string GetTypeKeyword(INamedTypeSymbol type)
     {
+        // Partial declarations must all use the same keyword.
+        if (IsUnionType(type))
+        {
+            return "union";
+        }
         if (type.IsRecord)
         {
             return type.TypeKind == TypeKind.Struct ? "record struct" : "record";

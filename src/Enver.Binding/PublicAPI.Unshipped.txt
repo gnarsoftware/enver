@@ -15,3 +15,19 @@ Enver.Binding.EnvPolymorphicAttribute.TypeKey.init -> void
 Enver.Binding.EnvDerivedTypeAttribute<T>
 Enver.Binding.EnvDerivedTypeAttribute<T>.EnvDerivedTypeAttribute(string? name = null) -> void
 Enver.Binding.EnvDerivedTypeAttribute<T>.Name.get -> string?
+*REMOVED*Enver.Binding.EnvBindableAttribute.EnvBindableAttribute() -> void
+*REMOVED*Enver.Binding.EnvBindableAttribute<T>.EnvBindableAttribute() -> void
+Enver.Binding.EnvBindableAttribute.EnvBindableAttribute(string? prefix = null) -> void
+Enver.Binding.EnvBindableAttribute.GeneratePopulate.get -> bool
+Enver.Binding.EnvBindableAttribute.GeneratePopulate.init -> void
+Enver.Binding.EnvBindableAttribute.KeyNaming.get -> Enver.Binding.EnvKeyNamingConvention
+Enver.Binding.EnvBindableAttribute.KeyNaming.init -> void
+Enver.Binding.EnvBindableAttribute.Prefix.get -> string?
+Enver.Binding.EnvBindableAttribute<T>.EnvBindableAttribute(string? prefix = null) -> void
+Enver.Binding.EnvBindableAttribute<T>.GeneratePopulate.get -> bool
+Enver.Binding.EnvBindableAttribute<T>.GeneratePopulate.init -> void
+Enver.Binding.EnvBindableAttribute<T>.KeyNaming.get -> Enver.Binding.EnvKeyNamingConvention
+Enver.Binding.EnvBindableAttribute<T>.KeyNaming.init -> void
+Enver.Binding.EnvBindableAttribute<T>.Prefix.get -> string?
+Enver.Binding.EnvKeyAttribute.KeyNaming.get -> Enver.Binding.EnvKeyNamingConvention
+Enver.Binding.EnvKeyAttribute.KeyNaming.init -> void

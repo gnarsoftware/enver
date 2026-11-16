@@ -226,19 +226,18 @@ public class PolymorphicBindingTests
         AssertBoth(
             Exec(
                 """
-                [EnvConfig("BLOB")]
                 public closed record Storage;
                 public sealed record RemoteStorage(string Bucket) : Storage;
                 public sealed record LocalStorage(string Path) : Storage;
 
                 public record Inner([property: EnvKey("STORE")] Storage Storage);
 
-                [EnvBindable, EnvConfig("APP")]
-                public partial record AppConfig([property: EnvKey] Inner Inner);
+                [EnvBindable("APP")]
+                public partial record AppConfig(Inner Inner);
                 """,
                 "c.Inner.Storage.ToString()",
-                ("APP_INNER_STORE_BLOB_TYPE", "REMOTE"),
-                ("APP_INNER_STORE_BLOB_BUCKET", "media")
+                ("APP_INNER_STORE_TYPE", "REMOTE"),
+                ("APP_INNER_STORE_BUCKET", "media")
             ),
             "RemoteStorage { Bucket = media }"
         );
@@ -480,8 +479,7 @@ public class PolymorphicBindingTests
 
                 namespace Test;
 
-                [Enver.Binding.EnvBindable]
-                [Enver.Binding.EnvConfig(GeneratePopulate = true)]
+                [Enver.Binding.EnvBindable(GeneratePopulate = true)]
                 public partial class AppConfig
                 {
                     public Storage Storage { get; set; } = new LocalStorage("/default");
