@@ -49,7 +49,7 @@ internal static partial class Emitter
         var binderName = host.HostIsSelfBindable ? "Binder" : $"{target.SimpleTypeName}Binder";
         EmitStaticMethods(w, target, methodInfix, binderName);
         w.WriteLine();
-        EmitBinderClass(w, target, binderName);
+        EmitBinderClass(w, target, binderName, methodInfix);
         EmitValidateHelpers(w, target);
         EmitPolymorphicHelpers(w, target);
 
@@ -77,20 +77,27 @@ internal static partial class Emitter
         var t = target.FullyQualifiedTypeName;
 
         // Bind(IEnvReader)
-        w.WriteLine("/// <summary>Bind a fresh instance from an existing reader.</summary>");
-        w.WriteLine($"public static {t} Bind{methodInfix}(global::Enver.IEnvReader reader)");
+        w.WriteLine(
+            "/// <summary>Bind a fresh instance from an existing reader, then validate it "
+                + $"unless <paramref name=\"validate\"/> is false (see <c>Validate{methodInfix}</c>).</summary>"
+        );
+        w.WriteLine(
+            $"public static {t} Bind{methodInfix}(global::Enver.IEnvReader reader, bool validate = true)"
+        );
         w.WriteLine("{");
         w.Indent++;
         if (target.Self is { } self)
         {
-            w.WriteLine($"return {self.HelperName}(reader);");
+            w.WriteLine($"var __result = {self.HelperName}(reader);");
         }
         else
         {
-            w.Write("return ");
+            w.Write("var __result = ");
             EmitInlineObjectConstructionForReader(w, target);
             w.WriteLine(";");
         }
+        w.WriteLine($"if (validate) Validate{methodInfix}(__result);");
+        w.WriteLine("return __result;");
         w.Indent--;
         w.WriteLine("}");
         w.WriteLine();
@@ -103,13 +110,14 @@ internal static partial class Emitter
         w.WriteLine(
             $"public static {t} Bind{methodInfix}("
                 + "string path, "
-                + "global::Enver.Parsing.EnvParseOptions parseOptions = default)"
+                + "global::Enver.Parsing.EnvParseOptions parseOptions = default, "
+                + "bool validate = true)"
         );
         w.WriteLine("{");
         w.Indent++;
         w.WriteLine($"var binder = new {binderName}();");
         w.WriteLine("global::Enver.Loading.EnvFileLoader.Load(binder, path, parseOptions);");
-        w.WriteLine("return binder.Build();");
+        w.WriteLine("return binder.Build(validate);");
         w.Indent--;
         w.WriteLine("}");
         w.WriteLine();
@@ -125,15 +133,18 @@ internal static partial class Emitter
         w.WriteLine(
             $"public static {t} Bind{methodInfix}("
                 + "global::System.Collections.Generic.IEnumerable<string> paths, "
-                + "global::Enver.Parsing.EnvParseOptions parseOptions = default)"
+                + "global::Enver.Parsing.EnvParseOptions parseOptions = default, "
+                + "bool validate = true)"
         );
         w.WriteLine("{");
         w.Indent++;
         w.WriteLine($"var binder = new {binderName}();");
         w.WriteLine("global::Enver.Loading.EnvFileLoader.Load(binder, paths, parseOptions);");
-        w.WriteLine("return binder.Build();");
+        w.WriteLine("return binder.Build(validate);");
         w.Indent--;
         w.WriteLine("}");
+        w.WriteLine();
+        EmitPublicValidateMethod(w, target, methodInfix);
 
         if (target.GeneratePopulate)
         {
@@ -147,11 +158,6 @@ internal static partial class Emitter
         BindingTarget target
     )
     {
-        var validate = RequiresValidation(target);
-        if (validate)
-        {
-            w.Write("__Validate(");
-        }
         w.Write($"new {target.FullyQualifiedTypeName}(");
         var ctorNames = target.Construction.CtorParameterMemberNames.AsImmutableArray();
         for (int i = 0; i < ctorNames.Length; i++)
@@ -181,10 +187,6 @@ internal static partial class Emitter
             }
             w.Indent--;
             w.Write("}");
-        }
-        if (validate)
-        {
-            w.Write(")");
         }
     }
 
@@ -345,7 +347,8 @@ internal static partial class Emitter
     private static void EmitBinderClass(
         IndentedTextWriter w,
         BindingTarget target,
-        string binderName
+        string binderName,
+        string methodInfix
     )
     {
         w.WriteLine(
@@ -363,12 +366,12 @@ internal static partial class Emitter
 
         EmitOnNext(w, target);
         w.WriteLine();
-        EmitBuildMethod(w, target);
+        EmitBuildMethod(w, target, methodInfix);
 
         if (target.GeneratePopulate)
         {
             w.WriteLine();
-            EmitPopulateOnBinder(w, target);
+            EmitPopulateOnBinder(w, target, methodInfix);
         }
 
         w.Indent--;
@@ -388,7 +391,7 @@ internal static partial class Emitter
             "/// <summary>Populate the mutable members of an existing instance from a reader.</summary>"
         );
         w.WriteLine(
-            $"public static void Populate{methodInfix}({t} instance, global::Enver.IEnvReader reader)"
+            $"public static void Populate{methodInfix}({t} instance, global::Enver.IEnvReader reader, bool validate = true)"
         );
         w.WriteLine("{");
         w.Indent++;
@@ -423,19 +426,24 @@ internal static partial class Emitter
             }
         }
 
+        w.WriteLine($"if (validate) Validate{methodInfix}(instance);");
         w.Indent--;
         w.WriteLine("}");
     }
 
     // -- Populate (Binder instance method) --
 
-    private static void EmitPopulateOnBinder(IndentedTextWriter w, BindingTarget target)
+    private static void EmitPopulateOnBinder(
+        IndentedTextWriter w,
+        BindingTarget target,
+        string methodInfix
+    )
     {
         var t = target.FullyQualifiedTypeName;
         w.WriteLine(
             "/// <summary>Populate the mutable members of an existing instance from accumulated values.</summary>"
         );
-        w.WriteLine($"public void Populate({t} instance)");
+        w.WriteLine($"public void Populate({t} instance, bool validate = true)");
         w.WriteLine("{");
         w.Indent++;
 
@@ -444,8 +452,16 @@ internal static partial class Emitter
         {
             if (!m.IsInitOnly)
             {
+                // Optional non-nullable value types are stored as Nullable<T> (see
+                // StorageTypeOf); the _set guard means it holds a value here.
+                var unwrap =
+                    ResolveRequirement(m) is not EffectiveRequirement.Required
+                    && !m.TypeIsNullable
+                    && m.UnderlyingIsValueType
+                        ? ".Value"
+                        : "";
                 w.WriteLine(
-                    $"if (_set_{m.MemberName}) instance.{m.MemberName} = _val_{m.MemberName}!;"
+                    $"if (_set_{m.MemberName}) instance.{m.MemberName} = _val_{m.MemberName}!{unwrap};"
                 );
             }
         }
@@ -470,6 +486,7 @@ internal static partial class Emitter
             }
         }
 
+        w.WriteLine($"if (validate) Validate{methodInfix}(instance);");
         w.Indent--;
         w.WriteLine("}");
     }
@@ -641,9 +658,28 @@ internal static partial class Emitter
 
     // -- Build --
 
-    private static void EmitBuildMethod(IndentedTextWriter w, BindingTarget target)
+    private static void EmitBuildMethod(
+        IndentedTextWriter w,
+        BindingTarget target,
+        string methodInfix
+    )
     {
-        w.WriteLine($"public {target.FullyQualifiedTypeName} Build()");
+        var t = target.FullyQualifiedTypeName;
+        w.WriteLine(
+            "/// <summary>Build the target from the accumulated values, then validate it "
+                + "unless <paramref name=\"validate\"/> is false.</summary>"
+        );
+        w.WriteLine($"public {t} Build(bool validate = true)");
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine("var __result = __Build();");
+        w.WriteLine($"if (validate) Validate{methodInfix}(__result);");
+        w.WriteLine("return __result;");
+        w.Indent--;
+        w.WriteLine("}");
+        w.WriteLine();
+
+        w.WriteLine($"private {t} __Build()");
         w.WriteLine("{");
         w.Indent++;
 
@@ -739,11 +775,6 @@ internal static partial class Emitter
         string? fieldPrefix = null
     )
     {
-        var validate = RequiresValidation(target);
-        if (validate)
-        {
-            w.Write("__Validate(");
-        }
         w.Write($"new {target.FullyQualifiedTypeName}(");
         var ctorNames = target.Construction.CtorParameterMemberNames.AsImmutableArray();
         for (int i = 0; i < ctorNames.Length; i++)
@@ -770,10 +801,6 @@ internal static partial class Emitter
             }
             w.Indent--;
             w.Write("}");
-        }
-        if (validate)
-        {
-            w.Write(")");
         }
     }
 
@@ -832,11 +859,120 @@ internal static partial class Emitter
         return false;
     }
 
+    /// <summary>
+    /// True when <paramref name="target"/> or anything reachable from it (a
+    /// subsection or a polymorphic case, at any depth) validates.
+    /// </summary>
+    private static bool TreeRequiresValidation(BindingTarget target)
+    {
+        if (RequiresValidation(target))
+        {
+            return true;
+        }
+        foreach (var sub in target.SubSections.AsImmutableArray())
+        {
+            if (TreeRequiresValidation(sub.Target))
+            {
+                return true;
+            }
+        }
+        foreach (var poly in target.Polymorphics.AsImmutableArray())
+        {
+            if (PolymorphicRequiresValidation(poly))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool PolymorphicRequiresValidation(PolymorphicMember poly)
+    {
+        foreach (var c in poly.Cases.AsImmutableArray())
+        {
+            if (c.Target is not null && TreeRequiresValidation(c.Target))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void EmitPublicValidateMethod(
+        IndentedTextWriter w,
+        BindingTarget target,
+        string methodInfix
+    )
+    {
+        var t = target.FullyQualifiedTypeName;
+        w.WriteLine(
+            "/// <summary>Validate an instance and everything beneath it (subsections and "
+                + "polymorphic cases) against its DataAnnotations attributes and "
+                + "<c>IValidatableObject</c>. Throws <see cref=\"global::Enver.EnvValidationException\"/> "
+                + "for the first object that fails. <c>Bind</c> and <c>Build</c> call this "
+                + "unless passed <c>validate: false</c>.</summary>"
+        );
+        w.WriteLine($"public static void Validate{methodInfix}({t} instance)");
+        w.WriteLine("{");
+        w.Indent++;
+        w.WriteLine("global::System.ArgumentNullException.ThrowIfNull(instance);");
+        if (target.Self is { } self)
+        {
+            EmitPolymorphicValidation(w, self, "instance");
+        }
+        else if (TreeRequiresValidation(target))
+        {
+            w.WriteLine("__Validate(instance);");
+        }
+        w.Indent--;
+        w.WriteLine("}");
+    }
+
+    /// <summary>
+    /// Validates the case held by a polymorphic value. Closed hierarchies match the
+    /// exact runtime type, so a case deriving from another case validates as
+    /// itself; unions match their contained value.
+    /// </summary>
+    private static void EmitPolymorphicValidation(
+        IndentedTextWriter w,
+        PolymorphicMember poly,
+        string valueExpr
+    )
+    {
+        var local = $"__p_{poly.MemberName}";
+        w.WriteLine($"var {local} = {valueExpr};");
+        var first = true;
+        var cases = poly.Cases.AsImmutableArray();
+        for (int i = 0; i < cases.Length; i++)
+        {
+            var c = cases[i];
+            if (c.Target is null || !TreeRequiresValidation(c.Target))
+            {
+                continue;
+            }
+            var caseType = c.TypeFullyQualifiedName;
+            var keyword = first ? "if" : "else if";
+            first = false;
+            if (poly.IsUnion)
+            {
+                w.WriteLine(
+                    $"{keyword} ({local} is {caseType} __c_{poly.MemberName}_{i}) __Validate(__c_{poly.MemberName}_{i});"
+                );
+            }
+            else
+            {
+                w.WriteLine(
+                    $"{keyword} ({local} is not null && {local}.GetType() == typeof({caseType})) __Validate(({caseType}){local});"
+                );
+            }
+        }
+    }
+
     private static void EmitValidateHelpers(IndentedTextWriter w, BindingTarget root)
     {
-        // One __Validate(T) overload per distinct validating target (root +
-        // subsections). Each target validates itself; nesting works because every
-        // construction site wraps in __Validate when its target requires it.
+        // One __Validate(T) overload per distinct target whose tree validates (root,
+        // subsections, polymorphic cases). Each validates its subsections and
+        // polymorphic members first, then itself.
         var emitted = new HashSet<string>(StringComparer.Ordinal);
         int validatorFieldCounter = 0;
         CollectAndEmit(w, root, emitted, ref validatorFieldCounter);
@@ -849,8 +985,12 @@ internal static partial class Emitter
         ref int fieldCounter
     )
     {
-        if (RequiresValidation(target) && emitted.Add(target.FullyQualifiedTypeName))
+        if (target.Self is null)
         {
+            if (!TreeRequiresValidation(target) || !emitted.Add(target.FullyQualifiedTypeName))
+            {
+                return;
+            }
             w.WriteLine();
             EmitValidateMethod(w, target, ref fieldCounter);
         }
@@ -956,9 +1096,35 @@ internal static partial class Emitter
                     + "Justification = \"DisplayName is supplied explicitly; no member metadata is reflected at runtime.\")]"
             );
         }
-        w.WriteLine($"private static {t} __Validate({t} instance)");
+        w.WriteLine($"private static void __Validate({t} instance)");
         w.WriteLine("{");
         w.Indent++;
+
+        // Nested objects first, so the innermost failure is the one reported.
+        foreach (var sub in target.SubSections.AsImmutableArray())
+        {
+            if (TreeRequiresValidation(sub.Target))
+            {
+                w.WriteLine(
+                    $"if (instance.{sub.MemberName} is {{ }} __s_{sub.MemberName}) __Validate(__s_{sub.MemberName});"
+                );
+            }
+        }
+        foreach (var poly in target.Polymorphics.AsImmutableArray())
+        {
+            if (PolymorphicRequiresValidation(poly))
+            {
+                EmitPolymorphicValidation(w, poly, $"instance.{poly.MemberName}");
+            }
+        }
+
+        if (!RequiresValidation(target))
+        {
+            w.Indent--;
+            w.WriteLine("}");
+            return;
+        }
+
         w.WriteLine("global::System.Collections.Generic.List<string>? __failures = null;");
 
         if (needsContext)
@@ -1033,7 +1199,6 @@ internal static partial class Emitter
         );
         w.Indent--;
         w.WriteLine("}");
-        w.WriteLine("return instance;");
         w.Indent--;
         w.WriteLine("}");
     }

@@ -33,10 +33,17 @@ together.
   present, and otherwise get their initializer or `null`. Previously every
   subsection was always constructed, so a nullable subsection with no keys set was
   a default-filled instance rather than `null`, and initializers were ignored.
+- `Enver.Binding`: validation runs once, after the whole object is built, instead
+  of as each nested object is constructed. A missing required key is now always
+  reported before any validation failure. `Populate` now validates the whole
+  instance after assigning; previously only the subsections it built were checked.
 
 ### Added
 
 - `net11.0` target for all packages.
+- `Enver.Binding`: a generated `Validate(instance)` (`Validate{Type}` on an external
+  host) checks an instance and everything beneath it on demand. `Bind`, `Build`
+  and `Populate` take `validate: false` to skip validation.
 - `Enver.Binding`: `Separator = EnvKeySeparator.DoubleUnderscore` on `[EnvBindable]`
   and `[EnvBindable<T>]` joins key segments with `__` (`APP__DB__POOL__MAX_SIZE`),
   the ASP.NET Core convention. Underscores inside a name stay single.
@@ -63,6 +70,8 @@ together.
 - `Enver.Binding`: a default on a record's primary-constructor parameter
   (`record Db(string Host, int Port = 5432)`) now makes the member optional with that
   default, like a property initializer. Previously the key was required.
+- `Enver.Binding`: the Binder's `Populate` no longer fails to compile for an
+  optional non-nullable value-type member (`public int Port { get; set; } = 1`).
 
 ## [1.0.2] - 2026-06-19
 
