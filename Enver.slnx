@@ -8,6 +8,12 @@
     <Project Path="src/Enver.Binding.Generator/Enver.Binding.Generator.csproj" />
     <Project Path="src/Enver.Binding.Generator.Roslyn5.12/Enver.Binding.Generator.Roslyn5.12.csproj" />
   </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Enver.Sample.InMemory/Enver.Sample.InMemory.csproj" />
+    <Project Path="samples/Enver.Sample.SystemEnvironment/Enver.Sample.SystemEnvironment.csproj" />
+    <Project Path="samples/Enver.Sample.Binding/Enver.Sample.Binding.csproj" />
+    <Project Path="samples/Enver.Sample.AspNetCore/Enver.Sample.AspNetCore.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Enver.Tests/Enver.Tests.csproj" />
     <Project Path="tests/Enver.InMemory.Tests/Enver.InMemory.Tests.csproj" />

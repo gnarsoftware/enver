@@ -20,7 +20,7 @@ public class PolymorphicBindingTests
     [Test]
     public void ClosedTypeBindsTheCaseNamedByTheTypeKey()
     {
-        var body =
+        const string body =
             StorageHierarchy
             + """
 
@@ -200,7 +200,7 @@ public class PolymorphicBindingTests
     [Test]
     public void OptionalMembersFallBackToNullOrTheirInitializer()
     {
-        var body =
+        const string body =
             StorageHierarchy
             + """
 
@@ -268,7 +268,7 @@ public class PolymorphicBindingTests
     [Test]
     public void NestedClosedHierarchiesAreFlattened()
     {
-        var body = """
+        const string body = """
             public closed record Storage;
             public closed record CloudStorage : Storage;
             public sealed record RemoteStorage(string Bucket) : CloudStorage;
@@ -290,7 +290,7 @@ public class PolymorphicBindingTests
     [Test]
     public void GenericClosedBaseBindsConstructedCases()
     {
-        var body = """
+        const string body = """
             public closed record Option<T>;
             public sealed record Some<T>(T Value) : Option<T>;
             public sealed record None<T> : Option<T>;
@@ -421,7 +421,7 @@ public class PolymorphicBindingTests
     [Test]
     public void ScalarUnionTriesEachCaseInOrder()
     {
-        var body = """
+        const string body = """
             public union Timeout(int, TimeSpan);
 
             [EnvBindable] public partial record AppConfig(Timeout Timeout);
@@ -439,7 +439,7 @@ public class PolymorphicBindingTests
     [Test]
     public void ScalarUnionWithTrailingStringCatchesTheRest()
     {
-        var body = """
+        const string body = """
             public union Endpoint(System.Net.IPAddress, Uri, string);
 
             [EnvBindable] public partial record AppConfig(Endpoint Endpoint);

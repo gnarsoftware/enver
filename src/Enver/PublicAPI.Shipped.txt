@@ -1,6 +1,7 @@
 #nullable enable
 Enver.DotEnvPaths
 Enver.DotEnvPaths.DotEnvPaths() -> void
+Enver.DotEnvPaths.Equals(Enver.DotEnvPaths other) -> bool
 Enver.DotEnvPaths.GetEnumerator() -> System.Collections.Generic.Stack<string!>.Enumerator
 Enver.DotEnvPaths.Standard(string? variant = null) -> Enver.DotEnvPaths
 Enver.DotEnvPaths.WithFileName(string! fileName) -> Enver.DotEnvPaths
@@ -56,6 +57,7 @@ Enver.Parsing.EnvParseOptions.AllowMissingInterpolation.init -> void
 Enver.Parsing.EnvParseOptions.AllowUnknownEscapes.get -> bool
 Enver.Parsing.EnvParseOptions.AllowUnknownEscapes.init -> void
 Enver.Parsing.EnvParseOptions.EnvParseOptions() -> void
+Enver.Parsing.EnvParseOptions.Equals(Enver.Parsing.EnvParseOptions other) -> bool
 Enver.Parsing.EnvParseOptions.OnUnbracedInterpolation.get -> Enver.Parsing.UnbracedInterpolationBehavior
 Enver.Parsing.EnvParseOptions.OnUnbracedInterpolation.init -> void
 Enver.Parsing.EnvParseScope
@@ -81,10 +83,14 @@ Enver.Parsing.UnbracedInterpolationBehavior.Error = 0 -> Enver.Parsing.UnbracedI
 Enver.Parsing.UnbracedInterpolationBehavior.Interpolate = 2 -> Enver.Parsing.UnbracedInterpolationBehavior
 Enver.Parsing.UnbracedInterpolationBehavior.Literal = 1 -> Enver.Parsing.UnbracedInterpolationBehavior
 abstract Enver.Parsing.EnvParser.OnNext(System.ReadOnlySpan<byte> key, ref Enver.Parsing.EnvValueReader value) -> bool
+override Enver.DotEnvPaths.GetHashCode() -> int
+override Enver.Parsing.EnvParseOptions.GetHashCode() -> int
 static Enver.DotEnvPaths.AppDirectory() -> Enver.DotEnvPaths
 static Enver.DotEnvPaths.Directory(string! directory) -> Enver.DotEnvPaths
 static Enver.DotEnvPaths.Relative() -> Enver.DotEnvPaths
 static Enver.DotEnvPaths.WorkingDirectory() -> Enver.DotEnvPaths
+static Enver.DotEnvPaths.operator !=(Enver.DotEnvPaths left, Enver.DotEnvPaths right) -> bool
+static Enver.DotEnvPaths.operator ==(Enver.DotEnvPaths left, Enver.DotEnvPaths right) -> bool
 static Enver.EnvReaderExtensions.Get<T>(this Enver.IEnvReader! source, string! key, System.IFormatProvider? provider = null) -> T
 static Enver.EnvReaderExtensions.Get<T>(this Enver.IEnvReader! source, string! key, T defaultValue, System.IFormatProvider? provider = null) -> T
 static Enver.EnvReaderExtensions.GetBoolean(this Enver.IEnvReader! source, string! key) -> bool
@@ -139,6 +145,8 @@ static Enver.Loading.EnvStreamReader.Read(System.IO.Stream! stream, Enver.Parsin
 static Enver.Loading.EnvStreamReader.ReadAsync(System.IO.Stream! stream, Enver.Parsing.EnvParser! parser, Enver.Parsing.EnvParseOptions options = default(Enver.Parsing.EnvParseOptions), Enver.Parsing.EnvParseScope? scope = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 static Enver.Parsing.EnvParseOptions.Default.get -> Enver.Parsing.EnvParseOptions
 static Enver.Parsing.EnvParseOptions.Loose.get -> Enver.Parsing.EnvParseOptions
+static Enver.Parsing.EnvParseOptions.operator !=(Enver.Parsing.EnvParseOptions left, Enver.Parsing.EnvParseOptions right) -> bool
+static Enver.Parsing.EnvParseOptions.operator ==(Enver.Parsing.EnvParseOptions left, Enver.Parsing.EnvParseOptions right) -> bool
 static Enver.Parsing.EnvValueParser.ParseDefinedEnum<T>(System.ReadOnlySpan<byte> utf8) -> T
 static Enver.Parsing.EnvValueParser.ParseGuid(System.ReadOnlySpan<byte> utf8, System.IFormatProvider? provider = null) -> System.Guid
 static Enver.Parsing.EnvValueParser.ParseISpanParsable<T>(System.ReadOnlySpan<byte> utf8, System.IFormatProvider? provider = null) -> T
@@ -146,3 +154,7 @@ static Enver.Parsing.EnvValueParser.ParseIUtf8SpanParsable<T>(System.ReadOnlySpa
 static Enver.Parsing.EnvValueParser.ParseNumberWithPrefix<T>(System.ReadOnlySpan<byte> utf8, System.IFormatProvider? provider = null) -> T
 static Enver.Parsing.EnvValueParser.ParseVersion(System.ReadOnlySpan<byte> utf8) -> System.Version!
 virtual Enver.Parsing.EnvParser.SeedScope(Enver.Parsing.EnvParseView scope) -> void
+~override Enver.DotEnvPaths.Equals(object obj) -> bool
+~override Enver.DotEnvPaths.ToString() -> string
+~override Enver.Parsing.EnvParseOptions.Equals(object obj) -> bool
+~override Enver.Parsing.EnvParseOptions.ToString() -> string
