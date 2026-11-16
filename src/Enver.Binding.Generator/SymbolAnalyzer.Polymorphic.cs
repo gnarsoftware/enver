@@ -1,0 +1,883 @@
+using System.Collections.Immutable;
+using Enver.Binding.Generator.Model;
+using Enver.Binding.Generator.Utils;
+using Microsoft.CodeAnalysis;
+
+namespace Enver.Binding.Generator;
+
+// Polymorphic binding: members typed as a base class/interface that lists its
+// cases with [EnvDerivedType<T>] (any SDK), or as a C# 15 `closed` class or `union`
+// (.NET 11 SDK).
+//
+// Detecting closed types and unions needs the Roslyn 5.12 symbol APIs
+// (ITypeSymbol.IsClosed / IsUnion / UnionCaseTypes / GetClosedDerivedTypeInfo).
+// They're the only reliable signal: the compiler synthesizes [IsClosedType] and
+// [Union] at emit time, so neither attribute is visible on source symbols. Those
+// calls are compiled only into the ROSLYN_5_12 build; everything downstream of
+// the case list is shared by both builds.
+internal static partial class SymbolAnalyzer
+{
+    /// <summary>
+    /// Names the generated <c>__BindPoly*</c> helpers. Names carry the same infix
+    /// as the generated Bind methods so several [EnvBindable&lt;T&gt;] targets on
+    /// one host don't collide.
+    /// </summary>
+    internal sealed class HelperIdAllocator(string infix)
+    {
+        private int _next;
+
+        public string Next() => $"__BindPoly{infix}_{_next++}";
+    }
+
+    private static bool IsPolymorphicType(INamedTypeSymbol type)
+    {
+        if (HasDerivedTypes(type))
+        {
+            return true;
+        }
+#if ROSLYN_5_12
+        return type.IsUnion || (type.IsClosed && type.TypeKind == TypeKind.Class);
+#else
+        return false;
+#endif
+    }
+
+    private static bool IsUnionType(ITypeSymbol type)
+    {
+#if ROSLYN_5_12
+        return type.IsUnion;
+#else
+        return false;
+#endif
+    }
+
+    /// <summary>
+    /// Baseline build only: diagnoses members this generator can't bind
+    /// polymorphically. Returns true when the member should be skipped because a
+    /// diagnostic explaining why was reported.
+    /// <list type="bullet">
+    /// <item>ENVR0032 (error): the type is a closed type or union, which only the
+    /// Roslyn 5.12 build can bind. Replaces a misleading ENVR0010.</item>
+    /// <item>ENVR0031 (warning): an [EnvPolymorphic] opt-in on a type with no
+    /// [EnvDerivedType&lt;T&gt;] cases.</item>
+    /// </list>
+    /// </summary>
+    private static bool ReportPolymorphicUnavailable(
+        IPropertySymbol prop,
+        ImmutableArray<DiagnosticInfo>.Builder diags
+    )
+    {
+#if !ROSLYN_5_12
+        if (prop.Type.UnwrapNullable() is not INamedTypeSymbol type || HasDerivedTypes(type))
+        {
+            return false;
+        }
+
+        if (
+            TypeDispatch.Resolve(prop.Type) == TypeDispatchKind.Unsupported
+            && DescribeUndetectablePolymorphicType(type) is { } description
+        )
+        {
+            diags.Add(
+                DiagnosticInfo.Create(
+                    DiagnosticDescriptors.PolymorphicTypeRequiresNewerGenerator,
+                    prop.Locations.FirstOrDefault(),
+                    new(ImmutableArray.Create(prop.Name, description))
+                )
+            );
+            return true;
+        }
+
+        if (
+            HasAttribute(prop, AttributeNames.EnvPolymorphic)
+            || HasAttribute(type, AttributeNames.EnvPolymorphic)
+        )
+        {
+            diags.Add(
+                DiagnosticInfo.Create(
+                    DiagnosticDescriptors.PolymorphicRequiresNewerCompiler,
+                    prop.Locations.FirstOrDefault(),
+                    new(ImmutableArray.Create(prop.Name))
+                )
+            );
+        }
+#endif
+        return false;
+    }
+
+#if !ROSLYN_5_12
+    /// <summary>
+    /// Recognizes closed types and unions without the Roslyn 5.12 APIs, for
+    /// diagnostics only. A union implements <c>IUnion</c> (visible from source and
+    /// metadata); a closed type is recognized by its <c>closed</c> modifier, so
+    /// only when declared in source.
+    /// </summary>
+    private static string? DescribeUndetectablePolymorphicType(INamedTypeSymbol type)
+    {
+        var display = type.ToDisplayString(s_typeDisplayFormat);
+        foreach (var iface in type.AllInterfaces)
+        {
+            if (
+                iface.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                == "global::System.Runtime.CompilerServices.IUnion"
+            )
+            {
+                return $"union '{display}'";
+            }
+        }
+        foreach (var sref in type.DeclaringSyntaxReferences)
+        {
+            // The host compiler parsed `closed`; Roslyn 4.8 has no SyntaxKind for
+            // it, so match the token text.
+            if (
+                sref.GetSyntax() is Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax tds
+                && tds.Modifiers.Any(m => m.ValueText == "closed")
+            )
+            {
+                return $"closed type '{display}'";
+            }
+        }
+        return null;
+    }
+#endif
+
+    private static PolymorphicMember? TryAnalyzePolymorphic(
+        IPropertySymbol prop,
+        INamedTypeSymbol polyType,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation,
+        ImmutableArray<DiagnosticInfo>.Builder diags,
+        HelperIdAllocator helperIds,
+        EnvKeyNamingConvention parentNaming,
+        string parentEffectivePrefix,
+        FormatProviderRef? defaultFormatProvider
+    )
+    {
+        var keyAttr = FindAttribute(prop, AttributeNames.EnvKey);
+
+        // Same reachability rule as a leaf member: the generated code assigns
+        // through the setter from the host.
+        if (
+            prop.SetMethod is null
+            || !compilation.IsSymbolAccessibleWithin(prop.SetMethod, hostSymbol)
+        )
+        {
+            if (keyAttr is not null)
+            {
+                diags.Add(
+                    DiagnosticInfo.Create(
+                        DiagnosticDescriptors.KeyOnInaccessibleMember,
+                        keyAttr.ApplicationSyntaxReference?.GetSyntax().GetLocation()
+                            ?? prop.Locations.FirstOrDefault(),
+                        new(ImmutableArray.Create(prop.Name))
+                    )
+                );
+            }
+            return null;
+        }
+
+        var location = prop.Locations.FirstOrDefault();
+        var polyDisplay = polyType.ToDisplayString(s_typeDisplayFormat);
+
+        var cases = ExpandCases(polyType, location, diags);
+        if (cases is null)
+        {
+            return null;
+        }
+
+        // An unresolved case type is already a compiler error; don't pile a
+        // misleading generator diagnostic on top of it.
+        if (cases.Any(c => c.Type.TypeKind == TypeKind.Error))
+        {
+            return null;
+        }
+        if (cases.Count == 0)
+        {
+            diags.Add(
+                DiagnosticInfo.Create(
+                    DiagnosticDescriptors.PolymorphicNoCases,
+                    location,
+                    new(ImmutableArray.Create(prop.Name, polyDisplay))
+                )
+            );
+            return null;
+        }
+
+        // A closed hierarchy is always a set of config objects. A union is
+        // either all-scalar (one value, parsed against each case in turn) or
+        // all-object (selected by a type key).
+        var kind = PolymorphicKind.Discriminated;
+        var isUnion = IsUnionType(polyType);
+        if (isUnion)
+        {
+            var scalars = cases.Where(c => IsScalarCase(c.Type)).ToList();
+            if (scalars.Count == cases.Count)
+            {
+                kind = PolymorphicKind.Scalar;
+            }
+            else if (scalars.Count > 0)
+            {
+                diags.Add(
+                    DiagnosticInfo.Create(
+                        DiagnosticDescriptors.MixedUnionCases,
+                        location,
+                        new(
+                            ImmutableArray.Create(
+                                polyDisplay,
+                                string.Join(
+                                    ", ",
+                                    scalars.Select(c => c.Type.ToDisplayString(s_typeDisplayFormat))
+                                ),
+                                string.Join(
+                                    ", ",
+                                    cases
+                                        .Where(c => !IsScalarCase(c.Type))
+                                        .Select(c => c.Type.ToDisplayString(s_typeDisplayFormat))
+                                )
+                            )
+                        )
+                    )
+                );
+                return null;
+            }
+
+            // Every case value must be passable to an accessible union constructor.
+            bool ctorsOk = true;
+            foreach (var c in cases)
+            {
+                bool hasCtor = polyType.InstanceConstructors.Any(ctor =>
+                    ctor.Parameters.Length == 1
+                    && SymbolEqualityComparer.Default.Equals(
+                        ctor.Parameters[0]
+                            .Type.WithNullableAnnotation(NullableAnnotation.NotAnnotated),
+                        c.UnionParameter!.WithNullableAnnotation(NullableAnnotation.NotAnnotated)
+                    )
+                    && compilation.IsSymbolAccessibleWithin(ctor, hostSymbol)
+                );
+                if (!hasCtor)
+                {
+                    ReportCaseUnsupported(
+                        c.Type,
+                        polyType,
+                        "the union has no accessible constructor accepting it",
+                        location,
+                        diags
+                    );
+                    ctorsOk = false;
+                }
+            }
+            if (!ctorsOk)
+            {
+                return null;
+            }
+        }
+
+        var (explicitName, ignorePrefix, requirement) = ReadKey(keyAttr);
+        var typeIsNullable = prop.Type.IsNullable();
+        var initializer = GetInitializerExpression(prop);
+
+        if (requirement == EnvRequirement.Optional && !typeIsNullable && initializer is null)
+        {
+            diags.Add(
+                DiagnosticInfo.Create(
+                    DiagnosticDescriptors.RequiredOptionalOnNonNullableNoDefault,
+                    location,
+                    new(ImmutableArray.Create(prop.Name, prop.Type.ToDisplayString()))
+                )
+            );
+        }
+
+        string key;
+        ImmutableArray<PolymorphicCase> modelCases;
+        if (kind == PolymorphicKind.Scalar)
+        {
+            // Keyed exactly like a leaf member.
+            var baseName = explicitName ?? KeyNameTransformer.Transform(prop.Name, parentNaming);
+            key =
+                !ignorePrefix && !string.IsNullOrEmpty(parentEffectivePrefix)
+                    ? $"{parentEffectivePrefix}_{baseName}"
+                    : baseName;
+            if (!ValidateKey(prop, key, diags))
+            {
+                return null;
+            }
+            var scalarCases = AnalyzeScalarCases(prop, polyType, cases, location, diags);
+            if (scalarCases is null)
+            {
+                return null;
+            }
+            modelCases = scalarCases.Value;
+        }
+        else
+        {
+            // The section is keyed like a subsection: inherited prefix, then the
+            // property's segment, then the polymorphic type's own [EnvConfig] prefix.
+            var (typePrefix, typeNaming) = ReadConfig(
+                FindAttribute(polyType, AttributeNames.EnvConfig)
+            );
+            var naming = typeNaming == EnvKeyNamingConvention.Inherit ? parentNaming : typeNaming;
+            var sectionPrefix = CombineKey(
+                CombineKey(
+                    ignorePrefix ? null : parentEffectivePrefix,
+                    explicitName ?? KeyNameTransformer.Transform(prop.Name, parentNaming)
+                ),
+                typePrefix
+            );
+
+            // A property-level [EnvPolymorphic] overrides the type-level one.
+            var (propTypeKey, propStyle) = ReadPolymorphic(
+                FindAttribute(prop, AttributeNames.EnvPolymorphic)
+            );
+            var (typeTypeKey, typeStyle) = ReadPolymorphic(
+                FindAttribute(polyType, AttributeNames.EnvPolymorphic)
+            );
+            var style =
+                propStyle != EnvCaseKeyStyle.Inherit ? propStyle
+                : typeStyle != EnvCaseKeyStyle.Inherit ? typeStyle
+                : EnvCaseKeyStyle.Shared;
+
+            key = CombineKey(
+                sectionPrefix,
+                propTypeKey ?? typeTypeKey ?? KeyNameTransformer.Transform("Type", naming)
+            );
+            if (!ValidateKey(prop, key, diags))
+            {
+                return null;
+            }
+
+            var objectCases = AnalyzeObjectCases(
+                polyType,
+                cases,
+                hostSymbol,
+                compilation,
+                diags,
+                helperIds,
+                naming,
+                sectionPrefix,
+                style,
+                location
+            );
+            if (objectCases is null)
+            {
+                return null;
+            }
+            modelCases = objectCases.Value;
+        }
+
+        UriKind? uriKind = null;
+        var uriAttr = FindAttribute(prop, AttributeNames.EnvUri);
+        if (
+            uriAttr is { ConstructorArguments.Length: > 0 }
+            && uriAttr.ConstructorArguments[0].Value is int kindValue
+        )
+        {
+            uriKind = (UriKind)kindValue;
+        }
+
+        var underlying = prop.Type.UnwrapNullable();
+        return new PolymorphicMember(
+            HelperName: helperIds.Next(),
+            MemberName: prop.Name,
+            TypeFullyQualifiedName: prop.Type.ToDisplayString(
+                SymbolDisplayFormat.FullyQualifiedFormat
+            ),
+            UnderlyingTypeFullyQualifiedName: underlying.ToDisplayString(
+                SymbolDisplayFormat.FullyQualifiedFormat
+            ),
+            UnderlyingTypeDisplayName: polyDisplay,
+            TypeIsNullable: typeIsNullable,
+            UnderlyingIsValueType: underlying.IsValueType,
+            IsUnion: isUnion,
+            Kind: kind,
+            Key: key,
+            Cases: new(modelCases),
+            Requirement: requirement,
+            HasRequiredKeyword: prop.IsRequired,
+            CSharpInitializerExpression: initializer,
+            IsInitOnly: prop.SetMethod?.IsInitOnly ?? false,
+            UriKind: uriKind,
+            FormatProvider: ReadFormatProvider(
+                FindAttribute(prop, AttributeNames.EnvFormatProvider),
+                hostSymbol,
+                compilation,
+                location,
+                diags
+            ) ?? defaultFormatProvider
+        );
+    }
+
+    // ExplicitName / DeclaredAt: the case name and location from [EnvDerivedType<T>], if any.
+    private readonly record struct CaseCandidate(
+        ITypeSymbol Type,
+        ITypeSymbol? UnionParameter,
+        string? ExplicitName = null,
+        Location? DeclaredAt = null
+    );
+
+    /// <summary>
+    /// The concrete types a polymorphic type can hold. An explicit
+    /// [EnvDerivedType&lt;T&gt;] list is authoritative. Otherwise closed hierarchies are
+    /// flattened to their non-abstract leaves (also when a closed type is itself
+    /// a union case). Returns null when a case can't be bound at all.
+    /// </summary>
+    private static List<CaseCandidate>? ExpandCases(
+        INamedTypeSymbol polyType,
+        Location? location,
+        ImmutableArray<DiagnosticInfo>.Builder diags
+    )
+    {
+        var result = new List<CaseCandidate>();
+        var seen = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+        bool ok = true;
+
+        if (HasDerivedTypes(polyType))
+        {
+            ExpandExplicit();
+            return ok ? result : null;
+        }
+
+#if ROSLYN_5_12
+        if (polyType.IsUnion)
+        {
+            foreach (var caseType in polyType.UnionCaseTypes)
+            {
+                var ct = caseType.WithNullableAnnotation(NullableAnnotation.NotAnnotated);
+                if (ct is INamedTypeSymbol { IsUnion: true })
+                {
+                    ReportCaseUnsupported(
+                        ct,
+                        polyType,
+                        "nested unions are not supported",
+                        location,
+                        diags
+                    );
+                    ok = false;
+                }
+                else if (ct is INamedTypeSymbol { IsClosed: true, TypeKind: TypeKind.Class } closed)
+                {
+                    ExpandClosed(closed, unionParameter: ct);
+                }
+                else if (seen.Add(ct))
+                {
+                    result.Add(new CaseCandidate(ct, ct));
+                }
+            }
+        }
+        else
+        {
+            ExpandClosed(polyType, unionParameter: null);
+        }
+#endif
+
+        return ok ? result : null;
+
+        void ExpandExplicit()
+        {
+            foreach (var attr in polyType.GetAttributes())
+            {
+                if (!IsDerivedTypeAttribute(attr))
+                {
+                    continue;
+                }
+                var derived = attr.AttributeClass!.TypeArguments[0];
+                var name =
+                    attr.ConstructorArguments.Length > 0
+                        ? attr.ConstructorArguments[0].Value as string
+                        : null;
+                var at = attr.ApplicationSyntaxReference?.GetSyntax().GetLocation() ?? location;
+
+                // An unresolved type is a compiler error; pass it through so the
+                // caller bails quietly.
+                if (derived.TypeKind == TypeKind.Error)
+                {
+                    result.Add(new CaseCandidate(derived, null, name, at));
+                    continue;
+                }
+
+                string? reason =
+                    derived.IsAbstract || derived.TypeKind == TypeKind.Interface
+                        ? "abstract types and interfaces cannot be cases; list their concrete subtypes"
+                    : !DerivesFrom(derived, polyType)
+                        ? $"it does not derive from '{polyType.ToDisplayString(s_typeDisplayFormat)}'"
+                    : !seen.Add(derived) ? "it is listed more than once"
+                    : null;
+                if (reason is not null)
+                {
+                    ReportCaseUnsupported(derived, polyType, reason, at, diags);
+                    ok = false;
+                    continue;
+                }
+                result.Add(new CaseCandidate(derived, null, name, at));
+            }
+        }
+
+#if ROSLYN_5_12
+        void ExpandClosed(INamedTypeSymbol closed, ITypeSymbol? unionParameter)
+        {
+            foreach (var derived in closed.GetClosedDerivedTypeInfo(default).ClosedDerivedTypes)
+            {
+                if (derived.IsAbstract)
+                {
+                    if (derived.IsClosed)
+                    {
+                        ExpandClosed(derived, unionParameter);
+                    }
+                    else
+                    {
+                        ReportCaseUnsupported(
+                            derived,
+                            polyType,
+                            "abstract case types must themselves be closed",
+                            location,
+                            diags
+                        );
+                        ok = false;
+                    }
+                }
+                // Defensive: C# requires a generic subtype of a closed type to use
+                // its type parameters in the base (CS9383), so a constructed base
+                // yields constructed cases. Guard against an open one anyway.
+                else if (
+                    derived.IsGenericType
+                    && SymbolEqualityComparer.Default.Equals(derived, derived.OriginalDefinition)
+                )
+                {
+                    ReportCaseUnsupported(
+                        derived,
+                        polyType,
+                        "open generic case types are not supported",
+                        location,
+                        diags
+                    );
+                    ok = false;
+                }
+                else if (seen.Add(derived))
+                {
+                    result.Add(new CaseCandidate(derived, unionParameter));
+                }
+            }
+        }
+#endif
+    }
+
+    /// <summary>
+    /// Matches <c>[EnvDerivedType&lt;T&gt;]</c> by its generic definition, since the
+    /// constructed attribute's display name carries the type argument.
+    /// </summary>
+    private static bool IsDerivedTypeAttribute(AttributeData attr) =>
+        attr.AttributeClass is { IsGenericType: true, TypeArguments.Length: 1 } cls
+        && cls.MetadataName == AttributeNames.EnvDerivedTypeMetadataName
+        && cls.ContainingNamespace.ToDisplayString() == AttributeNames.EnvDerivedTypeNamespace;
+
+    private static bool HasDerivedTypes(INamedTypeSymbol type) =>
+        type.GetAttributes().Any(IsDerivedTypeAttribute);
+
+    /// <summary>
+    /// Whether <paramref name="derived"/> is <paramref name="baseType"/> (a
+    /// concrete base may list itself as a case) or derives from / implements it.
+    /// </summary>
+    private static bool DerivesFrom(ITypeSymbol derived, INamedTypeSymbol baseType)
+    {
+        if (SymbolEqualityComparer.Default.Equals(derived, baseType))
+        {
+            return true;
+        }
+        if (baseType.TypeKind == TypeKind.Interface)
+        {
+            return derived.AllInterfaces.Contains(baseType, SymbolEqualityComparer.Default);
+        }
+        for (var t = derived.BaseType; t is not null; t = t.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(t, baseType))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool IsScalarCase(ITypeSymbol type) =>
+        TypeDispatch.Resolve(type) != TypeDispatchKind.Unsupported;
+
+    private static ImmutableArray<PolymorphicCase>? AnalyzeScalarCases(
+        IPropertySymbol prop,
+        INamedTypeSymbol polyType,
+        List<CaseCandidate> cases,
+        Location? location,
+        ImmutableArray<DiagnosticInfo>.Builder diags
+    )
+    {
+        var result = ImmutableArray.CreateBuilder<PolymorphicCase>(cases.Count);
+        bool ok = true;
+        string? catchAll = null;
+        foreach (var c in cases)
+        {
+            var dispatch = TypeDispatch.Resolve(c.Type);
+            var display = c.Type.ToDisplayString(s_typeDisplayFormat);
+
+            // Cases are tried through IEnvReader.TryGet*, which needs IParsable<T>.
+            if (
+                dispatch == TypeDispatchKind.Utf8SpanParsable
+                && !TypeDispatch.ImplementsIParsable(c.Type)
+            )
+            {
+                diags.Add(
+                    DiagnosticInfo.Create(
+                        DiagnosticDescriptors.Utf8OnlyTypeNotStringBindable,
+                        location,
+                        new(ImmutableArray.Create(prop.Name, display))
+                    )
+                );
+                ok = false;
+                continue;
+            }
+
+            // A string case accepts anything, shadowing every case after it.
+            if (catchAll is not null)
+            {
+                diags.Add(
+                    DiagnosticInfo.Create(
+                        DiagnosticDescriptors.UnreachableUnionCase,
+                        location,
+                        new(
+                            ImmutableArray.Create(
+                                display,
+                                polyType.ToDisplayString(s_typeDisplayFormat),
+                                catchAll
+                            )
+                        )
+                    )
+                );
+            }
+            else if (dispatch == TypeDispatchKind.String)
+            {
+                catchAll = display;
+            }
+
+            result.Add(
+                new PolymorphicCase(
+                    CaseName: null,
+                    TypeFullyQualifiedName: c.Type.ToDisplayString(
+                        SymbolDisplayFormat.FullyQualifiedFormat
+                    ),
+                    TypeDisplayName: display,
+                    UnionParameterTypeFullyQualifiedName: c.UnionParameter?.ToDisplayString(
+                        SymbolDisplayFormat.FullyQualifiedFormat
+                    ),
+                    Target: null,
+                    Dispatch: dispatch,
+                    IsValueType: c.Type.IsValueType
+                )
+            );
+        }
+        return ok ? result.ToImmutable() : null;
+    }
+
+    private static ImmutableArray<PolymorphicCase>? AnalyzeObjectCases(
+        INamedTypeSymbol polyType,
+        List<CaseCandidate> cases,
+        INamedTypeSymbol hostSymbol,
+        Compilation compilation,
+        ImmutableArray<DiagnosticInfo>.Builder diags,
+        HelperIdAllocator helperIds,
+        EnvKeyNamingConvention naming,
+        string sectionPrefix,
+        EnvCaseKeyStyle style,
+        Location? location
+    )
+    {
+        var result = ImmutableArray.CreateBuilder<PolymorphicCase>(cases.Count);
+        var namesSeen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        bool ok = true;
+
+        foreach (var c in cases)
+        {
+            var display = c.Type.ToDisplayString(s_typeDisplayFormat);
+            if (c.Type is not INamedTypeSymbol caseType)
+            {
+                ReportCaseUnsupported(c.Type, polyType, "it is not a named type", location, diags);
+                ok = false;
+                continue;
+            }
+
+            // Name precedence: [EnvDerivedType<T>] name, then [EnvCase], then default.
+            string caseName;
+            var caseAttr = FindAttribute(caseType, AttributeNames.EnvCase);
+            if (c.ExplicitName is not null || caseAttr is not null)
+            {
+                var explicitName =
+                    c.ExplicitName
+                    ?? (
+                        caseAttr!.ConstructorArguments.Length > 0
+                            ? caseAttr.ConstructorArguments[0].Value as string
+                            : null
+                    );
+                if (string.IsNullOrWhiteSpace(explicitName))
+                {
+                    diags.Add(
+                        DiagnosticInfo.Create(
+                            DiagnosticDescriptors.InvalidCaseName,
+                            c.ExplicitName is not null
+                                ? c.DeclaredAt ?? location
+                                : caseAttr!.ApplicationSyntaxReference?.GetSyntax().GetLocation()
+                                    ?? location,
+                            new(ImmutableArray.Create(display))
+                        )
+                    );
+                    ok = false;
+                    continue;
+                }
+                caseName = explicitName!;
+            }
+            else
+            {
+                caseName = KeyNameTransformer.Transform(
+                    DefaultCaseName(caseType.Name, polyType.Name),
+                    naming
+                );
+            }
+
+            if (namesSeen.TryGetValue(caseName, out var firstCase))
+            {
+                diags.Add(
+                    DiagnosticInfo.Create(
+                        DiagnosticDescriptors.DuplicateCaseName,
+                        location,
+                        new(
+                            ImmutableArray.Create(
+                                firstCase,
+                                display,
+                                polyType.ToDisplayString(s_typeDisplayFormat),
+                                caseName
+                            )
+                        )
+                    )
+                );
+                ok = false;
+                continue;
+            }
+            namesSeen[caseName] = display;
+
+            var target = AnalyzeTarget(
+                caseType,
+                hostSymbol,
+                compilation,
+                diags,
+                helperIds,
+                naming,
+                accumulatedPrefix: style == EnvCaseKeyStyle.Scoped
+                    ? CombineKey(sectionPrefix, caseName)
+                    : sectionPrefix,
+                isPolymorphicCase: true
+            );
+            if (target is null)
+            {
+                ok = false;
+                continue;
+            }
+
+            result.Add(
+                new PolymorphicCase(
+                    CaseName: caseName,
+                    TypeFullyQualifiedName: caseType.ToDisplayString(
+                        SymbolDisplayFormat.FullyQualifiedFormat
+                    ),
+                    TypeDisplayName: display,
+                    UnionParameterTypeFullyQualifiedName: c.UnionParameter?.ToDisplayString(
+                        SymbolDisplayFormat.FullyQualifiedFormat
+                    ),
+                    Target: target,
+                    Dispatch: TypeDispatchKind.Unsupported,
+                    IsValueType: caseType.IsValueType
+                )
+            );
+        }
+        return ok ? result.ToImmutable() : null;
+    }
+
+    /// <summary>
+    /// <c>S3Storage</c> in <c>Storage</c> -> <c>S3</c>; <c>StorageS3</c> -> <c>S3</c>;
+    /// otherwise the case type's own name.
+    /// </summary>
+    private static string DefaultCaseName(string caseName, string polyName)
+    {
+        if (caseName.Length > polyName.Length)
+        {
+            if (caseName.EndsWith(polyName, StringComparison.Ordinal))
+            {
+                return caseName.Substring(0, caseName.Length - polyName.Length);
+            }
+            if (caseName.StartsWith(polyName, StringComparison.Ordinal))
+            {
+                return caseName.Substring(polyName.Length);
+            }
+        }
+        return caseName;
+    }
+
+    private static bool ValidateKey(
+        IPropertySymbol prop,
+        string key,
+        ImmutableArray<DiagnosticInfo>.Builder diags
+    )
+    {
+        if (s_validKeyPattern.IsMatch(key))
+        {
+            return true;
+        }
+        diags.Add(
+            DiagnosticInfo.Create(
+                DiagnosticDescriptors.InvalidResolvedKey,
+                prop.Locations.FirstOrDefault(),
+                new(ImmutableArray.Create(prop.Name, key))
+            )
+        );
+        return false;
+    }
+
+    private static void ReportCaseUnsupported(
+        ITypeSymbol caseType,
+        INamedTypeSymbol polyType,
+        string reason,
+        Location? location,
+        ImmutableArray<DiagnosticInfo>.Builder diags
+    )
+    {
+        diags.Add(
+            DiagnosticInfo.Create(
+                DiagnosticDescriptors.PolymorphicCaseUnsupported,
+                location,
+                new(
+                    ImmutableArray.Create(
+                        caseType.ToDisplayString(s_typeDisplayFormat),
+                        polyType.ToDisplayString(s_typeDisplayFormat),
+                        reason
+                    )
+                )
+            )
+        );
+    }
+
+    private static (string? TypeKey, EnvCaseKeyStyle Style) ReadPolymorphic(AttributeData? attr)
+    {
+        if (attr is null)
+        {
+            return (null, EnvCaseKeyStyle.Inherit);
+        }
+        string? typeKey = null;
+        var style = EnvCaseKeyStyle.Inherit;
+        foreach (var named in attr.NamedArguments)
+        {
+            switch (named.Key)
+            {
+                case "TypeKey" when named.Value.Value is string tk:
+                    typeKey = tk;
+                    break;
+                case "CaseKeys" when named.Value.Value is int sv:
+                    style = (EnvCaseKeyStyle)sv;
+                    break;
+            }
+        }
+        return (typeKey, style);
+    }
+}

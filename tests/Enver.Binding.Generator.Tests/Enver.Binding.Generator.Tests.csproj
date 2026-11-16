@@ -5,15 +5,31 @@
     <RootNamespace>Enver.Tests</RootNamespace>
   </PropertyGroup>
 
+  <!--
+    Which generator build to test. Defaults to the newest (Roslyn 5.12); CI also
+    runs the suite with -p:EnverGeneratorRoslyn=4.8 to cover the baseline build.
+    The in-memory test compilations always use Roslyn 5.12 so C# 15 sources
+    (closed types, unions) parse; the 4.8 build runs fine on the newer host.
+  -->
+  <PropertyGroup>
+    <EnverGeneratorRoslyn Condition="'$(EnverGeneratorRoslyn)' == ''">5.12</EnverGeneratorRoslyn>
+    <DefineConstants Condition="'$(EnverGeneratorRoslyn)' == '5.12'"
+      >$(DefineConstants);ENVER_GENERATOR_ROSLYN_5_12</DefineConstants
+    >
+    <_EnverGeneratorProject Condition="'$(EnverGeneratorRoslyn)' == '5.12'"
+      >../../src/Enver.Binding.Generator.Roslyn5.12/Enver.Binding.Generator.Roslyn5.12.csproj</_EnverGeneratorProject
+    >
+    <_EnverGeneratorProject Condition="'$(EnverGeneratorRoslyn)' != '5.12'"
+      >../../src/Enver.Binding.Generator/Enver.Binding.Generator.csproj</_EnverGeneratorProject
+    >
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../src/Enver.Binding/Enver.Binding.csproj" />
-    <ProjectReference
-      Include="../../src/Enver.Binding.Generator/Enver.Binding.Generator.csproj"
-      ReferenceOutputAssembly="true"
-    />
+    <ProjectReference Include="$(_EnverGeneratorProject)" ReferenceOutputAssembly="true" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" VersionOverride="5.12.0" />
   </ItemGroup>
 </Project>

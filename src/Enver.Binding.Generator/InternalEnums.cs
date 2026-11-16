@@ -16,3 +16,11 @@ internal enum EnvRequirement
     Required = 1,
     Optional = 2,
 }
+
+// copy of ../Enver.Binding/EnvCaseKeyStyle.cs
+internal enum EnvCaseKeyStyle
+{
+    Inherit = 0,
+    Shared = 1,
+    Scoped = 2,
+}

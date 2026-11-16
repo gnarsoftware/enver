@@ -9,6 +9,7 @@ internal sealed record BindingTarget(
     ConstructionStrategy Construction,
     EquatableArray<BindingMember> Members,
     EquatableArray<SubSection> SubSections,
+    EquatableArray<PolymorphicMember> Polymorphics,
     FormatProviderRef? DefaultFormatProvider,
     bool GeneratePopulate,
     bool ImplementsIValidatableObject

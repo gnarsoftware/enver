@@ -6,8 +6,13 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Enver.Binding/Enver.Binding.csproj" />
+    <!--
+      Referenced directly rather than via the package, so pick the generator
+      build explicitly. The Roslyn 5.12 build is needed for closed types and
+      unions; the baseline Enver.Binding.Generator project can't detect them.
+    -->
     <ProjectReference
-      Include="../../src/Enver.Binding.Generator/Enver.Binding.Generator.csproj"
+      Include="../../src/Enver.Binding.Generator.Roslyn5.12/Enver.Binding.Generator.Roslyn5.12.csproj"
       OutputItemType="Analyzer"
       ReferenceOutputAssembly="false"
     />

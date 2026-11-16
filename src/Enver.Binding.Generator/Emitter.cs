@@ -3,7 +3,7 @@ using Enver.Binding.Generator.Model;
 
 namespace Enver.Binding.Generator;
 
-internal static class Emitter
+internal static partial class Emitter
 {
     public static string Emit(BindingHost host)
     {
@@ -51,6 +51,7 @@ internal static class Emitter
         w.WriteLine();
         EmitBinderClass(w, target, binderName);
         EmitValidateHelpers(w, target);
+        EmitPolymorphicHelpers(w, target);
 
         // Close host partial + enclosing types.
         w.Indent--;
@@ -201,6 +202,11 @@ internal static class Emitter
                     return;
                 }
             }
+            if (TryFindPolymorphic(target, memberName) is { } poly)
+            {
+                w.Write(PolymorphicExpression(poly, "reader"));
+                return;
+            }
             throw new InvalidOperationException(
                 $"SubSection '{memberName}' not found in target '{target.SimpleTypeName}'."
             );
@@ -302,6 +308,10 @@ internal static class Emitter
         w.Indent++;
 
         EmitBinderMemberFields(w, target);
+        if (HasPolymorphics(target))
+        {
+            EmitBufferInfrastructure(w);
+        }
 
         EmitOnNext(w, target);
         w.WriteLine();
@@ -355,6 +365,16 @@ internal static class Emitter
             }
         }
 
+        foreach (var poly in target.Polymorphics.AsImmutableArray())
+        {
+            if (!poly.IsInitOnly)
+            {
+                w.WriteLine(
+                    $"instance.{poly.MemberName} = {PolymorphicExpression(poly, "reader")};"
+                );
+            }
+        }
+
         w.Indent--;
         w.WriteLine("}");
     }
@@ -388,6 +408,17 @@ internal static class Emitter
             if (!sub.IsInitOnly)
             {
                 EmitPopulateSubSectionOnBinder(w, sub);
+            }
+        }
+
+        // Mutable polymorphic properties: assign only if the selecting key was parsed.
+        foreach (var poly in target.Polymorphics.AsImmutableArray())
+        {
+            if (!poly.IsInitOnly)
+            {
+                w.WriteLine(
+                    $"if (__Buffered(\"{poly.Key}\")) instance.{poly.MemberName} = {PolymorphicExpression(poly, BufferedReaderExpression)};"
+                );
             }
         }
 
@@ -452,6 +483,10 @@ internal static class Emitter
         {
             CollectSetConditions(sub.Target, fieldPrefix + sub.MemberName + "_", conditions);
         }
+        foreach (var poly in target.Polymorphics.AsImmutableArray())
+        {
+            conditions.Add($"__Buffered(\"{poly.Key}\")");
+        }
     }
 
     // -- Subsection field emission --
@@ -485,6 +520,7 @@ internal static class Emitter
         );
         w.WriteLine("{");
         w.Indent++;
+        EmitOnNextBufferedCases(w, target);
         EmitOnNextCases(w, target);
         w.WriteLine("return true;");
         w.Indent--;
@@ -709,11 +745,13 @@ internal static class Emitter
             }
             return $"_set_{fieldPrefix}{memberName} ? {field} : {defaultExpr}";
         }
-        else
+        if (TryFindPolymorphic(target, memberName) is { } poly)
         {
-            // TODO: subsection optional + default expression support
-            return $"_built_{fieldPrefix}{memberName}";
+            return PolymorphicExpression(poly, BufferedReaderExpression);
         }
+
+        // TODO: subsection optional + default expression support
+        return $"_built_{fieldPrefix}{memberName}";
     }
 
     #endregion
@@ -761,6 +799,16 @@ internal static class Emitter
         foreach (var sub in target.SubSections.AsImmutableArray())
         {
             CollectAndEmit(w, sub.Target, emitted, ref fieldCounter);
+        }
+        foreach (var poly in target.Polymorphics.AsImmutableArray())
+        {
+            foreach (var c in poly.Cases.AsImmutableArray())
+            {
+                if (c.Target is not null)
+                {
+                    CollectAndEmit(w, c.Target, emitted, ref fieldCounter);
+                }
+            }
         }
     }
 
@@ -1049,32 +1097,53 @@ internal static class Emitter
         Optional,
     }
 
-    private static EffectiveRequirement ResolveRequirement(BindingMember m)
+    private static EffectiveRequirement ResolveRequirement(BindingMember m) =>
+        ResolveRequirement(
+            m.Requirement,
+            m.HasRequiredKeyword,
+            m.CSharpInitializerExpression,
+            m.TypeIsNullable
+        );
+
+    private static EffectiveRequirement ResolveRequirement(PolymorphicMember p) =>
+        ResolveRequirement(
+            p.Requirement,
+            p.HasRequiredKeyword,
+            p.CSharpInitializerExpression,
+            p.TypeIsNullable
+        );
+
+    private static EffectiveRequirement ResolveRequirement(
+        EnvRequirement requirement,
+        bool hasRequiredKeyword,
+        string? initializer,
+        bool typeIsNullable
+    )
     {
         // Explicit attribute
-        if (m.Requirement == EnvRequirement.Required)
+        if (requirement == EnvRequirement.Required)
         {
             return EffectiveRequirement.Required;
         }
 
         // Explicit attribute
-        if (m.Requirement == EnvRequirement.Optional)
+        if (requirement == EnvRequirement.Optional)
         {
             return EffectiveRequirement.Optional;
         }
 
         // Inferred path:
-        if (m.HasRequiredKeyword)
+        if (hasRequiredKeyword)
         {
             return EffectiveRequirement.Required;
         }
 
-        if (m.CSharpInitializerExpression is not null)
+        if (initializer is not null)
         {
             return EffectiveRequirement.Optional;
         }
 
-        if (m.TypeIsNullable)
+        if (typeIsNullable)
         {
             return EffectiveRequirement.Optional;
         }

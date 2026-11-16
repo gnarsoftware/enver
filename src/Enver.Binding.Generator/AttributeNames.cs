@@ -9,6 +9,10 @@ internal static class AttributeNames
     public const string EnvIgnore = "Enver.Binding.EnvIgnoreAttribute";
     public const string EnvUri = "Enver.Binding.EnvUriAttribute";
     public const string EnvFormatProvider = "Enver.Binding.EnvFormatProviderAttribute";
+    public const string EnvPolymorphic = "Enver.Binding.EnvPolymorphicAttribute";
+    public const string EnvCase = "Enver.Binding.EnvCaseAttribute";
+    public const string EnvDerivedTypeNamespace = "Enver.Binding";
+    public const string EnvDerivedTypeMetadataName = "EnvDerivedTypeAttribute`1";
 
     // DataAnnotations validation
     public const string ValidationAttribute =

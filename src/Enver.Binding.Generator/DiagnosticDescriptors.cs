@@ -197,4 +197,76 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
     );
+
+    public static readonly DiagnosticDescriptor PolymorphicNoCases = new(
+        id: "ENVR0025",
+        title: "Polymorphic type has no bindable cases",
+        messageFormat: "Member '{0}' has polymorphic type '{1}', which has no concrete case types to bind",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    public static readonly DiagnosticDescriptor PolymorphicCaseUnsupported = new(
+        id: "ENVR0026",
+        title: "Polymorphic case type cannot be bound",
+        messageFormat: "Case '{0}' of polymorphic type '{1}' cannot be bound: {2}",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    public static readonly DiagnosticDescriptor DuplicateCaseName = new(
+        id: "ENVR0027",
+        title: "Polymorphic cases resolve to the same name",
+        messageFormat: "Cases '{0}' and '{1}' of polymorphic type '{2}' both resolve to the name '{3}'; give one a distinct name with [EnvCase]",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    public static readonly DiagnosticDescriptor MixedUnionCases = new(
+        id: "ENVR0028",
+        title: "Union mixes scalar and object cases",
+        messageFormat: "Union '{0}' mixes scalar cases ({1}) with object cases ({2}); a bindable union's cases must be all scalar or all config objects",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    public static readonly DiagnosticDescriptor UnreachableUnionCase = new(
+        id: "ENVR0029",
+        title: "Union case is unreachable",
+        messageFormat: "Case '{0}' of union '{1}' is never bound: the earlier case '{2}' accepts every value; declare '{2}' last",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true
+    );
+
+    public static readonly DiagnosticDescriptor InvalidCaseName = new(
+        id: "ENVR0030",
+        title: "Invalid polymorphic case name",
+        messageFormat: "The case name given for '{0}' by [EnvCase] or [EnvDerivedType<T>] must not be empty",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    public static readonly DiagnosticDescriptor PolymorphicRequiresNewerCompiler = new(
+        id: "ENVR0031",
+        title: "Polymorphic type needs [EnvDerivedType<T>] on this SDK",
+        messageFormat: "'{0}' uses [EnvPolymorphic], but its type declares no [EnvDerivedType<T>] cases; closed types and unions are only detected with the .NET 11 SDK or later, so list the cases with [EnvDerivedType<T>] on the base type",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true
+    );
+
+    public static readonly DiagnosticDescriptor PolymorphicTypeRequiresNewerGenerator = new(
+        id: "ENVR0032",
+        title: "Closed types and unions need the .NET 11 SDK generator",
+        messageFormat: "Member '{0}' is typed as {1}, which the baseline Enver generator cannot bind; closed types and unions need the Roslyn 5.12 generator build (.NET 11 SDK or later, or a reference to Enver.Binding.Generator.Roslyn5.12). To bind it on any SDK, list its cases with [EnvDerivedType<T>] on the base type.",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
 }

@@ -120,6 +120,11 @@ Add `System.ComponentModel.DataAnnotations` attributes (or `IValidatableObject`)
 have the bound config validated at bind time. Failures throw `EnvValidationException`.
 See the [binding readme](src/Enver.Binding/README.md#validation).
 
+Polymorphic properties bind with the case selected by a type key
+(`STORAGE_TYPE=REMOTE`). List the cases with `[EnvDerivedType<T>]` on any SDK, or use
+C# 15 `closed` types and `union`s with the .NET 11 SDK.
+See [polymorphic binding](src/Enver.Binding/README.md#polymorphic-binding).
+
 ## Typed accessors
 
 The `IEnvReader` interface provides typed accessors for a collection of environment
