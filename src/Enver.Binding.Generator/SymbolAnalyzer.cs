@@ -166,7 +166,7 @@ internal static partial class SymbolAnalyzer
                 compilation,
                 diags,
                 helperIds,
-                new SubSectionPath(),
+                new AnalysisScope(root.SeparatorText),
                 root.KeyNaming,
                 generatePopulate: root.GeneratePopulate,
                 accumulatedPrefix: root.Prefix,
@@ -197,7 +197,7 @@ internal static partial class SymbolAnalyzer
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
         HelperIdAllocator helperIds,
-        SubSectionPath path,
+        AnalysisScope scope,
         EnvKeyNamingConvention naming,
         bool generatePopulate = false,
         string? accumulatedPrefix = null,
@@ -207,7 +207,7 @@ internal static partial class SymbolAnalyzer
     )
     {
         // A type reachable from its own members would recurse forever.
-        if (!path.TryEnter(targetSymbol))
+        if (!scope.TryEnter(targetSymbol))
         {
             diags.Add(
                 DiagnosticInfo.Create(
@@ -226,7 +226,7 @@ internal static partial class SymbolAnalyzer
                 compilation,
                 diags,
                 helperIds,
-                path,
+                scope,
                 naming,
                 generatePopulate,
                 accumulatedPrefix,
@@ -237,7 +237,7 @@ internal static partial class SymbolAnalyzer
         }
         finally
         {
-            path.Exit(targetSymbol);
+            scope.Exit(targetSymbol);
         }
     }
 
@@ -247,7 +247,7 @@ internal static partial class SymbolAnalyzer
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
         HelperIdAllocator helperIds,
-        SubSectionPath path,
+        AnalysisScope scope,
         EnvKeyNamingConvention naming,
         bool generatePopulate,
         string? accumulatedPrefix,
@@ -358,7 +358,7 @@ internal static partial class SymbolAnalyzer
                     compilation,
                     diags,
                     helperIds,
-                    path,
+                    scope,
                     resolvedNaming,
                     effectivePrefix,
                     defaultFormatProvider,
@@ -412,7 +412,7 @@ internal static partial class SymbolAnalyzer
                     compilation,
                     diags,
                     helperIds,
-                    path,
+                    scope,
                     resolvedNaming,
                     effectivePrefix,
                     InitializerFor(prop, ctorDefaults),
@@ -452,7 +452,8 @@ internal static partial class SymbolAnalyzer
                 hostSymbol,
                 compilation,
                 diags,
-                InitializerFor(prop, ctorDefaults)
+                InitializerFor(prop, ctorDefaults),
+                scope.Separator
             );
             if (member is null)
             {
@@ -582,7 +583,8 @@ internal static partial class SymbolAnalyzer
         INamedTypeSymbol hostSymbol,
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
-        string? initializer
+        string? initializer,
+        string separator
     )
     {
         var keyAttr = FindAttribute(prop, AttributeNames.EnvKey);
@@ -620,8 +622,7 @@ internal static partial class SymbolAnalyzer
                 memberNaming == EnvKeyNamingConvention.Inherit ? keyNaming : memberNaming
             );
 
-        var resolvedKey =
-            !ignorePrefix && !string.IsNullOrEmpty(prefix) ? $"{prefix}_{baseName}" : baseName;
+        var resolvedKey = CombineKey(ignorePrefix ? null : prefix, baseName, separator);
 
         // The resolved key must be a valid env-var identifier. An invalid key
         // means the prefix, the explicit [EnvKey] name, or the member name
@@ -1217,11 +1218,17 @@ internal static partial class SymbolAnalyzer
     /// <summary>
     /// Root settings from <c>[EnvBindable(prefix)]</c> / <c>[EnvBindable&lt;T&gt;(prefix)]</c>.
     /// </summary>
-    private static (
+    private readonly record struct RootSettings(
         string? Prefix,
         EnvKeyNamingConvention KeyNaming,
+        EnvKeySeparator Separator,
         bool GeneratePopulate
-    ) ReadBindable(AttributeData attr)
+    )
+    {
+        public string SeparatorText => Separator == EnvKeySeparator.DoubleUnderscore ? "__" : "_";
+    }
+
+    private static RootSettings ReadBindable(AttributeData attr)
     {
         string? prefix =
             attr.ConstructorArguments.Length > 0
@@ -1229,12 +1236,16 @@ internal static partial class SymbolAnalyzer
                 : null;
         var naming = EnvKeyNamingConvention.UpperSnakeCase;
         bool populate = false;
+        var separator = EnvKeySeparator.Underscore;
         foreach (var named in attr.NamedArguments)
         {
             switch (named.Key)
             {
                 case "KeyNaming" when named.Value.Value is int v:
                     naming = (EnvKeyNamingConvention)v;
+                    break;
+                case "Separator" when named.Value.Value is int sep:
+                    separator = (EnvKeySeparator)sep;
                     break;
                 case "GeneratePopulate" when named.Value.Value is bool b:
                     populate = b;
@@ -1245,7 +1256,7 @@ internal static partial class SymbolAnalyzer
         {
             naming = EnvKeyNamingConvention.UpperSnakeCase;
         }
-        return (prefix, naming, populate);
+        return new RootSettings(prefix, naming, separator, populate);
     }
 
     private static Location? AttributeLocation(AttributeData attr, ISymbol fallback) =>
@@ -1288,7 +1299,7 @@ internal static partial class SymbolAnalyzer
         return (name, ignorePrefix, requirement, naming);
     }
 
-    private static string CombineKey(string? left, string? right)
+    private static string CombineKey(string? left, string? right, string separator)
     {
         if (string.IsNullOrEmpty(left))
         {
@@ -1298,7 +1309,7 @@ internal static partial class SymbolAnalyzer
         {
             return left!;
         }
-        return $"{left}_{right}";
+        return $"{left}{separator}{right}";
     }
 
     /// <summary>
@@ -1351,7 +1362,7 @@ internal static partial class SymbolAnalyzer
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
         HelperIdAllocator helperIds,
-        SubSectionPath path,
+        AnalysisScope scope,
         EnvKeyNamingConvention parentNaming,
         string parentEffectivePrefix,
         string? initializer,
@@ -1374,9 +1385,9 @@ internal static partial class SymbolAnalyzer
             compilation,
             nestedDiags,
             helperIds,
-            path,
+            scope,
             naming,
-            accumulatedPrefix: CombineKey(
+            accumulatedPrefix: scope.Combine(
                 ignorePrefix ? null : parentEffectivePrefix,
                 explicitName ?? KeyNameTransformer.Transform(prop.Name, naming)
             ),
