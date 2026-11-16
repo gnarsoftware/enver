@@ -37,6 +37,13 @@ public sealed class EnvBindableAttribute(string? prefix = null) : Attribute
     public EnvKeyNamingConvention KeyNaming { get; init; } = EnvKeyNamingConvention.UpperSnakeCase;
 
     /// <summary>
+    /// What separates key segments (prefix, subsections, member names). Defaults to
+    /// <see cref="EnvKeySeparator.Underscore"/>; use
+    /// <see cref="EnvKeySeparator.DoubleUnderscore"/> for ASP.NET Core style keys.
+    /// </summary>
+    public EnvKeySeparator Separator { get; init; }
+
+    /// <summary>
     /// When <see langword="true"/>, the source generator emits a
     /// <c>Populate(T instance, IEnvReader reader)</c> static method and a
     /// <c>Populate(T instance)</c> method on the <c>Binder</c> class that
@@ -72,6 +79,9 @@ public sealed class EnvBindableAttribute<T>(string? prefix = null) : Attribute
 
     /// <inheritdoc cref="EnvBindableAttribute.KeyNaming"/>
     public EnvKeyNamingConvention KeyNaming { get; init; } = EnvKeyNamingConvention.UpperSnakeCase;
+
+    /// <inheritdoc cref="EnvBindableAttribute.Separator"/>
+    public EnvKeySeparator Separator { get; init; }
 
     /// <inheritdoc cref="EnvBindableAttribute.GeneratePopulate"/>
     public bool GeneratePopulate { get; init; }

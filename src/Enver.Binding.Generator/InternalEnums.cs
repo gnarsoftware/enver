@@ -24,3 +24,10 @@ internal enum EnvCaseKeyStyle
     Shared = 1,
     Scoped = 2,
 }
+
+// copy of ../Enver.Binding/EnvKeySeparator.cs
+internal enum EnvKeySeparator
+{
+    Underscore = 0,
+    DoubleUnderscore = 1,
+}

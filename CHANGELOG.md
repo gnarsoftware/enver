@@ -37,6 +37,9 @@ together.
 ### Added
 
 - `net11.0` target for all packages.
+- `Enver.Binding`: `Separator = EnvKeySeparator.DoubleUnderscore` on `[EnvBindable]`
+  and `[EnvBindable<T>]` joins key segments with `__` (`APP__DB__POOL__MAX_SIZE`),
+  the ASP.NET Core convention. Underscores inside a name stay single.
 - `Enver.Binding`: `[EnvKey(KeyNaming = ...)]` overrides the naming convention for
   a member's derived key and, on a subsection, everything beneath it.
 - `Enver.Binding`: ENVR0033 reports a config type that contains itself, which

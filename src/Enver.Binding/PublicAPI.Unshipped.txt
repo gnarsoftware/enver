@@ -31,3 +31,10 @@ Enver.Binding.EnvBindableAttribute<T>.KeyNaming.init -> void
 Enver.Binding.EnvBindableAttribute<T>.Prefix.get -> string?
 Enver.Binding.EnvKeyAttribute.KeyNaming.get -> Enver.Binding.EnvKeyNamingConvention
 Enver.Binding.EnvKeyAttribute.KeyNaming.init -> void
+Enver.Binding.EnvBindableAttribute.Separator.get -> Enver.Binding.EnvKeySeparator
+Enver.Binding.EnvBindableAttribute.Separator.init -> void
+Enver.Binding.EnvBindableAttribute<T>.Separator.get -> Enver.Binding.EnvKeySeparator
+Enver.Binding.EnvBindableAttribute<T>.Separator.init -> void
+Enver.Binding.EnvKeySeparator
+Enver.Binding.EnvKeySeparator.DoubleUnderscore = 1 -> Enver.Binding.EnvKeySeparator
+Enver.Binding.EnvKeySeparator.Underscore = 0 -> Enver.Binding.EnvKeySeparator

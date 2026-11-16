@@ -102,6 +102,24 @@ Naming conventions:
 The prefix applies only when the type is bound as the root. A type used as a
 [subsection](#subsections) is named by the property that holds it.
 
+### Separator
+
+Key segments (the prefix, each subsection or polymorphic case, and the member
+name) are joined with a single underscore by default. Set
+`Separator = EnvKeySeparator.DoubleUnderscore` to use the ASP.NET Core convention:
+
+```csharp
+[EnvBindable("APP", Separator = EnvKeySeparator.DoubleUnderscore)]
+public partial record AppConfig(string LogLevel, Db Db);
+public record Db(string Host, Pool Pool);
+public record Pool(int MaxSize);
+// Reads APP__LOG_LEVEL, APP__DB__HOST and APP__DB__POOL__MAX_SIZE.
+```
+
+Underscores inside a name stay single: those produced by the naming convention
+(`LOG_LEVEL`) and those in an explicit `[EnvKey("DB_URL")]` name. Polymorphic type
+keys follow the separator too (`STORAGE__TYPE`).
+
 ## Per-member overrides: `[EnvKey]`
 
 ```csharp

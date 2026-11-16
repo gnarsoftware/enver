@@ -23,13 +23,18 @@ internal static partial class SymbolAnalyzer
     /// one host don't collide.
     /// </summary>
     /// <summary>
-    /// The types currently being analyzed, outermost first. A type that reappears
-    /// in its own members (directly, through a subsection, or through a polymorphic
-    /// case) can't be bound.
+    /// State shared by everything bound under one root: the key separator, and the
+    /// types currently being analyzed. A type that reappears in its own members
+    /// (directly, through a subsection, or through a polymorphic case) can't be bound.
     /// </summary>
-    internal sealed class SubSectionPath
+    internal sealed class AnalysisScope(string separator)
     {
         private readonly HashSet<INamedTypeSymbol> _types = new(SymbolEqualityComparer.Default);
+
+        /// <summary>Joins key segments: "_" or "__".</summary>
+        public string Separator => separator;
+
+        public string Combine(string? left, string? right) => CombineKey(left, right, separator);
 
         public bool TryEnter(INamedTypeSymbol type) => _types.Add(type);
 
@@ -93,7 +98,7 @@ internal static partial class SymbolAnalyzer
         INamedTypeSymbol target,
         INamedTypeSymbol hostSymbol,
         AttributeData bindableAttr,
-        (string? Prefix, EnvKeyNamingConvention KeyNaming, bool GeneratePopulate) root,
+        RootSettings root,
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
         HelperIdAllocator helperIds
@@ -113,8 +118,8 @@ internal static partial class SymbolAnalyzer
             );
         }
 
-        var path = new SubSectionPath();
-        path.TryEnter(target);
+        var scope = new AnalysisScope(root.SeparatorText);
+        scope.TryEnter(target);
         var self = AnalyzePolymorphic(
             new PolySite(
                 target.Name,
@@ -131,7 +136,7 @@ internal static partial class SymbolAnalyzer
             compilation,
             diags,
             helperIds,
-            path,
+            scope,
             root.KeyNaming,
             root.Prefix ?? string.Empty,
             ReadFormatProvider(
@@ -274,7 +279,7 @@ internal static partial class SymbolAnalyzer
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
         HelperIdAllocator helperIds,
-        SubSectionPath path,
+        AnalysisScope scope,
         EnvKeyNamingConvention parentNaming,
         string parentEffectivePrefix,
         FormatProviderRef? defaultFormatProvider,
@@ -320,7 +325,7 @@ internal static partial class SymbolAnalyzer
             compilation,
             diags,
             helperIds,
-            path,
+            scope,
             parentNaming,
             parentEffectivePrefix,
             defaultFormatProvider
@@ -353,7 +358,7 @@ internal static partial class SymbolAnalyzer
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
         HelperIdAllocator helperIds,
-        SubSectionPath path,
+        AnalysisScope scope,
         EnvKeyNamingConvention parentNaming,
         string parentEffectivePrefix,
         FormatProviderRef? defaultFormatProvider
@@ -498,10 +503,7 @@ internal static partial class SymbolAnalyzer
         {
             // Keyed exactly like a leaf member.
             var baseName = explicitName ?? KeyNameTransformer.Transform(site.Name, naming);
-            key =
-                !ignorePrefix && !string.IsNullOrEmpty(parentEffectivePrefix)
-                    ? $"{parentEffectivePrefix}_{baseName}"
-                    : baseName;
+            key = scope.Combine(ignorePrefix ? null : parentEffectivePrefix, baseName);
             if (!ValidateKey(site.Name, location, key, diags))
             {
                 return null;
@@ -517,7 +519,7 @@ internal static partial class SymbolAnalyzer
         {
             // The section is keyed like a subsection: inherited prefix, then the
             // property's segment.
-            var sectionPrefix = CombineKey(
+            var sectionPrefix = scope.Combine(
                 ignorePrefix ? null : parentEffectivePrefix,
                 explicitName ?? KeyNameTransformer.Transform(site.Name, naming)
             );
@@ -534,7 +536,7 @@ internal static partial class SymbolAnalyzer
                 : typeStyle != EnvCaseKeyStyle.Inherit ? typeStyle
                 : EnvCaseKeyStyle.Shared;
 
-            key = CombineKey(
+            key = scope.Combine(
                 sectionPrefix,
                 propTypeKey ?? typeTypeKey ?? KeyNameTransformer.Transform("Type", naming)
             );
@@ -550,7 +552,7 @@ internal static partial class SymbolAnalyzer
                 compilation,
                 diags,
                 helperIds,
-                path,
+                scope,
                 naming,
                 sectionPrefix,
                 style,
@@ -879,7 +881,7 @@ internal static partial class SymbolAnalyzer
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
         HelperIdAllocator helperIds,
-        SubSectionPath path,
+        AnalysisScope scope,
         EnvKeyNamingConvention naming,
         string sectionPrefix,
         EnvCaseKeyStyle style,
@@ -963,10 +965,10 @@ internal static partial class SymbolAnalyzer
                 compilation,
                 diags,
                 helperIds,
-                path,
+                scope,
                 naming,
                 accumulatedPrefix: style == EnvCaseKeyStyle.Scoped
-                    ? CombineKey(sectionPrefix, caseName)
+                    ? scope.Combine(sectionPrefix, caseName)
                     : sectionPrefix,
                 isPolymorphicCase: true
             );
