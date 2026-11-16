@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Enver.Binding.Generator.Model;
 using Enver.Binding.Generator.Utils;
@@ -275,7 +276,8 @@ internal static partial class SymbolAnalyzer
             targetSymbol,
             hostSymbol,
             compilation,
-            out var ctorParamNames
+            out var ctorParamNames,
+            out var ctorDefaults
         );
 
         if (construction is null)
@@ -359,7 +361,8 @@ internal static partial class SymbolAnalyzer
                     path,
                     resolvedNaming,
                     effectivePrefix,
-                    defaultFormatProvider
+                    defaultFormatProvider,
+                    InitializerFor(prop, ctorDefaults)
                 );
                 if (poly is null)
                 {
@@ -412,6 +415,7 @@ internal static partial class SymbolAnalyzer
                     path,
                     resolvedNaming,
                     effectivePrefix,
+                    InitializerFor(prop, ctorDefaults),
                     out bool subSectionReported
                 );
                 if (subSectionReported)
@@ -447,7 +451,8 @@ internal static partial class SymbolAnalyzer
                 resolvedNaming,
                 hostSymbol,
                 compilation,
-                diags
+                diags,
+                InitializerFor(prop, ctorDefaults)
             );
             if (member is null)
             {
@@ -576,7 +581,8 @@ internal static partial class SymbolAnalyzer
         EnvKeyNamingConvention keyNaming,
         INamedTypeSymbol hostSymbol,
         Compilation compilation,
-        ImmutableArray<DiagnosticInfo>.Builder diags
+        ImmutableArray<DiagnosticInfo>.Builder diags,
+        string? initializer
     )
     {
         var keyAttr = FindAttribute(prop, AttributeNames.EnvKey);
@@ -729,7 +735,6 @@ internal static partial class SymbolAnalyzer
 
         var typeIsNullable = prop.Type.IsNullable();
         var hasRequiredKw = prop.IsRequired;
-        var initializer = GetInitializerExpression(prop);
 
         // An explicit Requirement = Optional on a non-nullable member with no C#
         // initializer means a missing env-var silently yields default(T).
@@ -1349,6 +1354,7 @@ internal static partial class SymbolAnalyzer
         SubSectionPath path,
         EnvKeyNamingConvention parentNaming,
         string parentEffectivePrefix,
+        string? initializer,
         out bool reported
     )
     {
@@ -1402,14 +1408,27 @@ internal static partial class SymbolAnalyzer
             return null;
         }
 
+        var typeIsNullable = prop.Type.IsNullable();
+        if (requirement == EnvRequirement.Optional && !typeIsNullable && initializer is null)
+        {
+            diags.Add(
+                DiagnosticInfo.Create(
+                    DiagnosticDescriptors.RequiredOptionalOnNonNullableNoDefault,
+                    prop.Locations.FirstOrDefault(),
+                    new(ImmutableArray.Create(prop.Name, prop.Type.ToDisplayString()))
+                )
+            );
+        }
+
         return new SubSection(
             MemberName: prop.Name,
             TypeFullyQualifiedName: prop.Type.ToDisplayString(
                 SymbolDisplayFormat.FullyQualifiedFormat
             ),
+            TypeIsNullable: typeIsNullable,
             HasRequiredKeyword: prop.IsRequired,
             Requirement: requirement,
-            CSharpInitializerExpression: GetInitializerExpression(prop),
+            CSharpInitializerExpression: initializer,
             Target: target,
             IsInitOnly: prop.SetMethod?.IsInitOnly ?? false
         );
@@ -1419,10 +1438,12 @@ internal static partial class SymbolAnalyzer
         INamedTypeSymbol target,
         INamedTypeSymbol hostSymbol,
         Compilation compilation,
-        out HashSet<string> ctorParamNames
+        out HashSet<string> ctorParamNames,
+        out Dictionary<string, string> ctorDefaults
     )
     {
         ctorParamNames = new HashSet<string>(StringComparer.Ordinal);
+        ctorDefaults = new Dictionary<string, string>(StringComparer.Ordinal);
 
         // Records expose a primary constructor whose parameters match the
         // generated positional properties.
@@ -1456,6 +1477,10 @@ internal static partial class SymbolAnalyzer
                 {
                     ctorParamNames.Add(p.Name);
                     ctorParameterMemberNames.Add(p.Name);
+                    if (FormatParameterDefault(p) is { } defaultExpr)
+                    {
+                        ctorDefaults[p.Name] = defaultExpr;
+                    }
                 }
                 return new ConstructionStrategy(
                     CtorParameterMemberNames: new(ctorParameterMemberNames),
@@ -1532,6 +1557,61 @@ internal static partial class SymbolAnalyzer
                 yield return prop;
             }
         }
+    }
+
+    /// <summary>
+    /// A member's default: its property initializer, else the default value of the
+    /// constructor parameter that binds it (e.g. <c>record Db(int Port = 5432)</c>).
+    /// </summary>
+    private static string? InitializerFor(
+        IPropertySymbol prop,
+        Dictionary<string, string> ctorDefaults
+    ) =>
+        GetInitializerExpression(prop)
+        ?? (ctorDefaults.TryGetValue(prop.Name, out var d) ? d : null);
+
+    /// <summary>
+    /// A parameter default as a C# expression. Defaults are compile-time constants,
+    /// so this works for records from other assemblies and doesn't depend on what
+    /// names are in scope at the generated code.
+    /// </summary>
+    private static string? FormatParameterDefault(IParameterSymbol p)
+    {
+        if (!p.HasExplicitDefaultValue)
+        {
+            return null;
+        }
+        var type = p.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var value = p.ExplicitDefaultValue;
+        switch (value)
+        {
+            case null:
+                return $"default({type})";
+            case double d when double.IsNaN(d) || double.IsInfinity(d):
+                return $"({type})(global::System.Double.{SpecialFloatName(d)})";
+            case float f when float.IsNaN(f) || float.IsInfinity(f):
+                return $"({type})(global::System.Single.{SpecialFloatName(f)})";
+            // Suffixed literals keep the exact value; a bare literal is a double and
+            // casting it would round (9.99m would become 9.99000000000000021...).
+            case decimal m:
+                return $"(({type})({m.ToString(CultureInfo.InvariantCulture)}m))";
+            case float f:
+                return $"(({type})({f.ToString("R", CultureInfo.InvariantCulture)}f))";
+            case double d:
+                return $"(({type})({d.ToString("R", CultureInfo.InvariantCulture)}d))";
+        }
+        var literal = Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(
+            value,
+            quoteStrings: true,
+            useHexadecimalNumbers: false
+        );
+        // The cast gives the literal the parameter's type (enum, float, decimal, T?).
+        return $"(({type})({literal}))";
+
+        static string SpecialFloatName(double v) =>
+            double.IsNaN(v) ? "NaN"
+            : double.IsPositiveInfinity(v) ? "PositiveInfinity"
+            : "NegativeInfinity";
     }
 
     private static string? GetInitializerExpression(IPropertySymbol prop)

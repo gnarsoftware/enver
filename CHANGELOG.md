@@ -28,6 +28,11 @@ together.
   collections and `System.*`/`Microsoft.*` types) binds as a subsection; `[EnvKey]`
   or `[EnvConfig]` is no longer needed to opt in. Types that previously reported
   ENVR0010 may now bind; apply `[EnvIgnore]` to skip them.
+- **Breaking:** `Enver.Binding`: optional subsections (nullable, with an initializer,
+  or `Requirement = Optional`) are built only when at least one of their keys is
+  present, and otherwise get their initializer or `null`. Previously every
+  subsection was always constructed, so a nullable subsection with no keys set was
+  a default-filled instance rather than `null`, and initializers were ignored.
 
 ### Added
 
@@ -49,6 +54,12 @@ together.
   (`analyzers/dotnet/roslyn5.0` and `roslyn5.12`). The baseline build now
   requires Roslyn 5.0, the compiler in every .NET 10 SDK; older SDKs could not
   build `net10.0` consumers anyway.
+
+### Fixed
+
+- `Enver.Binding`: a default on a record's primary-constructor parameter
+  (`record Db(string Host, int Port = 5432)`) now makes the member optional with that
+  default, like a property initializer. Previously the key was required.
 
 ## [1.0.2] - 2026-06-19
 

@@ -277,7 +277,8 @@ internal static partial class SymbolAnalyzer
         SubSectionPath path,
         EnvKeyNamingConvention parentNaming,
         string parentEffectivePrefix,
-        FormatProviderRef? defaultFormatProvider
+        FormatProviderRef? defaultFormatProvider,
+        string? initializer
     )
     {
         var keyAttr = FindAttribute(prop, AttributeNames.EnvKey);
@@ -311,7 +312,7 @@ internal static partial class SymbolAnalyzer
                 prop,
                 IsRoot: false,
                 prop.IsRequired,
-                GetInitializerExpression(prop),
+                initializer,
                 prop.SetMethod?.IsInitOnly ?? false
             ),
             polyType,
