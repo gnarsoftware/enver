@@ -19,6 +19,13 @@
       >../../src/Enver.Binding.Generator.Roslyn5.12/Enver.Binding.Generator.Roslyn5.12.csproj</_EnverGeneratorProject>
     <_EnverGeneratorProject Condition="'$(EnverGeneratorRoslyn)' != '5.12'"
       >../../src/Enver.Binding.Generator/Enver.Binding.Generator.csproj</_EnverGeneratorProject>
+    <!--
+      Both builds emit an Enver.Binding.Generator.dll, often of identical size (PE
+      files pad to 512 bytes). Sharing one output folder lets copy-local skip the
+      swap and test the wrong build, so the non-default build gets its own folder.
+    -->
+    <ArtifactsPivots Condition="'$(EnverGeneratorRoslyn)' != '5.12'"
+      >$(Configuration.ToLowerInvariant())_$(TargetFramework)_roslyn$(EnverGeneratorRoslyn)</ArtifactsPivots>
   </PropertyGroup>
 
   <ItemGroup>
