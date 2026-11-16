@@ -1402,14 +1402,28 @@ internal static partial class SymbolAnalyzer
             return null;
         }
 
+        var typeIsNullable = prop.Type.IsNullable();
+        var initializer = GetInitializerExpression(prop);
+        if (requirement == EnvRequirement.Optional && !typeIsNullable && initializer is null)
+        {
+            diags.Add(
+                DiagnosticInfo.Create(
+                    DiagnosticDescriptors.RequiredOptionalOnNonNullableNoDefault,
+                    prop.Locations.FirstOrDefault(),
+                    new(ImmutableArray.Create(prop.Name, prop.Type.ToDisplayString()))
+                )
+            );
+        }
+
         return new SubSection(
             MemberName: prop.Name,
             TypeFullyQualifiedName: prop.Type.ToDisplayString(
                 SymbolDisplayFormat.FullyQualifiedFormat
             ),
+            TypeIsNullable: typeIsNullable,
             HasRequiredKeyword: prop.IsRequired,
             Requirement: requirement,
-            CSharpInitializerExpression: GetInitializerExpression(prop),
+            CSharpInitializerExpression: initializer,
             Target: target,
             IsInitOnly: prop.SetMethod?.IsInitOnly ?? false
         );

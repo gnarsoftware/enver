@@ -205,7 +205,7 @@ internal static partial class Emitter
             {
                 if (sub.MemberName == memberName)
                 {
-                    EmitInlineObjectConstructionForReader(w, sub.Target);
+                    EmitSubSectionForReader(w, sub);
                     return;
                 }
             }
@@ -217,6 +217,47 @@ internal static partial class Emitter
             throw new InvalidOperationException(
                 $"SubSection '{memberName}' not found in target '{target.SimpleTypeName}'."
             );
+        }
+    }
+
+    /// <summary>
+    /// A required subsection is always constructed. An optional one is constructed
+    /// only when at least one key in its subtree is present; otherwise it takes its
+    /// initializer (or null).
+    /// </summary>
+    private static void EmitSubSectionForReader(IndentedTextWriter w, SubSection sub)
+    {
+        if (ResolveRequirement(sub) is EffectiveRequirement.Required)
+        {
+            EmitInlineObjectConstructionForReader(w, sub.Target);
+            return;
+        }
+
+        var keys = new List<string>();
+        CollectPresenceKeys(sub.Target, keys);
+        var present = string.Join(" || ", keys.Select(k => $"reader.TryGetValue(\"{k}\", out _)"));
+        w.Write($"(({present}) ? ({sub.TypeFullyQualifiedName})");
+        EmitInlineObjectConstructionForReader(w, sub.Target);
+        w.Write($" : {sub.CSharpInitializerExpression ?? "default!"})");
+    }
+
+    /// <summary>
+    /// Keys whose presence means "this subsection was configured": every leaf key in
+    /// the subtree, plus each polymorphic member's type key (or scalar value key).
+    /// </summary>
+    private static void CollectPresenceKeys(BindingTarget target, List<string> keys)
+    {
+        foreach (var m in target.Members.AsImmutableArray())
+        {
+            keys.Add(m.ResolvedKey);
+        }
+        foreach (var sub in target.SubSections.AsImmutableArray())
+        {
+            CollectPresenceKeys(sub.Target, keys);
+        }
+        foreach (var poly in target.Polymorphics.AsImmutableArray())
+        {
+            keys.Add(poly.Key);
         }
     }
 
@@ -367,7 +408,7 @@ internal static partial class Emitter
             if (!sub.IsInitOnly)
             {
                 w.Write($"instance.{sub.MemberName} = ");
-                EmitInlineObjectConstructionForReader(w, sub.Target);
+                EmitSubSectionForReader(w, sub);
                 w.WriteLine(";");
             }
         }
@@ -446,7 +487,7 @@ internal static partial class Emitter
             w.Indent++;
         }
 
-        EmitPopulateSubSectionLocals(w, sub, null);
+        EmitSubSectionBuildLocal(w, sub);
         w.WriteLine($"instance.{sub.MemberName} = _built_{sub.MemberName};");
 
         if (conditions.Count > 0)
@@ -454,26 +495,6 @@ internal static partial class Emitter
             w.Indent--;
             w.WriteLine("}");
         }
-    }
-
-    private static void EmitPopulateSubSectionLocals(
-        IndentedTextWriter w,
-        SubSection sub,
-        string? fieldPrefix
-    )
-    {
-        var localFieldPrefix = fieldPrefix + sub.MemberName + "_";
-
-        // Recurse: build deeper subsection locals first.
-        foreach (var nested in sub.Target.SubSections.AsImmutableArray())
-        {
-            EmitPopulateSubSectionLocals(w, nested, localFieldPrefix);
-        }
-
-        var localVarName = $"_built_{fieldPrefix}{sub.MemberName}";
-        w.Write($"var {localVarName} = ");
-        EmitBuildConstruction(w, sub.Target, localFieldPrefix);
-        w.WriteLine(";");
     }
 
     private static void CollectSetConditions(
@@ -667,6 +688,21 @@ internal static partial class Emitter
     )
     {
         var localFieldPrefix = fieldPrefix + sub.MemberName + "_";
+        var localVarName = $"_built_{fieldPrefix}{sub.MemberName}";
+
+        // An optional subsection is built only when one of its keys was seen.
+        var optional = ResolveRequirement(sub) is EffectiveRequirement.Optional;
+        if (optional)
+        {
+            var conditions = new List<string>();
+            CollectSetConditions(sub.Target, localFieldPrefix, conditions);
+            w.WriteLine(
+                $"{sub.TypeFullyQualifiedName} {localVarName} = {sub.CSharpInitializerExpression ?? "default!"};"
+            );
+            w.WriteLine($"if ({string.Join(" || ", conditions)})");
+            w.WriteLine("{");
+            w.Indent++;
+        }
 
         // Check required leaf members of this subsection.
         foreach (var m in sub.Target.Members.AsImmutableArray())
@@ -686,10 +722,15 @@ internal static partial class Emitter
         }
 
         // Construct the subsection local.
-        var localVarName = $"_built_{fieldPrefix}{sub.MemberName}";
-        w.Write($"var {localVarName} = ");
+        w.Write(optional ? $"{localVarName} = " : $"var {localVarName} = ");
         EmitBuildConstruction(w, sub.Target, localFieldPrefix);
         w.WriteLine(";");
+
+        if (optional)
+        {
+            w.Indent--;
+            w.WriteLine("}");
+        }
     }
 
     private static void EmitBuildConstruction(
@@ -766,7 +807,8 @@ internal static partial class Emitter
             return PolymorphicExpression(poly, BufferedReaderExpression);
         }
 
-        // TODO: subsection optional + default expression support
+        // Subsections are built into locals first (EmitSubSectionBuildLocal), which
+        // also resolves optional ones to their initializer or null.
         return $"_built_{fieldPrefix}{memberName}";
     }
 
@@ -1118,6 +1160,14 @@ internal static partial class Emitter
             m.HasRequiredKeyword,
             m.CSharpInitializerExpression,
             m.TypeIsNullable
+        );
+
+    private static EffectiveRequirement ResolveRequirement(SubSection s) =>
+        ResolveRequirement(
+            s.Requirement,
+            s.HasRequiredKeyword,
+            s.CSharpInitializerExpression,
+            s.TypeIsNullable
         );
 
     private static EffectiveRequirement ResolveRequirement(PolymorphicMember p) =>

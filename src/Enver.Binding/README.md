@@ -175,8 +175,37 @@ public partial record Prefixed(Sub Sub);
 | `[EnvKey(KeyNaming = SnakeCase)]` | `APP_sub_val` |
 
 `IgnorePrefix` drops the inherited prefix but keeps the property's own segment.
-`KeyNaming` applies to the segment and every key beneath it. Requiredness is
-controlled the same way as a leaf member, with `[EnvKey(Requirement = ...)]`.
+`KeyNaming` applies to the segment and every key beneath it.
+
+### Optional subsections
+
+A subsection's requirement follows the same rules as a leaf member: it is optional
+when it's nullable, has an initializer, or sets `[EnvKey(Requirement = Optional)]`,
+and required otherwise (including with the `required` keyword).
+
+- A **required** subsection is always built. Each of its required members must be
+  present.
+- An **optional** subsection is built only when at least one key beneath it is
+  present (any member key, or the type key of a polymorphic member). Then it binds
+  in full, so its required members must be present too. With no keys, it gets its
+  initializer, or `null`.
+
+```csharp
+public record Smtp
+{
+    public required string Host { get; init; }
+    public int Port { get; init; } = 587;
+}
+
+[EnvBindable]
+public partial record AppConfig(string Name, Smtp? Smtp);
+// No SMTP_* keys        -> Smtp is null
+// SMTP_HOST=mail        -> Smtp { Host = mail, Port = 587 }
+// SMTP_PORT=25 only     -> throws: SMTP_HOST is missing
+```
+
+With `GeneratePopulate`, the Binder's `Populate` replaces an optional subsection
+only when one of its keys was seen.
 
 A type can't contain itself, directly or through its members (ENVR0033). Use
 `[EnvIgnore]` on the member that leads back to it.
