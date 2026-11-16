@@ -27,7 +27,7 @@
 
   <!--
     One generator build per supported Roslyn version. The SDK picks the newest
-    roslyn{X.Y} folder its compiler supports: the 4.8 build serves older SDKs,
+    roslyn{X.Y} folder its compiler supports: the 5.0 build serves every .NET 10 SDK,
     the 5.12 build (.NET 11 SDK) adds polymorphic binding for closed types and
     unions. Do not also pack an unversioned analyzers/dotnet/cs copy, or both
     builds would load.
@@ -39,7 +39,7 @@
     <None
       Include="$(ArtifactsPath)/bin/Enver.Binding.Generator/$(_GeneratorOutputSuffix)"
       Pack="true"
-      PackagePath="analyzers/dotnet/roslyn4.8/cs"
+      PackagePath="analyzers/dotnet/roslyn5.0/cs"
       Visible="false"
     />
     <None

@@ -7,9 +7,9 @@
 
   <!--
     Which generator build to test. Defaults to the newest (Roslyn 5.12); CI also
-    runs the suite with -p:EnverGeneratorRoslyn=4.8 to cover the baseline build.
+    runs the suite with -p:EnverGeneratorRoslyn=5.0 to cover the baseline build.
     The in-memory test compilations always use Roslyn 5.12 so C# 15 sources
-    (closed types, unions) parse; the 4.8 build runs fine on the newer host.
+    (closed types, unions) parse; the 5.0 build runs fine on the newer host.
   -->
   <PropertyGroup>
     <EnverGeneratorRoslyn Condition="'$(EnverGeneratorRoslyn)' == ''">5.12</EnverGeneratorRoslyn>

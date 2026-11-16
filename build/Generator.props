@@ -10,7 +10,7 @@
     define so version-gated code can be compiled in.
   -->
   <PropertyGroup>
-    <EnverRoslynVersion Condition="'$(EnverRoslynVersion)' == ''">4.8</EnverRoslynVersion>
+    <EnverRoslynVersion Condition="'$(EnverRoslynVersion)' == ''">5.0</EnverRoslynVersion>
     <DefineConstants Condition="'$(EnverRoslynVersion)' == '5.12'"
       >$(DefineConstants);ROSLYN_5_12</DefineConstants>
   </PropertyGroup>

@@ -127,7 +127,7 @@ internal static partial class SymbolAnalyzer
         }
         foreach (var sref in type.DeclaringSyntaxReferences)
         {
-            // The host compiler parsed `closed`; Roslyn 4.8 has no SyntaxKind for
+            // The host compiler parsed `closed`; the baseline Roslyn has no SyntaxKind for
             // it, so match the token text.
             if (
                 sref.GetSyntax() is Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax tds

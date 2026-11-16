@@ -26,8 +26,9 @@ together.
   `[EnvPolymorphic]` and `[EnvCase]` attributes, the `EnvCaseKeyStyle` enum, and
   diagnostics ENVR0025-ENVR0032.
 - `Enver.Binding`: the package now ships one generator build per Roslyn version
-  (`analyzers/dotnet/roslyn4.8` and `roslyn5.12`). Older SDKs keep the existing
-  behavior.
+  (`analyzers/dotnet/roslyn5.0` and `roslyn5.12`). The baseline build now
+  requires Roslyn 5.0, the compiler in every .NET 10 SDK; older SDKs could not
+  build `net10.0` consumers anyway.
 
 ## [1.0.2] - 2026-06-19
 

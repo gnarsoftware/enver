@@ -21,13 +21,13 @@ keep compiling) along with the libraries.
 dotnet test Enver.slnx
 ```
 
-The binding source generator ships two builds: a baseline one (Roslyn 4.8) for
-older SDKs and a Roslyn 5.12 one that adds polymorphic binding for `closed` types
-and unions. The generator tests run against the 5.12 build by default; CI also
-runs them against the baseline build:
+The binding source generator ships two builds: a baseline one (Roslyn 5.0) for
+every .NET 10 SDK, and a Roslyn 5.12 one that adds polymorphic binding for
+`closed` types and unions. The generator tests run against the 5.12 build by
+default; CI also runs them against the baseline build:
 
 ```sh
-dotnet test tests/Enver.Binding.Generator.Tests -p:EnverGeneratorRoslyn=4.8
+dotnet test tests/Enver.Binding.Generator.Tests -p:EnverGeneratorRoslyn=5.0
 ```
 
 ## Formatting
