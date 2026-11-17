@@ -80,39 +80,43 @@ dotnet_naming_style.camel_case_underscore_style.required_prefix = _
 dotnet_naming_style.camel_case_underscore_style.capitalization = camel_case
 
 ## Naming rules
+# Warnings, so EnforceCodeStyleInBuild reports violations (IDE1006) in every build,
+# not only when the IDE analyzes a file. The build only honors the naming rule
+# severities when IDE1006 itself is also set.
+dotnet_diagnostic.IDE1006.severity = warning
 
 # interface types should have I prefix
-dotnet_naming_rule.interface_should_be_interface_prefix_style.severity = suggestion
+dotnet_naming_rule.interface_should_be_interface_prefix_style.severity = warning
 dotnet_naming_rule.interface_should_be_interface_prefix_style.symbols = interface
 dotnet_naming_rule.interface_should_be_interface_prefix_style.style = interface_prefix_style
 
 # all types should be in PascalCase
-dotnet_naming_rule.types_should_be_pascal_case.severity = suggestion
+dotnet_naming_rule.types_should_be_pascal_case.severity = warning
 dotnet_naming_rule.types_should_be_pascal_case.symbols = types
 dotnet_naming_rule.types_should_be_pascal_case.style = pascal_case_style
 
 # non-field members should be in PascalCase
-dotnet_naming_rule.non_field_members_should_be_pascal_case.severity = suggestion
+dotnet_naming_rule.non_field_members_should_be_pascal_case.severity = warning
 dotnet_naming_rule.non_field_members_should_be_pascal_case.symbols = non_field_members
 dotnet_naming_rule.non_field_members_should_be_pascal_case.style = pascal_case_style
 
 # parameters should be in camelCase
-dotnet_naming_rule.parameters_should_be_camel_case.severity = suggestion
+dotnet_naming_rule.parameters_should_be_camel_case.severity = warning
 dotnet_naming_rule.parameters_should_be_camel_case.symbols = parameters
 dotnet_naming_rule.parameters_should_be_camel_case.style = camel_case_style
 
 # name all constant fields using PascalCase
-dotnet_naming_rule.constant_fields_should_be_pascal_case.severity = suggestion
+dotnet_naming_rule.constant_fields_should_be_pascal_case.severity = warning
 dotnet_naming_rule.constant_fields_should_be_pascal_case.symbols  = constant_fields
 dotnet_naming_rule.constant_fields_should_be_pascal_case.style    = pascal_case_style
 
 # static fields should have s_ prefix
-dotnet_naming_rule.static_fields_should_have_prefix.severity = suggestion
+dotnet_naming_rule.static_fields_should_have_prefix.severity = warning
 dotnet_naming_rule.static_fields_should_have_prefix.symbols  = static_fields
 dotnet_naming_rule.static_fields_should_have_prefix.style    = static_prefix_style
 
 # internal and private fields should be _camelCase
-dotnet_naming_rule.camel_case_for_private_internal_fields.severity = suggestion
+dotnet_naming_rule.camel_case_for_private_internal_fields.severity = warning
 dotnet_naming_rule.camel_case_for_private_internal_fields.symbols  = private_internal_fields
 dotnet_naming_rule.camel_case_for_private_internal_fields.style    = camel_case_underscore_style
 
@@ -142,3 +146,27 @@ dotnet_diagnostic.RCS1194.severity = none
 
 # RS0026: Do not add multiple public overloads with optional parameters
 dotnet_diagnostic.RS0026.severity = none
+
+## Enforced in the build
+# Raised from suggestion so they fail the build (TreatWarningsAsErrors) instead of
+# only showing up under full solution analysis.
+
+# IDE0300-IDE0305: Use collection expressions
+dotnet_diagnostic.IDE0300.severity = warning
+dotnet_diagnostic.IDE0301.severity = warning
+dotnet_diagnostic.IDE0302.severity = warning
+dotnet_diagnostic.IDE0303.severity = warning
+dotnet_diagnostic.IDE0304.severity = warning
+dotnet_diagnostic.IDE0305.severity = warning
+
+# NUnit2045: Use Assert.EnterMultipleScope for independent asserts
+dotnet_diagnostic.NUnit2045.severity = warning
+
+# RCS1163: Unused parameter
+dotnet_diagnostic.RCS1163.severity = warning
+
+# RCS1213: Remove unused member declaration
+dotnet_diagnostic.RCS1213.severity = warning
+
+# RCS1249: Unnecessary null-forgiving operator
+dotnet_diagnostic.RCS1249.severity = warning

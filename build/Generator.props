@@ -16,7 +16,8 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks></TargetFrameworks>
     <AssemblyName>Enver.Binding.Generator</AssemblyName>
     <RootNamespace>Enver.Binding.Generator</RootNamespace>
     <IsPackable>false</IsPackable>

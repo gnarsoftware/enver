@@ -1,4 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <!--
+      C# Dev Kit's project cache adds every analyzer in the ASP.NET Core targeting
+      pack, including the request delegate generator that the SDK otherwise leaves
+      off. Its interceptors then fail (CS9137) until the design-time build replaces
+      the cached state. Enabling it explicitly keeps both states the same.
+    -->
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../src/Enver.Extensions.Configuration/Enver.Extensions.Configuration.csproj" />
   </ItemGroup>

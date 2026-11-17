@@ -9,8 +9,10 @@ namespace Enver.Tests;
 [TestFixture]
 public class PolymorphicRootTests
 {
-    private static readonly string[] PopulateIgnored = ["ENVR0035"];
-    private static readonly string[] NeedsNewerGenerator = ["ENVR0032"];
+    private static readonly string[] s_populateIgnored = ["ENVR0035"];
+#if !ENVER_GENERATOR_ROSLYN_5_12
+    private static readonly string[] s_needsNewerGenerator = ["ENVR0032"];
+#endif
 
     private static IEnumerable<string> DiagnosticIds(string source) =>
         GeneratorTestHarness.Run(source).GeneratorDiagnostics.Select(d => d.Id);
@@ -135,7 +137,7 @@ public class PolymorphicRootTests
                 public sealed record Remote(string Bucket) : Storage;
                 """
             ),
-            Is.EqualTo(PopulateIgnored)
+            Is.EqualTo(s_populateIgnored)
         );
     }
 
@@ -211,7 +213,7 @@ public class PolymorphicRootTests
                 public sealed record V1(string Base, string Version1) : AppConfig(Base);
                 """
             ),
-            Is.EqualTo(NeedsNewerGenerator)
+            Is.EqualTo(s_needsNewerGenerator)
         );
     }
 #endif

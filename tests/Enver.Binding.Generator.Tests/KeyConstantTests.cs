@@ -55,14 +55,17 @@ public static class TestEntry
             public partial record AppConfig(string LogLevel, Db Db);
             """;
 
-        Assert.That(
-            Eval(
-                body,
-                "string.Join(\"|\", AppConfig.EnvKeys.LogLevel, AppConfig.EnvKeys.Db.Host, "
-                    + "AppConfig.EnvKeys.Db.Pool.MaxSize)"
-            ),
-            Is.EqualTo("APP_LOG_LEVEL|APP_DB_HOST|APP_DB_POOL_MAX_SIZE")
-        );
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                Eval(
+                    body,
+                    "string.Join(\"|\", AppConfig.EnvKeys.LogLevel, AppConfig.EnvKeys.Db.Host, "
+                        + "AppConfig.EnvKeys.Db.Pool.MaxSize)"
+                ),
+                Is.EqualTo("APP_LOG_LEVEL|APP_DB_HOST|APP_DB_POOL_MAX_SIZE")
+            );
+        }
         Assert.That(
             Eval(
                 body,

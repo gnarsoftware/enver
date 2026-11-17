@@ -49,7 +49,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.NoUsableConstructor,
                     hostSymbol.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(targetType.ToDisplayString()))
+                    new([targetType.ToDisplayString()])
                 )
             );
             return new Result(null, new(d));
@@ -74,7 +74,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.NotPartial,
                     hostSymbol.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(hostSymbol.Name))
+                    new([hostSymbol.Name])
                 )
             );
             return new Result(null, new(diags));
@@ -93,7 +93,7 @@ internal static partial class SymbolAnalyzer
                     DiagnosticInfo.Create(
                         DiagnosticDescriptors.EnclosingTypeNotPartial,
                         hostSymbol.Locations.FirstOrDefault(),
-                        new(ImmutableArray.Create(hostSymbol.Name, enclosing.Name))
+                        new([hostSymbol.Name, enclosing.Name])
                     )
                 );
                 return new Result(null, new(diags));
@@ -107,7 +107,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.TargetTypeStatic,
                     hostSymbol.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(targetSymbol.Name))
+                    new([targetSymbol.Name])
                 )
             );
             return new Result(null, new(diags));
@@ -123,7 +123,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.TargetTypeOpenGeneric,
                     hostSymbol.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(targetSymbol.Name))
+                    new([targetSymbol.Name])
                 )
             );
             return new Result(null, new(diags));
@@ -142,7 +142,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.PrefixCasingMismatch,
                     AttributeLocation(bindableAttr, hostSymbol),
-                    new(ImmutableArray.Create(root.Prefix, root.KeyNaming.ToString()))
+                    new([root.Prefix, root.KeyNaming.ToString()])
                 )
             );
         }
@@ -201,7 +201,7 @@ internal static partial class SymbolAnalyzer
                     DiagnosticInfo.Create(
                         DiagnosticDescriptors.KeyConstantRenamed,
                         AttributeLocation(bindableAttr, hostSymbol),
-                        new(ImmutableArray.Create(rename.Path, rename.NewName))
+                        new([rename.Path, rename.NewName])
                     )
                 );
             }
@@ -232,7 +232,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.RecursiveSubSection,
                     targetSymbol.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(targetSymbol.ToDisplayString(s_typeDisplayFormat)))
+                    new([targetSymbol.ToDisplayString(s_typeDisplayFormat)])
                 )
             );
             return null;
@@ -305,7 +305,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.NoUsableConstructor,
                     targetSymbol.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(targetSymbol.Name))
+                    new([targetSymbol.Name])
                 )
             );
             return null;
@@ -332,7 +332,7 @@ internal static partial class SymbolAnalyzer
                         DiagnosticDescriptors.KeyOnSetterlessMember,
                         keyAttr?.ApplicationSyntaxReference?.GetSyntax().GetLocation()
                             ?? noSetter.Locations.FirstOrDefault(),
-                        new(ImmutableArray.Create(noSetter.Name))
+                        new([noSetter.Name])
                     )
                 );
             }
@@ -351,7 +351,7 @@ internal static partial class SymbolAnalyzer
                         DiagnosticInfo.Create(
                             DiagnosticDescriptors.RedundantKeyOnIgnoredMember,
                             prop.Locations.FirstOrDefault(),
-                            new(ImmutableArray.Create(prop.Name))
+                            new([prop.Name])
                         )
                     );
                 }
@@ -394,7 +394,7 @@ internal static partial class SymbolAnalyzer
                         DiagnosticInfo.Create(
                             DiagnosticDescriptors.DuplicateResolvedKey,
                             prop.Locations.FirstOrDefault(),
-                            new(ImmutableArray.Create(prop.Name, poly.Key, firstKeyMember))
+                            new([prop.Name, poly.Key, firstKeyMember])
                         )
                     );
                     continue;
@@ -411,7 +411,7 @@ internal static partial class SymbolAnalyzer
                         DiagnosticInfo.Create(
                             DiagnosticDescriptors.PopulateMemberSkipped,
                             prop.Locations.FirstOrDefault(),
-                            new(ImmutableArray.Create(prop.Name))
+                            new([prop.Name])
                         )
                     );
                 }
@@ -456,7 +456,7 @@ internal static partial class SymbolAnalyzer
                             DiagnosticInfo.Create(
                                 DiagnosticDescriptors.PopulateMemberSkipped,
                                 prop.Locations.FirstOrDefault(),
-                                new(ImmutableArray.Create(prop.Name))
+                                new([prop.Name])
                             )
                         );
                     }
@@ -505,7 +505,7 @@ internal static partial class SymbolAnalyzer
                     DiagnosticInfo.Create(
                         DiagnosticDescriptors.DuplicateResolvedKey,
                         prop.Locations.FirstOrDefault(),
-                        new(ImmutableArray.Create(prop.Name, duplicateKey, duplicateOwner!))
+                        new([prop.Name, duplicateKey, duplicateOwner!])
                     )
                 );
                 continue;
@@ -527,7 +527,7 @@ internal static partial class SymbolAnalyzer
                     DiagnosticInfo.Create(
                         DiagnosticDescriptors.PopulateMemberSkipped,
                         prop.Locations.FirstOrDefault(),
-                        new(ImmutableArray.Create(prop.Name))
+                        new([prop.Name])
                     )
                 );
             }
@@ -549,7 +549,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.NoBindableMembers,
                     targetSymbol.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(targetSymbol.Name))
+                    new([targetSymbol.Name])
                 )
             );
         }
@@ -566,7 +566,7 @@ internal static partial class SymbolAnalyzer
                     DiagnosticInfo.Create(
                         DiagnosticDescriptors.PopulateNoMutableMembers,
                         populateLocation ?? targetSymbol.Locations.FirstOrDefault(),
-                        new(ImmutableArray.Create(targetSymbol.Name))
+                        new([targetSymbol.Name])
                     )
                 );
                 generatePopulate = false;
@@ -647,7 +647,7 @@ internal static partial class SymbolAnalyzer
                         DiagnosticDescriptors.KeyOnInaccessibleMember,
                         keyAttr.ApplicationSyntaxReference?.GetSyntax().GetLocation()
                             ?? prop.Locations.FirstOrDefault(),
-                        new(ImmutableArray.Create(prop.Name))
+                        new([prop.Name])
                     )
                 );
             }
@@ -675,7 +675,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.InvalidResolvedKey,
                     prop.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(prop.Name, resolvedKey))
+                    new([prop.Name, resolvedKey])
                 )
             );
             return null;
@@ -708,7 +708,7 @@ internal static partial class SymbolAnalyzer
                     DiagnosticInfo.Create(
                         DiagnosticDescriptors.InvalidResolvedKey,
                         AttributeLocation(attr, prop),
-                        new(ImmutableArray.Create(prop.Name, fallbackKey))
+                        new([prop.Name, fallbackKey])
                     )
                 );
                 return null;
@@ -725,7 +725,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.UnsupportedMemberType,
                     prop.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(prop.Name, prop.Type.ToDisplayString()))
+                    new([prop.Name, prop.Type.ToDisplayString()])
                 )
             );
             return null;
@@ -745,7 +745,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.Utf8OnlyTypeNotStringBindable,
                     prop.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(prop.Name, prop.Type.ToDisplayString()))
+                    new([prop.Name, prop.Type.ToDisplayString()])
                 )
             );
             return null;
@@ -763,7 +763,7 @@ internal static partial class SymbolAnalyzer
                     DiagnosticInfo.Create(
                         DiagnosticDescriptors.UriAttributeOnNonUri,
                         prop.Locations.FirstOrDefault(),
-                        new(ImmutableArray.Create(prop.Name, prop.Type.ToDisplayString()))
+                        new([prop.Name, prop.Type.ToDisplayString()])
                     )
                 );
                 return null;
@@ -800,12 +800,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.FormatProviderHasNoEffect,
                     prop.Locations.FirstOrDefault(),
-                    new(
-                        ImmutableArray.Create(
-                            prop.Name,
-                            underlyingType.ToDisplayString(s_typeDisplayFormat)
-                        )
-                    )
+                    new([prop.Name, underlyingType.ToDisplayString(s_typeDisplayFormat)])
                 )
             );
             formatProvider = null;
@@ -822,7 +817,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.RequiredOptionalOnNonNullableNoDefault,
                     prop.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(prop.Name, prop.Type.ToDisplayString()))
+                    new([prop.Name, prop.Type.ToDisplayString()])
                 )
             );
         }
@@ -942,7 +937,7 @@ internal static partial class SymbolAnalyzer
                         DiagnosticDescriptors.TypedRangeNotSupported,
                         attr.ApplicationSyntaxReference?.GetSyntax().GetLocation()
                             ?? prop.Locations.FirstOrDefault(),
-                        new(ImmutableArray.Create(prop.Name))
+                        new([prop.Name])
                     )
                 );
                 continue;
@@ -1239,14 +1234,14 @@ internal static partial class SymbolAnalyzer
         {
             case TypedConstantKind.Primitive:
                 return Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(
-                    c.Value!,
+                    c.Value,
                     quoteStrings: true,
                     useHexadecimalNumbers: false
                 );
             case TypedConstantKind.Enum:
                 var enumType = c.Type!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
                 var underlying = Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(
-                    c.Value!,
+                    c.Value,
                     quoteStrings: false,
                     useHexadecimalNumbers: false
                 );
@@ -1359,7 +1354,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.FallbackKeyOnObjectMember,
                     AttributeLocation(attr, prop),
-                    new(ImmutableArray.Create(prop.Name, kind))
+                    new([prop.Name, kind])
                 )
             );
         }
@@ -1532,7 +1527,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.RequiredOptionalOnNonNullableNoDefault,
                     prop.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(prop.Name, prop.Type.ToDisplayString()))
+                    new([prop.Name, prop.Type.ToDisplayString()])
                 )
             );
         }
@@ -1784,7 +1779,7 @@ internal static partial class SymbolAnalyzer
         {
             stack.Push(new EnclosingType(GetTypeKeyword(t), t.Name));
         }
-        return stack.ToImmutableArray();
+        return [.. stack];
     }
 
     private static FormatProviderRef? ReadFormatProvider(
@@ -1826,12 +1821,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.FormatProviderMemberInvalid,
                     location,
-                    new(
-                        ImmutableArray.Create(
-                            providerType.ToDisplayString(s_typeDisplayFormat),
-                            memberName
-                        )
-                    )
+                    new([providerType.ToDisplayString(s_typeDisplayFormat), memberName])
                 )
             );
             return null;

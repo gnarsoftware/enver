@@ -8,14 +8,14 @@ namespace Enver.Binding.Generator.Model;
 internal readonly struct EquatableArray<T>(ImmutableArray<T> array) : IEquatable<EquatableArray<T>>
     where T : IEquatable<T>
 {
-    public static readonly EquatableArray<T> Empty = new(ImmutableArray<T>.Empty);
+    public static readonly EquatableArray<T> Empty = new([]);
 
     public EquatableArray(ImmutableArray<T>.Builder values)
         : this(values.ToImmutable()) { }
 
     public ImmutableArray<T> AsImmutableArray()
     {
-        return array.IsDefault ? ImmutableArray<T>.Empty : array;
+        return array.IsDefault ? [] : array;
     }
 
     public int Length => array.IsDefault ? 0 : array.Length;
