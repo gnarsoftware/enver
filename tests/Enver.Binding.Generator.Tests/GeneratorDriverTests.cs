@@ -22,7 +22,7 @@ public class GeneratorDriverTests
             Assert.That(
                 src,
                 Does.Contain(
-                    "public static global::Test.DbConfig Bind(global::Enver.IEnvReader reader, bool validate = true)"
+                    "public static global::Test.DbConfig Bind(global::Enver.IEnvReader reader)"
                 )
             );
             Assert.That(src, Does.Contain("public static global::Test.DbConfig Bind(string path"));
@@ -268,7 +268,7 @@ public class GeneratorDriverTests
             Assert.That(
                 src,
                 Does.Contain(
-                    "public static global::Test.DbConfig BindDbConfig(global::Enver.IEnvReader reader, bool validate = true)"
+                    "public static global::Test.DbConfig BindDbConfig(global::Enver.IEnvReader reader)"
                 )
             );
             Assert.That(
@@ -982,17 +982,10 @@ public class GeneratorDriverTests
             Assert.That(src, Does.Contain("public static void Populate("));
             Assert.That(
                 src,
-                Does.Contain(
-                    "global::Test.Config instance, global::Enver.IEnvReader reader, bool validate = true)"
-                )
+                Does.Contain("global::Test.Config instance, global::Enver.IEnvReader reader)")
             );
             // Binder instance populate method
-            Assert.That(
-                src,
-                Does.Contain(
-                    "public void Populate(global::Test.Config instance, bool validate = true)"
-                )
-            );
+            Assert.That(src, Does.Contain("public void Populate(global::Test.Config instance)"));
             // Both mutable members should appear in populate
             Assert.That(src, Does.Contain("instance.Name ="));
             Assert.That(src, Does.Contain("instance.Count ="));

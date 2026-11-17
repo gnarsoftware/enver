@@ -133,15 +133,70 @@ internal sealed class MapReader(Dictionary<string, string?> map) : IEnvReader
     }
 
     [Test]
-    public void ValidateIsGeneratedForATypeWithoutRules()
+    public void NothingValidationRelatedIsGeneratedWithoutRules()
     {
-        Assert.That(
-            Run(
-                "[EnvBindable] public partial record AppConfig(int Port);",
-                "AppConfig.Validate(new AppConfig(-1)); return \"valid\";"
-            ),
-            Is.EqualTo("valid")
+        // Nothing in the tree has rules, including the subsection and the
+        // polymorphic case, so there is no Validate and no validate parameter.
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            using Enver.Binding;
+
+            namespace Test;
+
+            public record Db(string Host);
+
+            [EnvDerivedType<Remote>]
+            public abstract record Storage;
+            public sealed record Remote(string Bucket) : Storage;
+
+            [EnvBindable(GeneratePopulate = true)]
+            public partial class AppConfig
+            {
+                public Db Db { get; set; } = new("h");
+                public Storage? Storage { get; set; }
+            }
+            """
         );
+
+        var src = string.Join("\n", result.GeneratedSources.Select(s => s.Text));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(src, Does.Not.Contain("Validate"));
+            Assert.That(src, Does.Not.Contain("validate"));
+            Assert.That(src, Does.Contain("public global::Test.AppConfig Build()"));
+        }
+    }
+
+    [Test]
+    public void ARuleDeepInTheTreeAddsValidation()
+    {
+        var result = GeneratorTestHarness.RunExpectingSuccess(
+            """
+            using System.ComponentModel.DataAnnotations;
+            using Enver.Binding;
+
+            namespace Test;
+
+            [EnvDerivedType<Remote>]
+            public abstract record Storage;
+            public sealed record Remote([property: Range(1, 100)] int Port) : Storage;
+
+            [EnvBindable]
+            [EnvDerivedType<Server>]
+            public abstract partial record AppConfig;
+            public sealed record Server(Storage Storage) : AppConfig;
+            """
+        );
+
+        var src = string.Join("\n", result.GeneratedSources.Select(s => s.Text));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                src,
+                Does.Contain("public static void Validate(global::Test.AppConfig instance)")
+            );
+            Assert.That(src, Does.Contain("Build(bool validate = true)"));
+        }
     }
 
     [Test]

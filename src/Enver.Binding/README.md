@@ -48,7 +48,9 @@ By default, property names map to `UPPER_SNAKE_CASE` keys
 ## Generated surface
 
 For a self-bindable type (`[EnvBindable]` on the type itself), the generator
-emits three static factories, a `Validate` method and a streaming `Binder`:
+emits three static factories, a `Validate` method and a streaming `Binder`.
+The `validate` parameters and `Validate` appear only when the type has
+[validation](#validation) rules somewhere in it:
 
 ```csharp
 public partial record DatabaseConfig
@@ -473,8 +475,11 @@ var cfg = ServerConfig.Bind(DotEnvPaths.AppDirectory(), validate: false);
 ServerConfig.Validate(cfg);
 ```
 
-`Validate` is generated for every bindable type, including ones with no rules,
-where it does nothing. On an external host it is suffixed like the factories:
+`Validate` and the `validate` parameters are generated only when there is
+something to check: a rule on the type itself, on a subsection, or on a
+polymorphic case, at any depth. A type with no rules keeps the plain `Bind(...)`
+and `Build()` signatures. On an external host `Validate` is suffixed like the
+factories:
 `Configs.ValidateCacheConfig(cfg)`. With `GeneratePopulate`, `Populate` validates
 the whole instance after assigning, including members it didn't touch.
 - **Discovered at compile time.** The generator reads your attributes during

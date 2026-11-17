@@ -76,13 +76,21 @@ internal static partial class Emitter
     {
         var t = target.FullyQualifiedTypeName;
 
+        // The validate parameter and Validate method exist only when something in
+        // the tree has rules to check.
+        var validates = HasValidation(target);
+        var validateParam = validates ? ", bool validate = true" : "";
+        var buildArgs = validates ? "validate" : "";
+
         // Bind(IEnvReader)
         w.WriteLine(
-            "/// <summary>Bind a fresh instance from an existing reader, then validate it "
-                + $"unless <paramref name=\"validate\"/> is false (see <c>Validate{methodInfix}</c>).</summary>"
+            validates
+                ? "/// <summary>Bind a fresh instance from an existing reader, then validate it "
+                    + $"unless <paramref name=\"validate\"/> is false (see <c>Validate{methodInfix}</c>).</summary>"
+                : "/// <summary>Bind a fresh instance from an existing reader.</summary>"
         );
         w.WriteLine(
-            $"public static {t} Bind{methodInfix}(global::Enver.IEnvReader reader, bool validate = true)"
+            $"public static {t} Bind{methodInfix}(global::Enver.IEnvReader reader{validateParam})"
         );
         w.WriteLine("{");
         w.Indent++;
@@ -96,7 +104,10 @@ internal static partial class Emitter
             EmitInlineObjectConstructionForReader(w, target);
             w.WriteLine(";");
         }
-        w.WriteLine($"if (validate) Validate{methodInfix}(__result);");
+        if (validates)
+        {
+            w.WriteLine($"if (validate) Validate{methodInfix}(__result);");
+        }
         w.WriteLine("return __result;");
         w.Indent--;
         w.WriteLine("}");
@@ -110,14 +121,15 @@ internal static partial class Emitter
         w.WriteLine(
             $"public static {t} Bind{methodInfix}("
                 + "string path, "
-                + "global::Enver.Parsing.EnvParseOptions parseOptions = default, "
-                + "bool validate = true)"
+                + "global::Enver.Parsing.EnvParseOptions parseOptions = default"
+                + validateParam
+                + ")"
         );
         w.WriteLine("{");
         w.Indent++;
         w.WriteLine($"var binder = new {binderName}();");
         w.WriteLine("global::Enver.Loading.EnvFileLoader.Load(binder, path, parseOptions);");
-        w.WriteLine("return binder.Build(validate);");
+        w.WriteLine($"return binder.Build({buildArgs});");
         w.Indent--;
         w.WriteLine("}");
         w.WriteLine();
@@ -133,18 +145,22 @@ internal static partial class Emitter
         w.WriteLine(
             $"public static {t} Bind{methodInfix}("
                 + "global::System.Collections.Generic.IEnumerable<string> paths, "
-                + "global::Enver.Parsing.EnvParseOptions parseOptions = default, "
-                + "bool validate = true)"
+                + "global::Enver.Parsing.EnvParseOptions parseOptions = default"
+                + validateParam
+                + ")"
         );
         w.WriteLine("{");
         w.Indent++;
         w.WriteLine($"var binder = new {binderName}();");
         w.WriteLine("global::Enver.Loading.EnvFileLoader.Load(binder, paths, parseOptions);");
-        w.WriteLine("return binder.Build(validate);");
+        w.WriteLine($"return binder.Build({buildArgs});");
         w.Indent--;
         w.WriteLine("}");
-        w.WriteLine();
-        EmitPublicValidateMethod(w, target, methodInfix);
+        if (validates)
+        {
+            w.WriteLine();
+            EmitPublicValidateMethod(w, target, methodInfix);
+        }
 
         if (target.GeneratePopulate)
         {
@@ -391,7 +407,8 @@ internal static partial class Emitter
             "/// <summary>Populate the mutable members of an existing instance from a reader.</summary>"
         );
         w.WriteLine(
-            $"public static void Populate{methodInfix}({t} instance, global::Enver.IEnvReader reader, bool validate = true)"
+            $"public static void Populate{methodInfix}({t} instance, global::Enver.IEnvReader reader"
+                + (HasValidation(target) ? ", bool validate = true)" : ")")
         );
         w.WriteLine("{");
         w.Indent++;
@@ -426,7 +443,10 @@ internal static partial class Emitter
             }
         }
 
-        w.WriteLine($"if (validate) Validate{methodInfix}(instance);");
+        if (HasValidation(target))
+        {
+            w.WriteLine($"if (validate) Validate{methodInfix}(instance);");
+        }
         w.Indent--;
         w.WriteLine("}");
     }
@@ -443,7 +463,11 @@ internal static partial class Emitter
         w.WriteLine(
             "/// <summary>Populate the mutable members of an existing instance from accumulated values.</summary>"
         );
-        w.WriteLine($"public void Populate({t} instance, bool validate = true)");
+        w.WriteLine(
+            HasValidation(target)
+                ? $"public void Populate({t} instance, bool validate = true)"
+                : $"public void Populate({t} instance)"
+        );
         w.WriteLine("{");
         w.Indent++;
 
@@ -486,7 +510,10 @@ internal static partial class Emitter
             }
         }
 
-        w.WriteLine($"if (validate) Validate{methodInfix}(instance);");
+        if (HasValidation(target))
+        {
+            w.WriteLine($"if (validate) Validate{methodInfix}(instance);");
+        }
         w.Indent--;
         w.WriteLine("}");
     }
@@ -665,21 +692,28 @@ internal static partial class Emitter
     )
     {
         var t = target.FullyQualifiedTypeName;
-        w.WriteLine(
-            "/// <summary>Build the target from the accumulated values, then validate it "
-                + "unless <paramref name=\"validate\"/> is false.</summary>"
-        );
-        w.WriteLine($"public {t} Build(bool validate = true)");
-        w.WriteLine("{");
-        w.Indent++;
-        w.WriteLine("var __result = __Build();");
-        w.WriteLine($"if (validate) Validate{methodInfix}(__result);");
-        w.WriteLine("return __result;");
-        w.Indent--;
-        w.WriteLine("}");
-        w.WriteLine();
-
-        w.WriteLine($"private {t} __Build()");
+        if (HasValidation(target))
+        {
+            w.WriteLine(
+                "/// <summary>Build the target from the accumulated values, then validate it "
+                    + "unless <paramref name=\"validate\"/> is false.</summary>"
+            );
+            w.WriteLine($"public {t} Build(bool validate = true)");
+            w.WriteLine("{");
+            w.Indent++;
+            w.WriteLine("var __result = __Build();");
+            w.WriteLine($"if (validate) Validate{methodInfix}(__result);");
+            w.WriteLine("return __result;");
+            w.Indent--;
+            w.WriteLine("}");
+            w.WriteLine();
+            w.WriteLine($"private {t} __Build()");
+        }
+        else
+        {
+            w.WriteLine("/// <summary>Build the target from the accumulated values.</summary>");
+            w.WriteLine($"public {t} Build()");
+        }
         w.WriteLine("{");
         w.Indent++;
 
@@ -886,6 +920,16 @@ internal static partial class Emitter
         return false;
     }
 
+    /// <summary>
+    /// True when binding <paramref name="target"/> as a root has anything to
+    /// validate, which decides whether the <c>validate</c> parameter and the public
+    /// <c>Validate</c> method are generated.
+    /// </summary>
+    private static bool HasValidation(BindingTarget target) =>
+        target.Self is { } self
+            ? PolymorphicRequiresValidation(self)
+            : TreeRequiresValidation(target);
+
     private static bool PolymorphicRequiresValidation(PolymorphicMember poly)
     {
         foreach (var c in poly.Cases.AsImmutableArray())
@@ -920,7 +964,7 @@ internal static partial class Emitter
         {
             EmitPolymorphicValidation(w, self, "instance");
         }
-        else if (TreeRequiresValidation(target))
+        else
         {
             w.WriteLine("__Validate(instance);");
         }

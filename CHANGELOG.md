@@ -43,7 +43,8 @@ together.
 - `net11.0` target for all packages.
 - `Enver.Binding`: a generated `Validate(instance)` (`Validate{Type}` on an external
   host) checks an instance and everything beneath it on demand. `Bind`, `Build`
-  and `Populate` take `validate: false` to skip validation.
+  and `Populate` take `validate: false` to skip validation. Both are generated
+  only for types with validation rules somewhere in their tree.
 - `Enver.Binding`: `Separator = EnvKeySeparator.DoubleUnderscore` on `[EnvBindable]`
   and `[EnvBindable<T>]` joins key segments with `__` (`APP__DB__POOL__MAX_SIZE`),
   the ASP.NET Core convention. Underscores inside a name stay single.
