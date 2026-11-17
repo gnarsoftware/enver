@@ -25,6 +25,13 @@ internal enum EnvCaseKeyStyle
     Scoped = 2,
 }
 
+// copy of ../Enver.Binding/EnvVisibility.cs
+internal enum EnvVisibility
+{
+    Public = 0,
+    Internal = 1,
+}
+
 // copy of ../Enver.Binding/EnvKeySeparator.cs
 internal enum EnvKeySeparator
 {

@@ -297,6 +297,15 @@ internal static class DiagnosticDescriptors
         isEnabledByDefault: true
     );
 
+    public static readonly DiagnosticDescriptor KeyConstantRenamed = new(
+        id: "ENVR0037",
+        title: "Key constant renamed",
+        messageFormat: "The key constant '{0}' is generated as '{1}' because its name is already used by the enclosing class or an earlier member",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Info,
+        isEnabledByDefault: true
+    );
+
     public static readonly DiagnosticDescriptor FallbackKeyOnObjectMember = new(
         id: "ENVR0036",
         title: "[EnvFallbackKey] applies only to scalar members",

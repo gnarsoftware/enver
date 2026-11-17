@@ -43,3 +43,14 @@ Enver.Binding.EnvFallbackKeyAttribute.EnvFallbackKeyAttribute(string! name) -> v
 Enver.Binding.EnvFallbackKeyAttribute.IgnorePrefix.get -> bool
 Enver.Binding.EnvFallbackKeyAttribute.IgnorePrefix.init -> void
 Enver.Binding.EnvFallbackKeyAttribute.Name.get -> string!
+Enver.Binding.EnvVisibility
+Enver.Binding.EnvVisibility.Internal = 1 -> Enver.Binding.EnvVisibility
+Enver.Binding.EnvVisibility.Public = 0 -> Enver.Binding.EnvVisibility
+Enver.Binding.EnvBindableAttribute.Visibility.get -> Enver.Binding.EnvVisibility
+Enver.Binding.EnvBindableAttribute.Visibility.init -> void
+Enver.Binding.EnvBindableAttribute.GenerateKeys.get -> bool
+Enver.Binding.EnvBindableAttribute.GenerateKeys.init -> void
+Enver.Binding.EnvBindableAttribute<T>.Visibility.get -> Enver.Binding.EnvVisibility
+Enver.Binding.EnvBindableAttribute<T>.Visibility.init -> void
+Enver.Binding.EnvBindableAttribute<T>.GenerateKeys.get -> bool
+Enver.Binding.EnvBindableAttribute<T>.GenerateKeys.init -> void

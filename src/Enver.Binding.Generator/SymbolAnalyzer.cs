@@ -185,8 +185,27 @@ internal static partial class SymbolAnalyzer
             HostKeyword: GetTypeKeyword(hostSymbol),
             HostIsSelfBindable: isSelfBindable,
             Target: targetModel,
-            EnclosingTypes: new(BuildEnclosingChain(hostSymbol))
+            EnclosingTypes: new(BuildEnclosingChain(hostSymbol)),
+            Accessibility: root.Visibility == EnvVisibility.Internal ? "internal" : "public",
+            GenerateKeys: root.GenerateKeys
         );
+
+        if (host.GenerateKeys)
+        {
+            var (keysClass, utf8Class) = KeyConstants.ClassNames(host);
+            var renames = new List<KeyConstants.Rename>();
+            KeyConstants.Plan(targetModel, keysClass, utf8Class, renames);
+            foreach (var rename in renames)
+            {
+                diags.Add(
+                    DiagnosticInfo.Create(
+                        DiagnosticDescriptors.KeyConstantRenamed,
+                        AttributeLocation(bindableAttr, hostSymbol),
+                        new(ImmutableArray.Create(rename.Path, rename.NewName))
+                    )
+                );
+            }
+        }
 
         return new Result(host, new(diags));
     }
@@ -1281,7 +1300,9 @@ internal static partial class SymbolAnalyzer
         string? Prefix,
         EnvKeyNamingConvention KeyNaming,
         EnvKeySeparator Separator,
-        bool GeneratePopulate
+        bool GeneratePopulate,
+        EnvVisibility Visibility,
+        bool GenerateKeys
     )
     {
         public string SeparatorText => Separator == EnvKeySeparator.DoubleUnderscore ? "__" : "_";
@@ -1296,10 +1317,18 @@ internal static partial class SymbolAnalyzer
         var naming = EnvKeyNamingConvention.UpperSnakeCase;
         bool populate = false;
         var separator = EnvKeySeparator.Underscore;
+        var visibility = EnvVisibility.Public;
+        var generateKeys = true;
         foreach (var named in attr.NamedArguments)
         {
             switch (named.Key)
             {
+                case "Visibility" when named.Value.Value is int vis:
+                    visibility = (EnvVisibility)vis;
+                    break;
+                case "GenerateKeys" when named.Value.Value is bool keys:
+                    generateKeys = keys;
+                    break;
                 case "KeyNaming" when named.Value.Value is int v:
                     naming = (EnvKeyNamingConvention)v;
                     break;
@@ -1315,7 +1344,7 @@ internal static partial class SymbolAnalyzer
         {
             naming = EnvKeyNamingConvention.UpperSnakeCase;
         }
-        return new RootSettings(prefix, naming, separator, populate);
+        return new RootSettings(prefix, naming, separator, populate, visibility, generateKeys);
     }
 
     private static void ReportFallbackKeyIgnored(

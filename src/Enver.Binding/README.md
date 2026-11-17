@@ -48,9 +48,9 @@ By default, property names map to `UPPER_SNAKE_CASE` keys
 ## Generated surface
 
 For a self-bindable type (`[EnvBindable]` on the type itself), the generator
-emits three static factories, a `Validate` method and a streaming `Binder`.
-The `validate` parameters and `Validate` appear only when the type has
-[validation](#validation) rules somewhere in it:
+emits three static factories, a `Validate` method, a streaming `Binder` and the
+[key constants](#key-constants). The `validate` parameters and `Validate` appear
+only when the type has [validation](#validation) rules somewhere in it:
 
 ```csharp
 public partial record DatabaseConfig
@@ -71,6 +71,9 @@ public partial record DatabaseConfig
     {
         public DatabaseConfig Build(bool validate = true);
     }
+
+    public static class EnvKeys { /* const string per key */ }
+    public static class EnvKeysUtf8 { /* ReadOnlySpan<byte> per key */ }
 }
 ```
 
@@ -82,6 +85,56 @@ The same surface is generated on an external host (`[EnvBindable<T>]`),
 with method names suffixed by the target's simple type name
 (`Configs.BindCacheConfig(...)` / `Configs.CacheConfigBinder`). See
 [External host](#external-host-enverbindablet) below.
+
+### Key constants
+
+`EnvKeys` holds every key the type binds from as a `const string`, nested the
+same way as the config, and `EnvKeysUtf8` mirrors it with UTF-8 spans:
+
+```csharp
+[EnvBindable("APP")]
+public partial record AppConfig(string LogLevel, Db Db, Storage Storage);
+public record Db(string Host, Pool Pool);
+public record Pool(int MaxSize = 10);
+
+[EnvDerivedType<Remote>]
+public abstract record Storage;
+public sealed record Remote(string Bucket) : Storage;
+
+AppConfig.EnvKeys.LogLevel;                // "APP_LOG_LEVEL"
+AppConfig.EnvKeys.Db.Pool.MaxSize;         // "APP_DB_POOL_MAX_SIZE"
+AppConfig.EnvKeysUtf8.Db.Host;             // "APP_DB_HOST"u8
+AppConfig.EnvKeys.Storage.Type;            // "APP_STORAGE_TYPE"
+AppConfig.EnvKeys.Storage.Remote.Bucket;   // "APP_STORAGE_BUCKET"
+```
+
+- Constants follow the binding path, so a subsection type used in two places
+  has the right keys in each.
+- A polymorphic member gets a class holding its type key (`Type`) and one class
+  per case, named after the case type. A polymorphic root has these at the top
+  level, and a scalar union is a single constant.
+- Only the primary key gets a constant, not [fallback keys](#fallback-keys-envfallbackkey).
+- C# doesn't allow a member with the same name as its enclosing class, so a name
+  like `EnvKeys.Db.Db` is generated as `Db_` and reported with info diagnostic
+  **ENVR0037**.
+- On an external host the classes are suffixed like the factories:
+  `Configs.CacheConfigEnvKeys`, `Configs.CacheConfigEnvKeysUtf8`.
+
+Set `GenerateKeys = false` on `[EnvBindable]` to skip both classes.
+
+### Visibility
+
+Generated members are `public` by default. Their effective accessibility is
+still limited by the type they're generated on. A library that binds its own
+public config type can keep the generated API out of its public surface:
+
+```csharp
+[EnvBindable("MYLIB", Visibility = EnvVisibility.Internal)]
+public partial record MyLibraryOptions(string Endpoint);
+```
+
+This makes `Bind`, `Validate`, `Populate`, `Binder` and the key classes
+`internal`. Each `[EnvBindable<T>]` on an external host sets its own visibility.
 
 ## Prefix and naming
 
