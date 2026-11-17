@@ -7,8 +7,8 @@ namespace Enver.Tests;
 [TestFixture]
 public class SubSectionDetectionTests
 {
-    private static readonly string[] Unsupported = ["ENVR0010"];
-    private static readonly string[] NoUsableConstructor = ["ENVR0002"];
+    private static readonly string[] s_unsupported = ["ENVR0010"];
+    private static readonly string[] s_noUsableConstructor = ["ENVR0002"];
 
     private static IEnumerable<string> DiagnosticIds(string source) =>
         GeneratorTestHarness.Run(source).GeneratorDiagnostics.Select(d => d.Id);
@@ -30,7 +30,7 @@ public class SubSectionDetectionTests
                 public partial record AppConfig(string Name, Clock Clock);
                 """
             ),
-            Is.EqualTo(Unsupported)
+            Is.EqualTo(s_unsupported)
         );
     }
 
@@ -53,7 +53,7 @@ public class SubSectionDetectionTests
                 }
                 """
             ),
-            Is.EqualTo(Unsupported)
+            Is.EqualTo(s_unsupported)
         );
     }
 
@@ -77,7 +77,7 @@ public class SubSectionDetectionTests
                 public partial record AppConfig(string Name, Sub Sub);
                 """
             ),
-            Is.EqualTo(NoUsableConstructor)
+            Is.EqualTo(s_noUsableConstructor)
         );
     }
 

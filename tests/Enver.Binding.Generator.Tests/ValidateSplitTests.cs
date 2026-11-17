@@ -105,18 +105,21 @@ internal sealed class MapReader(Dictionary<string, string?> map) : IEnvReader
     [Test]
     public void ValidateChecksAnUnvalidatedInstance()
     {
-        Assert.That(
-            Run(
-                PortConfig,
-                """
-                var c = AppConfig.Bind(reader, validate: false);
-                AppConfig.Validate(c);
-                return "valid";
-                """,
-                ("PORT", "500")
-            ),
-            Does.StartWith("EnvValidationException: Configuration 'AppConfig' is invalid")
-        );
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                Run(
+                    PortConfig,
+                    """
+                    var c = AppConfig.Bind(reader, validate: false);
+                    AppConfig.Validate(c);
+                    return "valid";
+                    """,
+                    ("PORT", "500")
+                ),
+                Does.StartWith("EnvValidationException: Configuration 'AppConfig' is invalid")
+            );
+        }
         Assert.That(
             Run(PortConfig, "AppConfig.Validate(new AppConfig(5)); return \"valid\";"),
             Is.EqualTo("valid")
@@ -210,28 +213,31 @@ internal sealed class MapReader(Dictionary<string, string?> map) : IEnvReader
             public partial record AppConfig(Db Db, Db? Replica = null);
             """;
 
-        Assert.That(
-            Run(
-                body,
-                "AppConfig.Validate(new AppConfig(new Db(\"h\", new Pool(50)))); return \"valid\";"
-            ),
-            Does.StartWith("EnvValidationException: Configuration 'Pool' is invalid")
-        );
-        Assert.That(
-            Run(
-                body,
-                "AppConfig.Validate(new AppConfig(new Db(\"h\", new Pool(5)), "
-                    + "new Db(\"r\", new Pool(0)))); return \"valid\";"
-            ),
-            Does.StartWith("EnvValidationException: Configuration 'Pool' is invalid")
-        );
-        Assert.That(
-            Run(
-                body,
-                "AppConfig.Validate(new AppConfig(new Db(\"h\", new Pool(5)))); return \"valid\";"
-            ),
-            Is.EqualTo("valid")
-        );
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                Run(
+                    body,
+                    "AppConfig.Validate(new AppConfig(new Db(\"h\", new Pool(50)))); return \"valid\";"
+                ),
+                Does.StartWith("EnvValidationException: Configuration 'Pool' is invalid")
+            );
+            Assert.That(
+                Run(
+                    body,
+                    "AppConfig.Validate(new AppConfig(new Db(\"h\", new Pool(5)), "
+                        + "new Db(\"r\", new Pool(0)))); return \"valid\";"
+                ),
+                Does.StartWith("EnvValidationException: Configuration 'Pool' is invalid")
+            );
+            Assert.That(
+                Run(
+                    body,
+                    "AppConfig.Validate(new AppConfig(new Db(\"h\", new Pool(5)))); return \"valid\";"
+                ),
+                Is.EqualTo("valid")
+            );
+        }
     }
 
     [Test]
@@ -248,15 +254,18 @@ internal sealed class MapReader(Dictionary<string, string?> map) : IEnvReader
             public partial record AppConfig(Limits Limits, Limits? Burst = null);
             """;
 
-        Assert.That(
-            Run(
-                body,
-                "return AppConfig.Bind(reader).ToString();",
-                ("LIMITS_MAX", "5"),
-                ("BURST_MAX", "50")
-            ),
-            Does.StartWith("EnvValidationException: Configuration 'Limits' is invalid")
-        );
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                Run(
+                    body,
+                    "return AppConfig.Bind(reader).ToString();",
+                    ("LIMITS_MAX", "5"),
+                    ("BURST_MAX", "50")
+                ),
+                Does.StartWith("EnvValidationException: Configuration 'Limits' is invalid")
+            );
+        }
         Assert.That(
             Run(body, "return AppConfig.Bind(reader).Limits.Max.ToString();", ("LIMITS_MAX", "5")),
             Is.EqualTo("5")
@@ -278,13 +287,16 @@ internal sealed class MapReader(Dictionary<string, string?> map) : IEnvReader
             public partial record AppConfig(Storage Storage);
             """;
 
-        Assert.That(
-            Run(
-                body,
-                "AppConfig.Validate(new AppConfig(new Secure(5, \"long key\"))); return \"valid\";"
-            ),
-            Does.StartWith("EnvValidationException: Configuration 'Secure' is invalid")
-        );
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                Run(
+                    body,
+                    "AppConfig.Validate(new AppConfig(new Secure(5, \"long key\"))); return \"valid\";"
+                ),
+                Does.StartWith("EnvValidationException: Configuration 'Secure' is invalid")
+            );
+        }
         Assert.That(
             Run(body, "AppConfig.Validate(new AppConfig(new Remote(500))); return \"valid\";"),
             Does.StartWith("EnvValidationException: Configuration 'Remote' is invalid")
@@ -351,41 +363,44 @@ internal sealed class MapReader(Dictionary<string, string?> map) : IEnvReader
 
         // The Binder assigns only LIMIT, but still checks the Port that was
         // already invalid.
-        Assert.That(
-            Run(
-                body,
-                """
-                var binder = new AppConfig.Binder();
-                binder.Parse(env);
-                binder.Populate(new AppConfig { Port = 500 });
-                return "valid";
-                """,
-                ("LIMIT", "5")
-            ),
-            Does.StartWith("EnvValidationException: Configuration 'AppConfig' is invalid")
-        );
-        Assert.That(
-            Run(
-                body,
-                "AppConfig.Populate(new AppConfig(), reader); return \"valid\";",
-                ("LIMIT", "500")
-            ),
-            Does.StartWith("EnvValidationException: Configuration 'AppConfig' is invalid")
-        );
-        Assert.That(
-            Run(
-                body,
-                """
-                var c = new AppConfig();
-                var binder = new AppConfig.Binder();
-                binder.Parse(env);
-                binder.Populate(c, validate: false);
-                return c.Limit.ToString();
-                """,
-                ("LIMIT", "500")
-            ),
-            Is.EqualTo("500")
-        );
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                Run(
+                    body,
+                    """
+                    var binder = new AppConfig.Binder();
+                    binder.Parse(env);
+                    binder.Populate(new AppConfig { Port = 500 });
+                    return "valid";
+                    """,
+                    ("LIMIT", "5")
+                ),
+                Does.StartWith("EnvValidationException: Configuration 'AppConfig' is invalid")
+            );
+            Assert.That(
+                Run(
+                    body,
+                    "AppConfig.Populate(new AppConfig(), reader); return \"valid\";",
+                    ("LIMIT", "500")
+                ),
+                Does.StartWith("EnvValidationException: Configuration 'AppConfig' is invalid")
+            );
+            Assert.That(
+                Run(
+                    body,
+                    """
+                    var c = new AppConfig();
+                    var binder = new AppConfig.Binder();
+                    binder.Parse(env);
+                    binder.Populate(c, validate: false);
+                    return c.Limit.ToString();
+                    """,
+                    ("LIMIT", "500")
+                ),
+                Is.EqualTo("500")
+            );
+        }
     }
 
     [Test]
@@ -399,10 +414,13 @@ internal sealed class MapReader(Dictionary<string, string?> map) : IEnvReader
             public partial record AppConfig(Db Db, string Name);
             """;
 
-        Assert.That(
-            Run(body, "return AppConfig.Bind(reader).ToString();", ("DB_PORT", "500")),
-            Does.StartWith("EnvMissingVariableException")
-        );
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                Run(body, "return AppConfig.Bind(reader).ToString();", ("DB_PORT", "500")),
+                Does.StartWith("EnvMissingVariableException")
+            );
+        }
         Assert.That(
             Run(
                 body,

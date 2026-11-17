@@ -33,7 +33,9 @@
     builds would load.
   -->
   <PropertyGroup>
-    <_GeneratorOutputSuffix>$(Configuration.ToLowerInvariant())_netstandard2.0/Enver.Binding.Generator.dll</_GeneratorOutputSuffix>
+    <!-- The generator projects target a single framework (build/Generator.props), so
+         their artifacts output has no _netstandard2.0 pivot. -->
+    <_GeneratorOutputSuffix>$(Configuration.ToLowerInvariant())/Enver.Binding.Generator.dll</_GeneratorOutputSuffix>
   </PropertyGroup>
   <ItemGroup>
     <None

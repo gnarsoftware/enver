@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using Enver.Binding.Generator.Model;
 using Enver.Binding.Generator.Utils;
 using Microsoft.CodeAnalysis;
@@ -66,6 +67,11 @@ internal static partial class SymbolAnalyzer
     /// build a closed or union root can't be detected properly, so it's reported
     /// (ENVR0032) instead of being constructed directly, which wouldn't compile.
     /// </summary>
+    [SuppressMessage(
+        "Roslynator",
+        "RCS1163:Unused parameter",
+        Justification = "Used only by the baseline (Roslyn 5.0) build; see the #if below."
+    )]
     private static bool IsPolymorphicRoot(
         INamedTypeSymbol target,
         INamedTypeSymbol hostSymbol,
@@ -85,7 +91,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.PolymorphicTypeRequiresNewerGenerator,
                     hostSymbol.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(target.Name, description))
+                    new([target.Name, description])
                 )
             );
             reported = true;
@@ -113,7 +119,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.PopulateOnPolymorphicRoot,
                     AttributeLocation(bindableAttr, hostSymbol),
-                    new(ImmutableArray.Create(target.Name))
+                    new([target.Name])
                 )
             );
         }
@@ -165,7 +171,7 @@ internal static partial class SymbolAnalyzer
             ),
             Members: EquatableArray<BindingMember>.Empty,
             SubSections: EquatableArray<SubSection>.Empty,
-            Polymorphics: new(ImmutableArray.Create(self)),
+            Polymorphics: new([self]),
             DefaultFormatProvider: null,
             GeneratePopulate: false,
             ImplementsIValidatableObject: false,
@@ -173,6 +179,11 @@ internal static partial class SymbolAnalyzer
         );
     }
 
+    [SuppressMessage(
+        "Roslynator",
+        "RCS1163:Unused parameter",
+        Justification = "Used only by the Roslyn 5.12 build; see the #if below."
+    )]
     private static bool IsUnionType(ITypeSymbol type)
     {
 #if ROSLYN_5_12
@@ -193,6 +204,11 @@ internal static partial class SymbolAnalyzer
     /// [EnvDerivedType&lt;T&gt;] cases.</item>
     /// </list>
     /// </summary>
+    [SuppressMessage(
+        "Roslynator",
+        "RCS1163:Unused parameter",
+        Justification = "Used only by the baseline (Roslyn 5.0) build; see the #if below."
+    )]
     private static bool ReportPolymorphicUnavailable(
         IPropertySymbol prop,
         ImmutableArray<DiagnosticInfo>.Builder diags
@@ -213,7 +229,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.PolymorphicTypeRequiresNewerGenerator,
                     prop.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(prop.Name, description))
+                    new([prop.Name, description])
                 )
             );
             return true;
@@ -228,7 +244,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.PolymorphicRequiresNewerCompiler,
                     prop.Locations.FirstOrDefault(),
-                    new(ImmutableArray.Create(prop.Name))
+                    new([prop.Name])
                 )
             );
         }
@@ -302,7 +318,7 @@ internal static partial class SymbolAnalyzer
                         DiagnosticDescriptors.KeyOnInaccessibleMember,
                         keyAttr.ApplicationSyntaxReference?.GetSyntax().GetLocation()
                             ?? prop.Locations.FirstOrDefault(),
-                        new(ImmutableArray.Create(prop.Name))
+                        new([prop.Name])
                     )
                 );
             }
@@ -385,7 +401,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.PolymorphicNoCases,
                     location,
-                    new(ImmutableArray.Create(site.Name, polyDisplay))
+                    new([site.Name, polyDisplay])
                 )
             );
             return null;
@@ -409,21 +425,19 @@ internal static partial class SymbolAnalyzer
                     DiagnosticInfo.Create(
                         DiagnosticDescriptors.MixedUnionCases,
                         location,
-                        new(
-                            ImmutableArray.Create(
-                                polyDisplay,
-                                string.Join(
-                                    ", ",
-                                    scalars.Select(c => c.Type.ToDisplayString(s_typeDisplayFormat))
-                                ),
-                                string.Join(
-                                    ", ",
-                                    cases
-                                        .Where(c => !IsScalarCase(c.Type))
-                                        .Select(c => c.Type.ToDisplayString(s_typeDisplayFormat))
-                                )
-                            )
-                        )
+                        new([
+                            polyDisplay,
+                            string.Join(
+                                ", ",
+                                scalars.Select(c => c.Type.ToDisplayString(s_typeDisplayFormat))
+                            ),
+                            string.Join(
+                                ", ",
+                                cases
+                                    .Where(c => !IsScalarCase(c.Type))
+                                    .Select(c => c.Type.ToDisplayString(s_typeDisplayFormat))
+                            ),
+                        ])
                     )
                 );
                 return null;
@@ -467,7 +481,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.ScalarUnionRoot,
                     location,
-                    new(ImmutableArray.Create(polyDisplay))
+                    new([polyDisplay])
                 )
             );
             return null;
@@ -492,7 +506,7 @@ internal static partial class SymbolAnalyzer
                 DiagnosticInfo.Create(
                     DiagnosticDescriptors.RequiredOptionalOnNonNullableNoDefault,
                     location,
-                    new(ImmutableArray.Create(site.Name, site.Type.ToDisplayString()))
+                    new([site.Name, site.Type.ToDisplayString()])
                 )
             );
         }
@@ -826,7 +840,7 @@ internal static partial class SymbolAnalyzer
                     DiagnosticInfo.Create(
                         DiagnosticDescriptors.Utf8OnlyTypeNotStringBindable,
                         location,
-                        new(ImmutableArray.Create(memberName, display))
+                        new([memberName, display])
                     )
                 );
                 ok = false;
@@ -840,13 +854,7 @@ internal static partial class SymbolAnalyzer
                     DiagnosticInfo.Create(
                         DiagnosticDescriptors.UnreachableUnionCase,
                         location,
-                        new(
-                            ImmutableArray.Create(
-                                display,
-                                polyType.ToDisplayString(s_typeDisplayFormat),
-                                catchAll
-                            )
-                        )
+                        new([display, polyType.ToDisplayString(s_typeDisplayFormat), catchAll])
                     )
                 );
             }
@@ -922,7 +930,7 @@ internal static partial class SymbolAnalyzer
                                 ? c.DeclaredAt ?? location
                                 : caseAttr!.ApplicationSyntaxReference?.GetSyntax().GetLocation()
                                     ?? location,
-                            new(ImmutableArray.Create(display))
+                            new([display])
                         )
                     );
                     ok = false;
@@ -944,14 +952,12 @@ internal static partial class SymbolAnalyzer
                     DiagnosticInfo.Create(
                         DiagnosticDescriptors.DuplicateCaseName,
                         location,
-                        new(
-                            ImmutableArray.Create(
-                                firstCase,
-                                display,
-                                polyType.ToDisplayString(s_typeDisplayFormat),
-                                caseName
-                            )
-                        )
+                        new([
+                            firstCase,
+                            display,
+                            polyType.ToDisplayString(s_typeDisplayFormat),
+                            caseName,
+                        ])
                     )
                 );
                 ok = false;
@@ -1032,7 +1038,7 @@ internal static partial class SymbolAnalyzer
             DiagnosticInfo.Create(
                 DiagnosticDescriptors.InvalidResolvedKey,
                 location,
-                new(ImmutableArray.Create(memberName, key))
+                new([memberName, key])
             )
         );
         return false;
@@ -1050,13 +1056,11 @@ internal static partial class SymbolAnalyzer
             DiagnosticInfo.Create(
                 DiagnosticDescriptors.PolymorphicCaseUnsupported,
                 location,
-                new(
-                    ImmutableArray.Create(
-                        caseType.ToDisplayString(s_typeDisplayFormat),
-                        polyType.ToDisplayString(s_typeDisplayFormat),
-                        reason
-                    )
-                )
+                new([
+                    caseType.ToDisplayString(s_typeDisplayFormat),
+                    polyType.ToDisplayString(s_typeDisplayFormat),
+                    reason,
+                ])
             )
         );
     }
