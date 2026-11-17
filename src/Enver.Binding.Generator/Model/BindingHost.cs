@@ -6,5 +6,8 @@ internal sealed record BindingHost(
     string HostKeyword,
     bool HostIsSelfBindable,
     BindingTarget Target,
-    EquatableArray<EnclosingType> EnclosingTypes
+    EquatableArray<EnclosingType> EnclosingTypes,
+    // "public" or "internal": the accessibility of every generated member.
+    string Accessibility,
+    bool GenerateKeys
 );

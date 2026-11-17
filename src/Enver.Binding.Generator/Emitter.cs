@@ -48,9 +48,14 @@ internal static partial class Emitter
         var target = host.Target;
         var methodInfix = host.HostIsSelfBindable ? "" : target.SimpleTypeName;
         var binderName = host.HostIsSelfBindable ? "Binder" : $"{target.SimpleTypeName}Binder";
-        EmitStaticMethods(w, target, methodInfix, binderName);
+        var access = host.Accessibility;
+        EmitStaticMethods(w, target, methodInfix, binderName, access);
         w.WriteLine();
-        EmitBinderClass(w, target, binderName, methodInfix);
+        EmitBinderClass(w, target, binderName, methodInfix, access);
+        if (host.GenerateKeys)
+        {
+            EmitKeyClasses(w, host, access);
+        }
         EmitValidateHelpers(w, target);
         EmitPolymorphicHelpers(w, target);
 
@@ -72,7 +77,8 @@ internal static partial class Emitter
         IndentedTextWriter w,
         BindingTarget target,
         string methodInfix,
-        string binderName
+        string binderName,
+        string access
     )
     {
         var t = target.FullyQualifiedTypeName;
@@ -91,7 +97,7 @@ internal static partial class Emitter
                 : "/// <summary>Bind a fresh instance from an existing reader.</summary>"
         );
         w.WriteLine(
-            $"public static {t} Bind{methodInfix}(global::Enver.IEnvReader reader{validateParam})"
+            $"{access} static {t} Bind{methodInfix}(global::Enver.IEnvReader reader{validateParam})"
         );
         w.WriteLine("{");
         w.Indent++;
@@ -120,7 +126,7 @@ internal static partial class Emitter
                 + "Missing files are silently skipped.</summary>"
         );
         w.WriteLine(
-            $"public static {t} Bind{methodInfix}("
+            $"{access} static {t} Bind{methodInfix}("
                 + "string path, "
                 + "global::Enver.Parsing.EnvParseOptions parseOptions = default"
                 + validateParam
@@ -144,7 +150,7 @@ internal static partial class Emitter
                 + "to compose the canonical ladder.</summary>"
         );
         w.WriteLine(
-            $"public static {t} Bind{methodInfix}("
+            $"{access} static {t} Bind{methodInfix}("
                 + "global::System.Collections.Generic.IEnumerable<string> paths, "
                 + "global::Enver.Parsing.EnvParseOptions parseOptions = default"
                 + validateParam
@@ -160,13 +166,13 @@ internal static partial class Emitter
         if (validates)
         {
             w.WriteLine();
-            EmitPublicValidateMethod(w, target, methodInfix);
+            EmitPublicValidateMethod(w, target, methodInfix, access);
         }
 
         if (target.GeneratePopulate)
         {
             w.WriteLine();
-            EmitPopulateStaticMethod(w, target, methodInfix);
+            EmitPopulateStaticMethod(w, target, methodInfix, access);
         }
     }
 
@@ -404,13 +410,16 @@ internal static partial class Emitter
         IndentedTextWriter w,
         BindingTarget target,
         string binderName,
-        string methodInfix
+        string methodInfix,
+        string access
     )
     {
         w.WriteLine(
             "/// <summary>Generated EnvParser that accumulates values and builds the target.</summary>"
         );
-        w.WriteLine($"public sealed partial class {binderName} : global::Enver.Parsing.EnvParser");
+        w.WriteLine(
+            $"{access} sealed partial class {binderName} : global::Enver.Parsing.EnvParser"
+        );
         w.WriteLine("{");
         w.Indent++;
 
@@ -439,7 +448,8 @@ internal static partial class Emitter
     private static void EmitPopulateStaticMethod(
         IndentedTextWriter w,
         BindingTarget target,
-        string methodInfix
+        string methodInfix,
+        string access
     )
     {
         var t = target.FullyQualifiedTypeName;
@@ -447,7 +457,7 @@ internal static partial class Emitter
             "/// <summary>Populate the mutable members of an existing instance from a reader.</summary>"
         );
         w.WriteLine(
-            $"public static void Populate{methodInfix}({t} instance, global::Enver.IEnvReader reader"
+            $"{access} static void Populate{methodInfix}({t} instance, global::Enver.IEnvReader reader"
                 + (HasValidation(target) ? ", bool validate = true)" : ")")
         );
         w.WriteLine("{");
@@ -1010,7 +1020,8 @@ internal static partial class Emitter
     private static void EmitPublicValidateMethod(
         IndentedTextWriter w,
         BindingTarget target,
-        string methodInfix
+        string methodInfix,
+        string access
     )
     {
         var t = target.FullyQualifiedTypeName;
@@ -1021,7 +1032,7 @@ internal static partial class Emitter
                 + "for the first object that fails. <c>Bind</c> and <c>Build</c> call this "
                 + "unless passed <c>validate: false</c>.</summary>"
         );
-        w.WriteLine($"public static void Validate{methodInfix}({t} instance)");
+        w.WriteLine($"{access} static void Validate{methodInfix}({t} instance)");
         w.WriteLine("{");
         w.Indent++;
         w.WriteLine("global::System.ArgumentNullException.ThrowIfNull(instance);");

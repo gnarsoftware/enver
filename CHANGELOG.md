@@ -41,6 +41,13 @@ together.
 ### Added
 
 - `net11.0` target for all packages.
+- `Enver.Binding`: generated `EnvKeys` and `EnvKeysUtf8` classes (`{Type}EnvKeys` on
+  an external host) expose every bound key as a `const string` or UTF-8 span,
+  nested like the config: `AppConfig.EnvKeys.Db.Pool.MaxSize`. Set
+  `GenerateKeys = false` to skip them. ENVR0037 reports a constant renamed to
+  avoid clashing with its enclosing class.
+- `Enver.Binding`: `Visibility = EnvVisibility.Internal` on `[EnvBindable]` and
+  `[EnvBindable<T>]` makes all generated members `internal`.
 - `Enver.Binding`: `[EnvFallbackKey(name, IgnorePrefix = ...)]` adds keys tried
   after a member's primary key, in declaration order. The first present key wins
   regardless of the order keys appear in, and a missing required member lists
