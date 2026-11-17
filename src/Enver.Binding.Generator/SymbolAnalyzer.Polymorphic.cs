@@ -54,6 +54,37 @@ internal static partial class SymbolAnalyzer
         public void Exit(INamedTypeSymbol type) => _types.Remove(type);
     }
 
+    /// <summary>
+    /// Less specific keys for members of a scoped polymorphic case that are declared
+    /// on the polymorphic base: the same key under <see cref="Prefix"/> (the section)
+    /// rather than the case. With <see cref="DeclaredOn"/> set, only members declared
+    /// on that type or its ancestors cascade; without it (beneath a cascading
+    /// subsection), every member does.
+    /// </summary>
+    internal sealed record Cascade(string Prefix, INamedTypeSymbol? DeclaredOn)
+    {
+        public string? PrefixFor(IPropertySymbol prop)
+        {
+            if (DeclaredOn is null)
+            {
+                return Prefix;
+            }
+            for (var t = DeclaredOn; t is not null; t = t.BaseType)
+            {
+                if (
+                    SymbolEqualityComparer.Default.Equals(
+                        prop.ContainingType.OriginalDefinition,
+                        t.OriginalDefinition
+                    )
+                )
+                {
+                    return Prefix;
+                }
+            }
+            return null;
+        }
+    }
+
     internal sealed class HelperIdAllocator(string infix)
     {
         private int _next;
@@ -1013,7 +1044,12 @@ internal static partial class SymbolAnalyzer
                 accumulatedPrefix: style == EnvCaseKeyStyle.Scoped
                     ? scope.Combine(sectionPrefix, caseName)
                     : sectionPrefix,
-                isPolymorphicCase: true
+                isPolymorphicCase: true,
+                // Scoped cases: members declared on the base cascade to the
+                // section-level key. Shared cases already bind them there.
+                cascade: style == EnvCaseKeyStyle.Scoped
+                    ? new Cascade(sectionPrefix, polyType)
+                    : null
             );
             if (target is null)
             {
