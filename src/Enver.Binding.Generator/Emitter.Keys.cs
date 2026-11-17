@@ -45,7 +45,7 @@ internal static partial class Emitter
         for (int i = 0; i < nodes.Count; i++)
         {
             var node = nodes[i];
-            var name = node.Name;
+            var name = Id(node.Name);
             // Blank lines set nested classes apart from their neighbors.
             if (i > 0 && (node.Key is null || nodes[i - 1].Key is null))
             {

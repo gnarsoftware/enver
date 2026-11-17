@@ -20,3 +20,4 @@ ENVR0036 | EnverBinding | Warning | [EnvFallbackKey] applies only to scalar memb
 ENVR0037 | EnverBinding | Info | Key constant renamed
 ENVR0038 | EnverBinding | Error | Key is not a valid environment variable name
 ENVR0039 | EnverBinding | Info | Fallback key is not a valid environment variable name
+ENVR0040 | EnverBinding | Error | Member name clashes with generated code
