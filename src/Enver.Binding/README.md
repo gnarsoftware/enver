@@ -609,6 +609,12 @@ var cfg = ServerConfig.Bind(DotEnvPaths.AppDirectory());
 > still reported earlier by Enver. Prefer Enver's mechanisms for presence and
 > DataAnnotations for value shape.
 
+- **Arguments must be readable by the generator.** Attribute arguments are read
+  while the binder is generated, so they can't use the type's own `EnvKeys`
+  constants, which don't exist yet at that point. Such an argument reports
+  **ENVR0041** and is left out (an `ErrorMessage` falls back to the default).
+  Use a literal, a constant declared elsewhere, or `{0}` for the member's display
+  name.
 - **All failures are aggregated.** `EnvValidationException.Failures` lists every
   validation message.
 - **Custom and cross-field rules:** implement `IValidatableObject` on the config
