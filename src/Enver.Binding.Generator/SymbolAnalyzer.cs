@@ -190,6 +190,34 @@ internal static partial class SymbolAnalyzer
             GenerateKeys: root.GenerateKeys
         );
 
+        // A member of the host with a name the generated code needs would only
+        // surface as confusing errors in generated code, so report it and stop.
+        var clash = false;
+        foreach (var (name, isType, what) in Emitter.GeneratedNames(host))
+        {
+            foreach (var existing in hostSymbol.GetMembers(name))
+            {
+                if (!isType && existing is IMethodSymbol)
+                {
+                    continue;
+                }
+                diags.Add(
+                    DiagnosticInfo.Create(
+                        DiagnosticDescriptors.GeneratedNameClash,
+                        existing.Locations.FirstOrDefault()
+                            ?? hostSymbol.Locations.FirstOrDefault(),
+                        new([hostSymbol.Name, name, what])
+                    )
+                );
+                clash = true;
+                break;
+            }
+        }
+        if (clash)
+        {
+            return new Result(null, new(diags));
+        }
+
         if (host.GenerateKeys)
         {
             var (keysClass, utf8Class) = KeyConstants.ClassNames(host);

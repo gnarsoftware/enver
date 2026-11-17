@@ -100,6 +100,13 @@ together.
 
 ### Fixed
 
+- `Enver.Binding`: members whose names are C# keywords (`public string @event`) no
+  longer produce generated code that fails to compile.
+- `Enver.Binding`: a bindable type deriving from another bindable type no longer
+  gets CS0108 warnings for the generated members that hide the base type's.
+- `Enver.Binding`: a member whose name clashes with generated code (`Binder`,
+  `EnvKeys`, `EnvKeysUtf8`, `EnvBinding`, or a non-method `Bind`, `Validate` or
+  `Populate`) reports ENVR0040 instead of compile errors in generated code.
 - `Enver.Binding`: a default on a record's primary-constructor parameter
   (`record Db(string Host, int Port = 5432)`) now makes the member optional with that
   default, like a property initializer. Previously the key was required.

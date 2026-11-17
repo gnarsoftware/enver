@@ -324,6 +324,15 @@ internal static class DiagnosticDescriptors
         isEnabledByDefault: true
     );
 
+    public static readonly DiagnosticDescriptor GeneratedNameClash = new(
+        id: "ENVR0040",
+        title: "Member name clashes with generated code",
+        messageFormat: "'{0}' declares '{1}', which is also the name of the generated {2}. Rename the member; nothing is generated for this binding until then.",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
     public static readonly DiagnosticDescriptor FallbackKeyOnObjectMember = new(
         id: "ENVR0036",
         title: "[EnvFallbackKey] applies only to scalar members",

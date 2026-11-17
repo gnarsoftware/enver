@@ -354,7 +354,7 @@ internal static partial class Emitter
         const string ext = "global::Enver.EnvReaderExtensions";
         var args = $"reader, \"{p.Key}\", out var {local}";
         var provider = p.FormatProvider is { } fp
-            ? $"{fp.TypeFullyQualifiedName}.{fp.MemberName}"
+            ? $"{fp.TypeFullyQualifiedName}.{Id(fp.MemberName)}"
             : "default(global::System.IFormatProvider)";
         return c.Dispatch switch
         {

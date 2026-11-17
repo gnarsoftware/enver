@@ -81,6 +81,10 @@ The `IEnumerable<string>` overload is the primitive. Pair it with
 `DotEnvPaths` to compose the canonical ladder. Missing files are silently
 skipped.
 
+A member of your type with one of these names (`Binder`, `EnvKeys`,
+`EnvKeysUtf8`, or a property named `Bind`) reports **ENVR0040**; rename it, or for
+the key classes set `GenerateKeys = false`.
+
 The same surface is generated on an external host (`[EnvBindable<T>]`),
 with method names suffixed by the target's simple type name
 (`Configs.BindCacheConfig(...)` / `Configs.CacheConfigBinder`). See

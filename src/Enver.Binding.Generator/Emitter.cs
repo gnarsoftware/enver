@@ -20,6 +20,11 @@ internal static partial class Emitter
         w.WriteLine(
             "#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member"
         );
+        // A bindable type deriving from another bindable type gets its own Bind,
+        // Binder, EnvKeys and so on, which deliberately hide the base type's.
+        w.WriteLine(
+            "#pragma warning disable CS0108 // Member hides inherited member; missing new keyword"
+        );
         w.WriteLine();
 
         if (host.HostNamespace.Length > 0)
@@ -206,7 +211,7 @@ internal static partial class Emitter
             }
 
             var memberName = ctorNames[i];
-            w.Write($"{memberName}: ");
+            w.Write($"{Id(memberName)}: ");
             EmitInlineMemberInitializationForReader(w, target, memberName);
         }
         w.Write(")");
@@ -219,7 +224,7 @@ internal static partial class Emitter
             w.Indent++;
             foreach (var memberName in initNames)
             {
-                w.Write($"{memberName} = ");
+                w.Write($"{Id(memberName)} = ");
                 EmitInlineMemberInitializationForReader(w, target, memberName);
                 w.WriteLine(",");
             }
@@ -329,7 +334,7 @@ internal static partial class Emitter
             w.Write(
                 fp is null
                     ? "default(global::System.IFormatProvider)"
-                    : $"{fp.TypeFullyQualifiedName}.{fp.MemberName}"
+                    : $"{fp.TypeFullyQualifiedName}.{Id(fp.MemberName)}"
             );
         }
         w.Write(")");
@@ -414,7 +419,7 @@ internal static partial class Emitter
             return null;
         }
         var fp = m.FormatProvider ?? target.DefaultFormatProvider;
-        return fp is null ? null : $"{fp.TypeFullyQualifiedName}.{fp.MemberName}";
+        return fp is null ? null : $"{fp.TypeFullyQualifiedName}.{Id(fp.MemberName)}";
     }
 
     #endregion
@@ -482,7 +487,7 @@ internal static partial class Emitter
         {
             if (!m.IsInitOnly)
             {
-                w.Write($"instance.{m.MemberName} = ");
+                w.Write($"instance.{Id(m.MemberName)} = ");
                 EmitInlineCallExpressionForReader(w, m, target);
                 w.WriteLine(";");
             }
@@ -492,7 +497,7 @@ internal static partial class Emitter
         {
             if (!sub.IsInitOnly)
             {
-                w.Write($"instance.{sub.MemberName} = ");
+                w.Write($"instance.{Id(sub.MemberName)} = ");
                 EmitSubSectionForReader(w, sub);
                 w.WriteLine(";");
             }
@@ -503,7 +508,7 @@ internal static partial class Emitter
             if (!poly.IsInitOnly)
             {
                 w.WriteLine(
-                    $"instance.{poly.MemberName} = {PolymorphicExpression(poly, "reader")};"
+                    $"instance.{Id(poly.MemberName)} = {PolymorphicExpression(poly, "reader")};"
                 );
             }
         }
@@ -550,7 +555,7 @@ internal static partial class Emitter
                         ? ".Value"
                         : "";
                 w.WriteLine(
-                    $"if (_set_{m.MemberName}) instance.{m.MemberName} = _val_{m.MemberName}!{unwrap};"
+                    $"if (_set_{m.MemberName}) instance.{Id(m.MemberName)} = _val_{m.MemberName}!{unwrap};"
                 );
             }
         }
@@ -570,7 +575,7 @@ internal static partial class Emitter
             if (!poly.IsInitOnly)
             {
                 w.WriteLine(
-                    $"if (__Buffered(\"{poly.Key}\")) instance.{poly.MemberName} = {PolymorphicExpression(poly, BufferedReaderExpression)};"
+                    $"if (__Buffered(\"{poly.Key}\")) instance.{Id(poly.MemberName)} = {PolymorphicExpression(poly, BufferedReaderExpression)};"
                 );
             }
         }
@@ -597,7 +602,7 @@ internal static partial class Emitter
         }
 
         EmitSubSectionBuildLocal(w, sub);
-        w.WriteLine($"instance.{sub.MemberName} = _built_{sub.MemberName};");
+        w.WriteLine($"instance.{Id(sub.MemberName)} = _built_{sub.MemberName};");
 
         if (conditions.Count > 0)
         {
@@ -907,7 +912,9 @@ internal static partial class Emitter
             {
                 w.Write(", ");
             }
-            w.Write($"{ctorNames[i]}: {BuildBuildExpression(target, ctorNames[i], fieldPrefix)}");
+            w.Write(
+                $"{Id(ctorNames[i])}: {BuildBuildExpression(target, ctorNames[i], fieldPrefix)}"
+            );
         }
         w.Write(")");
 
@@ -920,7 +927,7 @@ internal static partial class Emitter
             foreach (string memberName in initNames)
             {
                 w.WriteLine(
-                    $"{memberName} = {BuildBuildExpression(target, memberName, fieldPrefix)},"
+                    $"{Id(memberName)} = {BuildBuildExpression(target, memberName, fieldPrefix)},"
                 );
             }
             w.Indent--;
@@ -1022,7 +1029,7 @@ internal static partial class Emitter
     /// validate, which decides whether the <c>validate</c> parameter and the public
     /// <c>Validate</c> method are generated.
     /// </summary>
-    private static bool HasValidation(BindingTarget target) =>
+    internal static bool HasValidation(BindingTarget target) =>
         target.Self is { } self
             ? PolymorphicRequiresValidation(self)
             : TreeRequiresValidation(target);
@@ -1248,7 +1255,7 @@ internal static partial class Emitter
             if (TreeRequiresValidation(sub.Target))
             {
                 w.WriteLine(
-                    $"if (instance.{sub.MemberName} is {{ }} __s_{sub.MemberName}) __Validate(__s_{sub.MemberName});"
+                    $"if (instance.{Id(sub.MemberName)} is {{ }} __s_{sub.MemberName}) __Validate(__s_{sub.MemberName});"
                 );
             }
         }
@@ -1256,7 +1263,7 @@ internal static partial class Emitter
         {
             if (PolymorphicRequiresValidation(poly))
             {
-                EmitPolymorphicValidation(w, poly, $"instance.{poly.MemberName}");
+                EmitPolymorphicValidation(w, poly, $"instance.{Id(poly.MemberName)}");
             }
         }
 
@@ -1304,7 +1311,7 @@ internal static partial class Emitter
                     w.WriteLine("{");
                     w.Indent++;
                     w.WriteLine(
-                        $"var __r = {field}.GetValidationResult(instance.{m.MemberName}, __ctx);"
+                        $"var __r = {field}.GetValidationResult(instance.{Id(m.MemberName)}, __ctx);"
                     );
                     // Fall back to a message built from the (already-set) display
                     // name when the attribute supplies none.
@@ -1391,7 +1398,7 @@ internal static partial class Emitter
 
         w.WriteLine("{");
         w.Indent++;
-        w.WriteLine($"var __v = instance.{memberName};");
+        w.WriteLine($"var __v = instance.{Id(memberName)};");
         w.WriteLine("if (__v is not null)");
         w.WriteLine("{");
         w.Indent++;
@@ -1417,7 +1424,7 @@ internal static partial class Emitter
     )
     {
         w.WriteLine(
-            $"if (!global::System.Object.Equals(instance.{memberName}, instance.{compare.OtherMember}))"
+            $"if (!global::System.Object.Equals(instance.{Id(memberName)}, instance.{Id(compare.OtherMember)}))"
         );
         w.WriteLine("{");
         w.Indent++;
@@ -1441,7 +1448,7 @@ internal static partial class Emitter
         w.Indent++;
         w.WriteLine(
             $"var __r = {custom.ValidatorTypeFullyQualifiedName}.{custom.MethodName}"
-                + $"(instance.{memberName}{contextArg});"
+                + $"(instance.{Id(memberName)}{contextArg});"
         );
         w.WriteLine(
             "if (__r is not null) (__failures ??= new()).Add(__r.ErrorMessage ?? "
@@ -1522,6 +1529,16 @@ internal static partial class Emitter
 
         return EffectiveRequirement.Required;
     }
+
+    /// <summary>
+    /// A member name as a C# identifier. A property declared as <c>@event</c> has
+    /// the name <c>event</c>, which only compiles with its <c>@</c> back.
+    /// </summary>
+    private static string Id(string name) =>
+        Microsoft.CodeAnalysis.CSharp.SyntaxFacts.GetKeywordKind(name)
+        != Microsoft.CodeAnalysis.CSharp.SyntaxKind.None
+            ? "@" + name
+            : name;
 
     private static string StorageTypeOf(BindingMember m)
     {

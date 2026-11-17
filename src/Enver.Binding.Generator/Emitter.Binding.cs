@@ -12,7 +12,7 @@ internal static partial class Emitter
     /// internal one doesn't, so the interface doesn't appear on its public surface,
     /// and an external host can't add interfaces to the target.
     /// </summary>
-    private static bool ImplementsBindingInterface(BindingHost host) =>
+    internal static bool ImplementsBindingInterface(BindingHost host) =>
         host.HostIsSelfBindable && host.Accessibility == "public";
 
     private static string BindingInterface(BindingTarget target) =>
@@ -69,6 +69,39 @@ internal static partial class Emitter
         EmitBindingMembers(w, host.Target, methodInfix);
         w.Indent--;
         w.WriteLine("}");
+    }
+
+    /// <summary>
+    /// The names the generated code adds to the host, with what each one is.
+    /// Types clash with any member of the same name; methods only with members
+    /// that aren't methods, since a user's own overload is fine.
+    /// </summary>
+    internal static IEnumerable<(string Name, bool IsType, string What)> GeneratedNames(
+        BindingHost host
+    )
+    {
+        var target = host.Target;
+        var infix = host.HostIsSelfBindable ? "" : target.SimpleTypeName;
+        yield return ($"Bind{infix}", false, "Bind method");
+        if (HasValidation(target))
+        {
+            yield return ($"Validate{infix}", false, "Validate method");
+        }
+        if (target.GeneratePopulate)
+        {
+            yield return ($"Populate{infix}", false, "Populate method");
+        }
+        yield return ($"{infix}Binder", true, "Binder class");
+        if (host.GenerateKeys)
+        {
+            var (keys, utf8) = KeyConstants.ClassNames(host);
+            yield return (keys, true, "key constants class (or set GenerateKeys = false)");
+            yield return (utf8, true, "key constants class (or set GenerateKeys = false)");
+        }
+        if (!ImplementsBindingInterface(host))
+        {
+            yield return (BindingClassName(host), true, "binding class");
+        }
     }
 
     #endregion
