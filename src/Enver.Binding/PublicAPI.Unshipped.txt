@@ -1,8 +1,1 @@
 #nullable enable
-Enver.Binding.EnvValidationName
-Enver.Binding.EnvValidationName.Key = 1 -> Enver.Binding.EnvValidationName
-Enver.Binding.EnvValidationName.MemberName = 0 -> Enver.Binding.EnvValidationName
-Enver.Binding.EnvBindableAttribute.ValidationName.get -> Enver.Binding.EnvValidationName
-Enver.Binding.EnvBindableAttribute.ValidationName.init -> void
-Enver.Binding.EnvBindableAttribute<T>.ValidationName.get -> Enver.Binding.EnvValidationName
-Enver.Binding.EnvBindableAttribute<T>.ValidationName.init -> void

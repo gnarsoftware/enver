@@ -10,6 +10,8 @@ together.
 
 ## Unreleased
 
+## [2.1.0] - 2026-11-17
+
 ### Added
 
 - `Enver.Binding`: `ValidationName = EnvValidationName.Key` on `[EnvBindable]` and

@@ -10,6 +10,8 @@ Enver.Binding.EnvBindableAttribute.KeyNaming.init -> void
 Enver.Binding.EnvBindableAttribute.Prefix.get -> string?
 Enver.Binding.EnvBindableAttribute.Separator.get -> Enver.Binding.EnvKeySeparator
 Enver.Binding.EnvBindableAttribute.Separator.init -> void
+Enver.Binding.EnvBindableAttribute.ValidationName.get -> Enver.Binding.EnvValidationName
+Enver.Binding.EnvBindableAttribute.ValidationName.init -> void
 Enver.Binding.EnvBindableAttribute.Visibility.get -> Enver.Binding.EnvVisibility
 Enver.Binding.EnvBindableAttribute.Visibility.init -> void
 Enver.Binding.EnvBindableAttribute<T>
@@ -23,6 +25,8 @@ Enver.Binding.EnvBindableAttribute<T>.KeyNaming.init -> void
 Enver.Binding.EnvBindableAttribute<T>.Prefix.get -> string?
 Enver.Binding.EnvBindableAttribute<T>.Separator.get -> Enver.Binding.EnvKeySeparator
 Enver.Binding.EnvBindableAttribute<T>.Separator.init -> void
+Enver.Binding.EnvBindableAttribute<T>.ValidationName.get -> Enver.Binding.EnvValidationName
+Enver.Binding.EnvBindableAttribute<T>.ValidationName.init -> void
 Enver.Binding.EnvBindableAttribute<T>.Visibility.get -> Enver.Binding.EnvVisibility
 Enver.Binding.EnvBindableAttribute<T>.Visibility.init -> void
 Enver.Binding.EnvCaseAttribute
@@ -87,6 +91,9 @@ Enver.Binding.EnvRequirement.Required = 1 -> Enver.Binding.EnvRequirement
 Enver.Binding.EnvUriAttribute
 Enver.Binding.EnvUriAttribute.EnvUriAttribute(System.UriKind kind) -> void
 Enver.Binding.EnvUriAttribute.Kind.get -> System.UriKind
+Enver.Binding.EnvValidationName
+Enver.Binding.EnvValidationName.Key = 1 -> Enver.Binding.EnvValidationName
+Enver.Binding.EnvValidationName.MemberName = 0 -> Enver.Binding.EnvValidationName
 Enver.Binding.EnvVisibility
 Enver.Binding.EnvVisibility.Internal = 1 -> Enver.Binding.EnvVisibility
 Enver.Binding.EnvVisibility.Public = 0 -> Enver.Binding.EnvVisibility
