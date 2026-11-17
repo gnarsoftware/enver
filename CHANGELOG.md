@@ -26,6 +26,13 @@ together.
   (`unknown EmailTransport type 'Smtp' in 'EMAIL_KIND'; expected one of: ...`), a
   scalar union value matching no case, and a value the streaming `Binder` can't
   parse (`invalid int value for 'APP_PORT'`).
+- `Enver.Binding`: a validation attribute argument the generator can't read, such
+  as an `ErrorMessage` built from the type's own `EnvKeys` constants (which are
+  still being generated), reports warning ENVR0041. The argument is left out, so
+  the attribute's default message is used; previously `ErrorMessage = null` was
+  generated and a failing value threw `InvalidOperationException` at runtime. An
+  attribute whose constructor arguments can't be read is skipped with the same
+  warning instead of silently.
 
 ## [2.0.0] - 2026-11-16
 

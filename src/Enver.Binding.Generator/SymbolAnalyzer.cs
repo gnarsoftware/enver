@@ -898,7 +898,6 @@ internal static partial class SymbolAnalyzer
             MemberName: prop.Name,
             ResolvedKey: resolvedKey,
             FallbackKeys: new(fallbackKeys.ToImmutable()),
-            SectionKey: sectionKey,
             TypeFullyQualifiedName: prop.Type.ToDisplayString(
                 SymbolDisplayFormat.FullyQualifiedFormat
             ),
@@ -916,7 +915,8 @@ internal static partial class SymbolAnalyzer
             HasRequiredKeyword: hasRequiredKw,
             IsInitOnly: prop.SetMethod?.IsInitOnly ?? false,
             Validators: ReadValidators(prop, hostSymbol, compilation, diags),
-            DisplayNameExpression: ReadDisplayNameExpression(prop, hostSymbol, compilation)
+            DisplayNameExpression: ReadDisplayNameExpression(prop, hostSymbol, compilation),
+            SectionKey: sectionKey
         );
     }
 
@@ -1016,13 +1016,80 @@ internal static partial class SymbolAnalyzer
                 continue;
             }
 
-            if (TryReconstructAttribute(attr, prop, hostSymbol, compilation, out var reconstructed))
+            if (
+                TryReconstructAttribute(
+                    attr,
+                    prop,
+                    hostSymbol,
+                    compilation,
+                    diags,
+                    out var reconstructed
+                )
+            )
             {
                 builder ??= ImmutableArray.CreateBuilder<ValidationAttr>();
                 builder.Add(reconstructed);
             }
         }
         return builder is null ? EquatableArray<ValidationAttr>.Empty : new(builder);
+    }
+
+    /// <summary>
+    /// ENVR0041 at the argument itself: a named one by name, a constructor one by
+    /// position among the unnamed arguments.
+    /// </summary>
+    private static void ReportUnreadableArgument(
+        AttributeData attr,
+        IPropertySymbol prop,
+        string? argumentName,
+        int position,
+        string consequence,
+        ImmutableArray<DiagnosticInfo>.Builder diags
+    )
+    {
+        Location? location = null;
+        if (
+            attr.ApplicationSyntaxReference?.GetSyntax()
+            is Microsoft.CodeAnalysis.CSharp.Syntax.AttributeSyntax
+            {
+                ArgumentList: { } list
+            } syntax
+        )
+        {
+            var positional = list.Arguments.Where(a => a.NameEquals is null && a.NameColon is null);
+            var argument =
+                argumentName is not null
+                    ? list.Arguments.FirstOrDefault(a =>
+                        a.NameEquals?.Name.Identifier.ValueText == argumentName
+                    )
+                : position >= 0 ? positional.ElementAtOrDefault(position)
+                : null;
+            location = (argument ?? (Microsoft.CodeAnalysis.SyntaxNode)syntax).GetLocation();
+        }
+
+        var attributeName = attr.AttributeClass!.Name;
+        if (
+            attributeName.EndsWith("Attribute", StringComparison.Ordinal)
+            && attributeName.Length > "Attribute".Length
+        )
+        {
+            attributeName = attributeName.Substring(0, attributeName.Length - "Attribute".Length);
+        }
+
+        diags.Add(
+            DiagnosticInfo.Create(
+                DiagnosticDescriptors.UnreadableValidationArgument,
+                location ?? prop.Locations.FirstOrDefault(),
+                new([
+                    argumentName is not null ? $"Argument {argumentName}"
+                    : position >= 0 ? $"Argument {position + 1}"
+                    : "A constructor argument",
+                    attributeName,
+                    prop.Name,
+                    consequence,
+                ])
+            )
+        );
     }
 
     private static bool IsTypedRange(AttributeData attr)
@@ -1053,12 +1120,22 @@ internal static partial class SymbolAnalyzer
         IPropertySymbol prop,
         INamedTypeSymbol hostSymbol,
         Compilation compilation,
+        ImmutableArray<DiagnosticInfo>.Builder diags,
         out ValidationAttr result
     )
     {
         result = null!;
         if (attr.AttributeConstructor is not { } ctor)
         {
+            // An argument the compiler couldn't bind leaves no constructor to call.
+            ReportUnreadableArgument(
+                attr,
+                prop,
+                argumentName: null,
+                position: -1,
+                "the attribute is skipped, so this rule isn't checked",
+                diags
+            );
             return false;
         }
 
@@ -1067,6 +1144,14 @@ internal static partial class SymbolAnalyzer
         {
             if (FormatTypedConstant(attr.ConstructorArguments[i]) is not { } expr)
             {
+                ReportUnreadableArgument(
+                    attr,
+                    prop,
+                    argumentName: null,
+                    position: i,
+                    "the attribute is skipped, so this rule isn't checked",
+                    diags
+                );
                 return false;
             }
             // Cast each arg to the declared parameter type so overload resolution
@@ -1085,7 +1170,17 @@ internal static partial class SymbolAnalyzer
         {
             if (FormatTypedConstant(na.Value) is not { } expr)
             {
-                return false;
+                // Leaving it out falls back to the attribute's own default, such as
+                // the standard error message, so validation still works.
+                ReportUnreadableArgument(
+                    attr,
+                    prop,
+                    na.Key,
+                    position: -1,
+                    $"it's left out, so the attribute's default {na.Key} is used",
+                    diags
+                );
+                continue;
             }
             named.Add(new ValidationNamedArg(na.Key, expr));
         }
@@ -1299,6 +1394,13 @@ internal static partial class SymbolAnalyzer
 
     private static string? FormatTypedConstant(TypedConstant c)
     {
+        // An argument the compiler couldn't bind, such as one referring to the
+        // EnvKeys constants this generator is still producing, has no value: it
+        // must not read as null.
+        if (c.Kind == TypedConstantKind.Error)
+        {
+            return null;
+        }
         if (c.IsNull)
         {
             return "null";

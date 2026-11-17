@@ -333,6 +333,15 @@ internal static class DiagnosticDescriptors
         isEnabledByDefault: true
     );
 
+    public static readonly DiagnosticDescriptor UnreadableValidationArgument = new(
+        id: "ENVR0041",
+        title: "Validation attribute argument can't be read by the generator",
+        messageFormat: "{0} of [{1}] on '{2}' can't be read when the binder is generated; {3}. It refers to generated code (such as the EnvKeys constants) or isn't a compile-time constant; use a literal or a constant declared elsewhere.",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true
+    );
+
     public static readonly DiagnosticDescriptor FallbackKeyOnObjectMember = new(
         id: "ENVR0036",
         title: "[EnvFallbackKey] applies only to scalar members",
