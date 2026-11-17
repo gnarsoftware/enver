@@ -164,7 +164,7 @@ public class PolymorphicBindingTests
                 "c.Storage.ToString()",
                 ("STORAGE_TYPE", "AZURE")
             ),
-            "EnvInvalidValueException: unknown Test.Storage type 'AZURE'; expected one of: REMOTE, LOCAL"
+            "EnvInvalidValueException: unknown Test.Storage type 'AZURE' in 'STORAGE_TYPE'; expected one of: REMOTE, LOCAL"
         );
     }
 
@@ -367,7 +367,7 @@ public class PolymorphicBindingTests
                 "c.Storage.ToString()",
                 ("STORAGE_TYPE", "REMOTE")
             ),
-            "EnvInvalidValueException: unknown Test.Storage type 'REMOTE'; expected one of: DISK"
+            "EnvInvalidValueException: unknown Test.Storage type 'REMOTE' in 'STORAGE_TYPE'; expected one of: DISK"
         );
     }
 
@@ -431,7 +431,7 @@ public class PolymorphicBindingTests
         AssertBoth(Exec(body, describe, ("TIMEOUT", "00:00:30")), "TimeSpan:00:00:30");
         AssertBoth(
             Exec(body, describe, ("TIMEOUT", "soon")),
-            "EnvInvalidValueException: value does not match any case of Test.Timeout (int, System.TimeSpan)"
+            "EnvInvalidValueException: value of 'TIMEOUT' does not match any case of Test.Timeout (int, System.TimeSpan)"
         );
     }
 
