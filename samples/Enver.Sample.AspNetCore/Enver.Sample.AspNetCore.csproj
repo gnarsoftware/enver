@@ -10,7 +10,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/Enver.Extensions.Configuration/Enver.Extensions.Configuration.csproj" />
+    <!-- The Gnar.Enver.Extensions metapackage: .env configuration + options binding. -->
+    <ProjectReference Include="../../src/Enver.Extensions/Enver.Extensions.csproj" />
+    <!--
+      Referenced directly rather than via the package, so pick the generator
+      build explicitly (the package does this automatically).
+    -->
+    <ProjectReference
+      Include="../../src/Enver.Binding.Generator.Roslyn5.12/Enver.Binding.Generator.Roslyn5.12.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false"
+    />
   </ItemGroup>
 
   <ItemGroup>

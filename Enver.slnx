@@ -4,6 +4,8 @@
     <Project Path="src/Enver.InMemory/Enver.InMemory.csproj" />
     <Project Path="src/Enver.SystemEnvironment/Enver.SystemEnvironment.csproj" />
     <Project Path="src/Enver.Extensions.Configuration/Enver.Extensions.Configuration.csproj" />
+    <Project Path="src/Enver.Extensions.Options/Enver.Extensions.Options.csproj" />
+    <Project Path="src/Enver.Extensions/Enver.Extensions.csproj" />
     <Project Path="src/Enver.Binding/Enver.Binding.csproj" />
     <Project Path="src/Enver.Binding.Generator/Enver.Binding.Generator.csproj" />
     <Project Path="src/Enver.Binding.Generator.Roslyn5.12/Enver.Binding.Generator.Roslyn5.12.csproj" />
@@ -19,6 +21,7 @@
     <Project Path="tests/Enver.InMemory.Tests/Enver.InMemory.Tests.csproj" />
     <Project Path="tests/Enver.SystemEnvironment.Tests/Enver.SystemEnvironment.Tests.csproj" />
     <Project Path="tests/Enver.Extensions.Configuration.Tests/Enver.Extensions.Configuration.Tests.csproj" />
+    <Project Path="tests/Enver.Extensions.Options.Tests/Enver.Extensions.Options.Tests.csproj" />
     <Project Path="tests/Enver.Binding.Generator.Tests/Enver.Binding.Generator.Tests.csproj" />
   </Folder>
 </Solution>

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../build/Library.props" />
+
+  <PropertyGroup>
+    <PackageId>Gnar.Enver.Extensions.Options</PackageId>
+    <Description>Microsoft.Extensions.Options integration for Enver.Binding. Binds [EnvBindable] types, including records and required members, from any IConfiguration, and validates them at startup.</Description>
+    <PackageTags>$(PackageTags);options;binding</PackageTags>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Enver.Binding/Enver.Binding.csproj" />
+  </ItemGroup>
+
+  <!-- .NET 11 ships these in Microsoft.NETCore.App; .NET 10 needs the packages. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Enver.Extensions.Options.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

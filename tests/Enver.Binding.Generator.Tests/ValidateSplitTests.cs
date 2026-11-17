@@ -164,8 +164,13 @@ internal sealed class MapReader(Dictionary<string, string?> map) : IEnvReader
         var src = string.Join("\n", result.GeneratedSources.Select(s => s.Text));
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(src, Does.Not.Contain("Validate"));
-            Assert.That(src, Does.Not.Contain("validate"));
+            // Only the IEnvBinding<T>.Validate no-op remains.
+            Assert.That(src, Does.Not.Contain("public static void Validate("));
+            Assert.That(src, Does.Not.Contain("__Validate"));
+            // The explicit IEnvBinding<T>.Bind takes (and ignores) validate, but the
+            // public methods don't have the parameter.
+            Assert.That(src, Does.Not.Contain("bool validate = true"));
+            Assert.That(src, Does.Contain(".Validate(global::Test.AppConfig instance) { }"));
             Assert.That(src, Does.Contain("public global::Test.AppConfig Build()"));
         }
     }
