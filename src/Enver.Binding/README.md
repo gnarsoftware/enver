@@ -48,22 +48,28 @@ By default, property names map to `UPPER_SNAKE_CASE` keys
 ## Generated surface
 
 For a self-bindable type (`[EnvBindable]` on the type itself), the generator
-emits three static factories plus a streaming `Binder`:
+emits three static factories, a `Validate` method and a streaming `Binder`.
+The `validate` parameters and `Validate` appear only when the type has
+[validation](#validation) rules somewhere in it:
 
 ```csharp
 public partial record DatabaseConfig
 {
-    public static DatabaseConfig Bind(IEnvReader reader);
+    public static DatabaseConfig Bind(IEnvReader reader, bool validate = true);
     public static DatabaseConfig Bind(
         string path,
-        EnvParseOptions parseOptions = default);
+        EnvParseOptions parseOptions = default,
+        bool validate = true);
     public static DatabaseConfig Bind(
         IEnumerable<string> paths,
-        EnvParseOptions parseOptions = default);
+        EnvParseOptions parseOptions = default,
+        bool validate = true);
+
+    public static void Validate(DatabaseConfig instance);
 
     public sealed partial class Binder : EnvParser
     {
-        public DatabaseConfig Build();
+        public DatabaseConfig Build(bool validate = true);
     }
 }
 ```
@@ -452,7 +458,30 @@ var cfg = ServerConfig.Bind(DotEnvPaths.AppDirectory());
 - **Custom and cross-field rules:** implement `IValidatableObject` on the config
   type (or any subsection) for logic the attributes can't express.
 - **Subsections validate too.** Each nested config validates itself, so a
-  `[Range]` on a subsection member is enforced when the parent binds.
+  `[Range]` on a subsection member is enforced when the parent binds. Nested
+  objects (subsections and the selected polymorphic case) are checked before
+  their parent, and the first object that fails is reported.
+
+### Validating separately
+
+Pass `validate: false` to `Bind`, `Build` or `Populate` to get the bound instance
+without checking it, and call the generated `Validate` when you're ready. It
+checks the instance and everything beneath it, and throws the same
+`EnvValidationException`:
+
+```csharp
+var cfg = ServerConfig.Bind(DotEnvPaths.AppDirectory(), validate: false);
+// ... adjust cfg, or decide when to fail ...
+ServerConfig.Validate(cfg);
+```
+
+`Validate` and the `validate` parameters are generated only when there is
+something to check: a rule on the type itself, on a subsection, or on a
+polymorphic case, at any depth. A type with no rules keeps the plain `Bind(...)`
+and `Build()` signatures. On an external host `Validate` is suffixed like the
+factories:
+`Configs.ValidateCacheConfig(cfg)`. With `GeneratePopulate`, `Populate` validates
+the whole instance after assigning, including members it didn't touch.
 - **Discovered at compile time.** The generator reads your attributes during
   generation and invokes them directly, rather than scanning your type with
   `Validator.ValidateObject`. `[Display(Name = "...")]` (including resource-based
@@ -519,6 +548,7 @@ name, and the streaming binder lives alongside them:
 ```csharp
 var cfg = Configs.BindCacheConfig(reader);
 var cfg = Configs.BindCacheConfig(DotEnvPaths.AppDirectory());
+Configs.ValidateCacheConfig(cfg);
 var binder = new Configs.CacheConfigBinder();
 ```
 
