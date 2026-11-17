@@ -92,8 +92,8 @@ internal static class DiagnosticDescriptors
 
     public static readonly DiagnosticDescriptor InvalidResolvedKey = new(
         id: "ENVR0012",
-        title: "Resolved key is not a valid environment variable name",
-        messageFormat: "Member '{0}' resolves to env-var key '{1}', which is not a valid identifier",
+        title: "Resolved key cannot be used",
+        messageFormat: "Member '{0}' resolves to key '{1}', which can't be used: a key must be non-empty and contain no whitespace, control characters, quotes or backslashes",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -301,6 +301,24 @@ internal static class DiagnosticDescriptors
         id: "ENVR0037",
         title: "Key constant renamed",
         messageFormat: "The key constant '{0}' is generated as '{1}' because its name is already used by the enclosing class or an earlier member",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Info,
+        isEnabledByDefault: true
+    );
+
+    public static readonly DiagnosticDescriptor NonEnvironmentKey = new(
+        id: "ENVR0038",
+        title: "Key is not a valid environment variable name",
+        messageFormat: "Member '{0}' resolves to key '{1}', which isn't a valid environment variable name, so .env files and environment variables can't provide it. Set AllowNonEnvironmentKey = true on its [EnvKey] if the key is meant for another configuration source.",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
+    public static readonly DiagnosticDescriptor NonEnvironmentFallbackKey = new(
+        id: "ENVR0039",
+        title: "Fallback key is not a valid environment variable name",
+        messageFormat: "Fallback key '{1}' on member '{0}' isn't a valid environment variable name, so it can only be read from another configuration source. Set AllowNonEnvironmentKey = true on the attribute to confirm that's intended.",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Info,
         isEnabledByDefault: true

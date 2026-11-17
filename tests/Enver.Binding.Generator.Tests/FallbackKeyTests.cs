@@ -196,9 +196,11 @@ public class FallbackKeyTests
         );
     }
 
-    [TestCase("\"\"")]
-    [TestCase("\"BAD-KEY\"")]
-    public void InvalidFallbackNameIsReported(string name)
+    [TestCase("\"\"", "ENVR0012")]
+    [TestCase("\"BAD KEY\"", "ENVR0012")]
+    [TestCase("\"BAD\\\"KEY\"", "ENVR0012")]
+    [TestCase("\"App:Host\"", "ENVR0039")]
+    public void InvalidFallbackNameIsReported(string name, string id)
     {
         var result = GeneratorTestHarness.Run(
             $$"""
@@ -211,7 +213,7 @@ public class FallbackKeyTests
             """
         );
 
-        Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Contain("ENVR0012"));
+        Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Contain(id));
     }
 
     [TestCase("[property: EnvFallbackKey(\"PORT\")] string Host, int Port")]

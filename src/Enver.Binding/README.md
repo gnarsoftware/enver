@@ -251,9 +251,42 @@ public partial class AppConfig
   `EnvMissingVariableException` names the primary key and lists the fallbacks
   it tried.
 - **Scalar members only.** On a subsection or polymorphic member the attribute is
-  ignored with warning **ENVR0036**. An empty or invalid name reports
-  **ENVR0012**, and a fallback that matches another key in the same type reports
-  **ENVR0021**.
+  ignored with warning **ENVR0036**. A name that can't be used as a key reports
+  **ENVR0012** (see [below](#keys-for-other-configuration-sources)), and a fallback
+  that matches another key in the same type reports **ENVR0021**.
+
+### Keys for other configuration sources
+
+Keys normally have to be valid environment variable names (letters, digits and
+underscores). When the generated `Bind(IEnvReader)` reads from another source,
+such as `IConfiguration` (through [`Enver.Extensions.Options`](../Enver.Extensions.Options/README.md)
+or `AsEnvReader()`), you can give a member a second key in that source's own style
+and set `AllowNonEnvironmentKey`:
+
+```csharp
+[EnvBindable("APP")]
+public partial record AppOptions(
+    // APP_NAME from .env or the environment, App:Name from appsettings.json.
+    [property: EnvFallbackKey("App:Name", IgnorePrefix = true, AllowNonEnvironmentKey = true)]
+        string Name
+);
+```
+
+- **Without the flag**, a member's own key that isn't an environment variable name
+  is error **ENVR0038**, and such a fallback is info **ENVR0039**. That catches
+  typos like `DB-HOST`. Either way the member is still generated.
+- **With the flag** the key is accepted silently. On a subsection or polymorphic
+  member's `[EnvKey]` it also covers every key beneath it.
+- These keys never match in a `.env` file or the process environment; only a
+  reader over another source can provide them.
+- A key that can't be used at all (empty, or containing whitespace, quotes or
+  backslashes) is error **ENVR0012**, flag or not.
+
+The alternative is to use the ASP.NET Core style in `.env` files too:
+`Separator = EnvKeySeparator.DoubleUnderscore` with
+`KeyNaming = EnvKeyNamingConvention.PreserveOriginal` gives `App__Db__Host`, which
+the environment-variable and `.env` configuration providers turn into
+`App:Db:Host`, the same key `appsettings.json` uses.
 
 ## Subsections
 
