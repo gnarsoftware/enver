@@ -44,7 +44,12 @@ public record AppConfig(
 
 public class DbConfig
 {
-    public required string Host { get; init; } // DB_HOST - required
+    // DB_HOST - required. [EnvFallbackKey] adds keys to try when DB_HOST isn't
+    // set, in order: DB_SERVER (the prefix still applies), then PGHOST (used as
+    // written). DB_HOST wins whenever it is set, wherever it appears in the file.
+    [EnvFallbackKey("SERVER")]
+    [EnvFallbackKey("PGHOST", IgnorePrefix = true)]
+    public required string Host { get; init; }
     public required int Port { get; init; } // DB_PORT - required
     public required string Name { get; init; } // DB_NAME - required
     public required PoolConfig Pool { get; init; } // DB_POOL_* - subsection

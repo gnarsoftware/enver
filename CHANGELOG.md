@@ -41,6 +41,11 @@ together.
 ### Added
 
 - `net11.0` target for all packages.
+- `Enver.Binding`: `[EnvFallbackKey(name, IgnorePrefix = ...)]` adds keys tried
+  after a member's primary key, in declaration order. The first present key wins
+  regardless of the order keys appear in, and a missing required member lists
+  every key it tried. ENVR0036 warns when it is placed on a subsection or
+  polymorphic member.
 - `Enver.Binding`: a generated `Validate(instance)` (`Validate{Type}` on an external
   host) checks an instance and everything beneath it on demand. `Bind`, `Build`
   and `Populate` take `validate: false` to skip validation. Both are generated

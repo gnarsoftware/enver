@@ -351,6 +351,7 @@ internal static partial class SymbolAnalyzer
                 && IsPolymorphicType(polyType)
             )
             {
+                ReportFallbackKeyIgnored(prop, "polymorphic member", diags);
                 var poly = TryAnalyzePolymorphic(
                     prop,
                     polyType,
@@ -424,6 +425,7 @@ internal static partial class SymbolAnalyzer
                 }
                 if (subSection is not null)
                 {
+                    ReportFallbackKeyIgnored(prop, "subsection", diags);
                     subSections.Add(subSection);
                     if (!ctorParamNames.Contains(prop.Name))
                     {
@@ -460,18 +462,39 @@ internal static partial class SymbolAnalyzer
                 continue; // diagnostic already reported
             }
 
-            if (keysSeen.TryGetValue(member.ResolvedKey, out var firstMember))
+            // The primary key and every fallback must be unique within the target,
+            // including against each other.
+            string? duplicateKey = null;
+            string? duplicateOwner = null;
+            var memberKeys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var key in member.AllKeys())
+            {
+                if (keysSeen.TryGetValue(key, out var owner))
+                {
+                    (duplicateKey, duplicateOwner) = (key, owner);
+                    break;
+                }
+                if (!memberKeys.Add(key))
+                {
+                    (duplicateKey, duplicateOwner) = (key, prop.Name);
+                    break;
+                }
+            }
+            if (duplicateKey is not null)
             {
                 diags.Add(
                     DiagnosticInfo.Create(
                         DiagnosticDescriptors.DuplicateResolvedKey,
                         prop.Locations.FirstOrDefault(),
-                        new(ImmutableArray.Create(prop.Name, member.ResolvedKey, firstMember))
+                        new(ImmutableArray.Create(prop.Name, duplicateKey, duplicateOwner!))
                     )
                 );
                 continue;
             }
-            keysSeen[member.ResolvedKey] = prop.Name;
+            foreach (var key in memberKeys)
+            {
+                keysSeen[key] = prop.Name;
+            }
             members.Add(member);
 
             if (!ctorParamNames.Contains(prop.Name))
@@ -639,6 +662,41 @@ internal static partial class SymbolAnalyzer
             return null;
         }
 
+        var fallbackKeys = ImmutableArray.CreateBuilder<string>();
+        foreach (var attr in prop.GetAttributes())
+        {
+            if (
+                attr.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                != "global::" + AttributeNames.EnvFallbackKey
+            )
+            {
+                continue;
+            }
+            var name =
+                attr.ConstructorArguments.Length > 0
+                    ? attr.ConstructorArguments[0].Value as string
+                    : null;
+            var fallbackIgnorePrefix = attr.NamedArguments.Any(n =>
+                n.Key == "IgnorePrefix" && n.Value.Value is true
+            );
+            // An empty name would otherwise resolve to the bare prefix.
+            var fallbackKey = string.IsNullOrEmpty(name)
+                ? ""
+                : CombineKey(fallbackIgnorePrefix ? null : prefix, name, separator);
+            if (!s_validKeyPattern.IsMatch(fallbackKey))
+            {
+                diags.Add(
+                    DiagnosticInfo.Create(
+                        DiagnosticDescriptors.InvalidResolvedKey,
+                        AttributeLocation(attr, prop),
+                        new(ImmutableArray.Create(prop.Name, fallbackKey))
+                    )
+                );
+                return null;
+            }
+            fallbackKeys.Add(fallbackKey);
+        }
+
         var underlyingType = prop.Type.UnwrapNullable();
 
         var dispatch = TypeDispatch.Resolve(prop.Type);
@@ -753,6 +811,7 @@ internal static partial class SymbolAnalyzer
         return new BindingMember(
             MemberName: prop.Name,
             ResolvedKey: resolvedKey,
+            FallbackKeys: new(fallbackKeys.ToImmutable()),
             TypeFullyQualifiedName: prop.Type.ToDisplayString(
                 SymbolDisplayFormat.FullyQualifiedFormat
             ),
@@ -1257,6 +1316,24 @@ internal static partial class SymbolAnalyzer
             naming = EnvKeyNamingConvention.UpperSnakeCase;
         }
         return new RootSettings(prefix, naming, separator, populate);
+    }
+
+    private static void ReportFallbackKeyIgnored(
+        IPropertySymbol prop,
+        string kind,
+        ImmutableArray<DiagnosticInfo>.Builder diags
+    )
+    {
+        if (FindAttribute(prop, AttributeNames.EnvFallbackKey) is { } attr)
+        {
+            diags.Add(
+                DiagnosticInfo.Create(
+                    DiagnosticDescriptors.FallbackKeyOnObjectMember,
+                    AttributeLocation(attr, prop),
+                    new(ImmutableArray.Create(prop.Name, kind))
+                )
+            );
+        }
     }
 
     private static Location? AttributeLocation(AttributeData attr, ISymbol fallback) =>

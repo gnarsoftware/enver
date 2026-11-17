@@ -186,9 +186,12 @@ internal static partial class Emitter
     {
         foreach (var m in target.Members.AsImmutableArray())
         {
-            if (seen.Add(m.ResolvedKey))
+            foreach (var key in m.AllKeys())
             {
-                keys.Add(m.ResolvedKey);
+                if (seen.Add(key))
+                {
+                    keys.Add(key);
+                }
             }
         }
         foreach (var sub in target.SubSections.AsImmutableArray())
@@ -205,7 +208,7 @@ internal static partial class Emitter
     {
         foreach (var m in target.Members.AsImmutableArray())
         {
-            keys.Add(m.ResolvedKey);
+            keys.UnionWith(m.AllKeys());
         }
         foreach (var sub in target.SubSections.AsImmutableArray())
         {

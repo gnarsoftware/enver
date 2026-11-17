@@ -1,4 +1,5 @@
 using System.CodeDom.Compiler;
+using System.Text;
 using Enver.Binding.Generator.Model;
 
 namespace Enver.Binding.Generator;
@@ -267,7 +268,7 @@ internal static partial class Emitter
     {
         foreach (var m in target.Members.AsImmutableArray())
         {
-            keys.Add(m.ResolvedKey);
+            keys.AddRange(m.AllKeys());
         }
         foreach (var sub in target.SubSections.AsImmutableArray())
         {
@@ -294,7 +295,7 @@ internal static partial class Emitter
         }
 
         w.Write(ReaderMethod(m, isOptional));
-        w.Write($"(reader, \"{m.ResolvedKey}\"");
+        w.Write($"(reader, {ReaderKeyExpression(m, isOptional)}");
         if (m.Dispatch == TypeDispatchKind.Uri)
         {
             w.Write(", ");
@@ -320,6 +321,45 @@ internal static partial class Emitter
         {
             w.Write($" ?? {m.CSharpInitializerExpression ?? "default"}");
         }
+    }
+
+    /// <summary>
+    /// The key to read: the primary key when there are no fallbacks, otherwise the
+    /// first key in the chain that is present. When none is, an optional member
+    /// reads the (missing) primary key and gets its default; a required one throws
+    /// naming every key tried.
+    /// </summary>
+    private static string ReaderKeyExpression(BindingMember m, bool isOptional)
+    {
+        if (m.FallbackKeys.Length == 0)
+        {
+            return $"\"{m.ResolvedKey}\"";
+        }
+        var sb = new StringBuilder("(");
+        foreach (var key in m.AllKeys())
+        {
+            sb.Append($"reader.TryGetValue(\"{key}\", out _) ? \"{key}\" : ");
+        }
+        sb.Append(isOptional ? $"\"{m.ResolvedKey}\"" : MissingVariableThrow(m));
+        sb.Append(')');
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// <c>throw new EnvMissingVariableException(...)</c> for a required member,
+    /// listing its fallback keys when it has any.
+    /// </summary>
+    private static string MissingVariableThrow(BindingMember m)
+    {
+        var message = $"missing required env variable '{m.ResolvedKey}'";
+        if (m.FallbackKeys.Length > 0)
+        {
+            message +=
+                " (also tried "
+                + string.Join(", ", m.FallbackKeys.AsImmutableArray().Select(k => $"'{k}'"))
+                + ")";
+        }
+        return $"throw new global::Enver.EnvMissingVariableException(\"{m.ResolvedKey}\", \"{message}\")";
     }
 
     private static string ReaderMethod(BindingMember m, bool isOptional)
@@ -575,6 +615,12 @@ internal static partial class Emitter
             w.WriteLine($"// {m.ResolvedKey} -> {fieldPrefix}{m.MemberName}");
             w.WriteLine($"private {fieldType} _val_{fieldPrefix}{m.MemberName};");
             w.WriteLine($"private bool _set_{fieldPrefix}{m.MemberName};");
+            if (m.FallbackKeys.Length > 0)
+            {
+                // Index into AllKeys() of the key that set the value; a lower
+                // index outranks a higher one whatever order they arrive in.
+                w.WriteLine($"private int _rank_{fieldPrefix}{m.MemberName};");
+            }
             w.WriteLine();
         }
         foreach (var nested in target.SubSections.AsImmutableArray())
@@ -607,16 +653,36 @@ internal static partial class Emitter
     {
         foreach (var m in target.Members.AsImmutableArray())
         {
-            w.WriteLine(
-                $"if (global::System.MemoryExtensions.SequenceEqual(key, \"{m.ResolvedKey}\"u8))"
-            );
-            w.WriteLine("{");
-            w.Indent++;
-            EmitParseAndAssign(w, m, target, fieldPrefix);
-            w.WriteLine($"_set_{fieldPrefix}{m.MemberName} = true;");
-            w.WriteLine("return true;");
-            w.Indent--;
-            w.WriteLine("}");
+            var hasFallbacks = m.FallbackKeys.Length > 0;
+            var field = fieldPrefix + m.MemberName;
+            var rank = 0;
+            foreach (var key in m.AllKeys())
+            {
+                w.WriteLine(
+                    $"if (global::System.MemoryExtensions.SequenceEqual(key, \"{key}\"u8))"
+                );
+                w.WriteLine("{");
+                w.Indent++;
+                if (hasFallbacks)
+                {
+                    // A later key of the same rank overrides, as for any key.
+                    w.WriteLine($"if (!_set_{field} || {rank} <= _rank_{field})");
+                    w.WriteLine("{");
+                    w.Indent++;
+                }
+                EmitParseAndAssign(w, m, target, key, fieldPrefix);
+                w.WriteLine($"_set_{field} = true;");
+                if (hasFallbacks)
+                {
+                    w.WriteLine($"_rank_{field} = {rank};");
+                    w.Indent--;
+                    w.WriteLine("}");
+                }
+                w.WriteLine("return true;");
+                w.Indent--;
+                w.WriteLine("}");
+                rank++;
+            }
         }
         foreach (var nested in target.SubSections.AsImmutableArray())
         {
@@ -628,6 +694,7 @@ internal static partial class Emitter
         IndentedTextWriter w,
         BindingMember m,
         BindingTarget target,
+        string key,
         string? fieldPrefix = null
     )
     {
@@ -644,7 +711,7 @@ internal static partial class Emitter
         w.WriteLine("{");
         w.Indent++;
         w.WriteLine(
-            $"throw new global::Enver.EnvInvalidValueException(\"{m.ResolvedKey}\", \"invalid {m.UnderlyingTypeDisplayName} value\", __ex);"
+            $"throw new global::Enver.EnvInvalidValueException(\"{key}\", \"invalid {m.UnderlyingTypeDisplayName} value\", __ex);"
         );
         w.Indent--;
         w.WriteLine("}");
@@ -731,9 +798,7 @@ internal static partial class Emitter
         {
             if (ResolveRequirement(m) == EffectiveRequirement.Required)
             {
-                w.WriteLine(
-                    $"if (!_set_{m.MemberName}) throw new global::Enver.EnvMissingVariableException(\"{m.ResolvedKey}\", \"missing required env variable '{m.ResolvedKey}'\");"
-                );
+                w.WriteLine($"if (!_set_{m.MemberName}) {MissingVariableThrow(m)};");
             }
         }
 
@@ -780,7 +845,7 @@ internal static partial class Emitter
             if (ResolveRequirement(m) == EffectiveRequirement.Required)
             {
                 w.WriteLine(
-                    $"if (!_set_{localFieldPrefix}{m.MemberName}) throw new global::Enver.EnvMissingVariableException(\"{m.ResolvedKey}\", \"missing required env variable '{m.ResolvedKey}'\");"
+                    $"if (!_set_{localFieldPrefix}{m.MemberName}) {MissingVariableThrow(m)};"
                 );
             }
         }

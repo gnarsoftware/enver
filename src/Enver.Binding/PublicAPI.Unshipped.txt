@@ -38,3 +38,8 @@ Enver.Binding.EnvBindableAttribute<T>.Separator.init -> void
 Enver.Binding.EnvKeySeparator
 Enver.Binding.EnvKeySeparator.DoubleUnderscore = 1 -> Enver.Binding.EnvKeySeparator
 Enver.Binding.EnvKeySeparator.Underscore = 0 -> Enver.Binding.EnvKeySeparator
+Enver.Binding.EnvFallbackKeyAttribute
+Enver.Binding.EnvFallbackKeyAttribute.EnvFallbackKeyAttribute(string! name) -> void
+Enver.Binding.EnvFallbackKeyAttribute.IgnorePrefix.get -> bool
+Enver.Binding.EnvFallbackKeyAttribute.IgnorePrefix.init -> void
+Enver.Binding.EnvFallbackKeyAttribute.Name.get -> string!

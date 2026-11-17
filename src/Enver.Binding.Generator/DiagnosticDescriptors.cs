@@ -296,4 +296,13 @@ internal static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true
     );
+
+    public static readonly DiagnosticDescriptor FallbackKeyOnObjectMember = new(
+        id: "ENVR0036",
+        title: "[EnvFallbackKey] applies only to scalar members",
+        messageFormat: "[EnvFallbackKey] on '{0}' is ignored: it is a {1}, which binds from several keys rather than one",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true
+    );
 }
