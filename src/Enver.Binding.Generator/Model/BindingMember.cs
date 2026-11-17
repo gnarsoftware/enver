@@ -18,7 +18,10 @@ internal sealed record BindingMember(
     bool HasRequiredKeyword,
     bool IsInitOnly,
     EquatableArray<ValidationAttr> Validators,
-    string? DisplayNameExpression
+    string? DisplayNameExpression,
+    // For a member declared on a scoped polymorphic case's base: its key at the
+    // section level (also the first cascaded fallback). Null otherwise.
+    string? SectionKey = null
 )
 {
     /// <summary>The primary key, then each fallback in the order tried.</summary>

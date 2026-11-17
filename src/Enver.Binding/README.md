@@ -127,7 +127,10 @@ AppConfig.EnvKeys.Storage.Remote.Bucket;   // "APP_STORAGE_BUCKET"
 - Constants follow the binding path, so a subsection type used in two places
   has the right keys in each.
 - A polymorphic member gets a class holding its type key (`Type`) and one class
-  per case, named after the case type. A polymorphic root has these at the top
+  per case, named after the case type. With scoped case keys, the section-level
+  keys that base members cascade to sit next to `Type`:
+  `EnvKeys.Storage.Region` is `STORAGE_REGION`, and
+  `EnvKeys.Storage.RemoteStorage.Region` is `STORAGE_REMOTE_REGION`. A polymorphic root has these at the top
   level, and a scalar union is a single constant.
 - Only the primary key gets a constant, not [fallback keys](#fallback-keys-envfallbackkey).
 - C# doesn't allow a member with the same name as its enclosing class, so a name
@@ -471,6 +474,25 @@ public closed record Storage;
 
 `TypeKey` is a literal (not run through the naming convention) and defaults to
 `TYPE`.
+
+With `Scoped` keys, members declared on the polymorphic base type cascade: they
+read the case's key first and fall back to the same key at the section level. One
+value can then serve every case, and a case can still override it:
+
+```csharp
+[EnvPolymorphic(CaseKeys = EnvCaseKeyStyle.Scoped)]
+public closed record Storage(string Region);
+public sealed record RemoteStorage(string Region, string Bucket) : Storage(Region);
+// Region reads STORAGE_REMOTE_REGION, then STORAGE_REGION.
+// Bucket reads STORAGE_REMOTE_BUCKET only.
+```
+
+- Subsections declared on the base cascade as a whole (`STORAGE_REMOTE_DB_HOST`,
+  then `STORAGE_DB_HOST`).
+- `[EnvFallbackKey]`s cascade too, case keys first: `B_SHARED`, `B_LEGACY`,
+  `SHARED`, `LEGACY`.
+- A missing required value lists every key tried.
+- Polymorphic members declared on the base don't cascade.
 
 ### Scalar unions: tried in order (.NET 11 SDK)
 

@@ -10,6 +10,15 @@ together.
 
 ## Unreleased
 
+### Added
+
+- `Enver.Binding`: with `CaseKeys = EnvCaseKeyStyle.Scoped`, members declared on the
+  polymorphic base type fall back to the section-level key after the case's own:
+  `STORAGE_REMOTE_REGION`, then `STORAGE_REGION`. Subsections declared on the base
+  and `[EnvFallbackKey]`s cascade the same way, and `EnvKeys` lists the
+  section-level keys next to the type key (`EnvKeys.Storage.Region`). Configs that set only the scoped
+  key bind as before.
+
 ## [2.0.0] - 2026-11-16
 
 ### Upgrading from 1.x

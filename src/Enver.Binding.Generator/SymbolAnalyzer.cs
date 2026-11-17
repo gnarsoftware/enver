@@ -250,7 +250,8 @@ internal static partial class SymbolAnalyzer
         string? accumulatedPrefix = null,
         bool isPolymorphicCase = false,
         Location? populateLocation = null,
-        bool isSubSection = false
+        bool isSubSection = false,
+        Cascade? cascade = null
     )
     {
         // A type reachable from its own members would recurse forever.
@@ -279,7 +280,8 @@ internal static partial class SymbolAnalyzer
                 accumulatedPrefix,
                 isPolymorphicCase,
                 populateLocation,
-                isSubSection
+                isSubSection,
+                cascade
             );
         }
         finally
@@ -300,7 +302,8 @@ internal static partial class SymbolAnalyzer
         string? accumulatedPrefix,
         bool isPolymorphicCase,
         Location? populateLocation,
-        bool isSubSection
+        bool isSubSection,
+        Cascade? cascade
     )
     {
         var resolvedNaming = naming;
@@ -463,6 +466,7 @@ internal static partial class SymbolAnalyzer
                     scope,
                     resolvedNaming,
                     effectivePrefix,
+                    cascade?.PrefixFor(prop),
                     InitializerFor(prop, ctorDefaults),
                     out bool subSectionReported
                 );
@@ -503,7 +507,8 @@ internal static partial class SymbolAnalyzer
                 diags,
                 InitializerFor(prop, ctorDefaults),
                 scope.Separator,
-                scope.AllowsNonEnvironmentKeys
+                scope.AllowsNonEnvironmentKeys,
+                cascade?.PrefixFor(prop)
             );
             if (member is null)
             {
@@ -656,7 +661,8 @@ internal static partial class SymbolAnalyzer
         ImmutableArray<DiagnosticInfo>.Builder diags,
         string? initializer,
         string separator,
-        bool inheritedAllowNonEnvironmentKeys
+        bool inheritedAllowNonEnvironmentKeys,
+        string? cascadePrefix
     )
     {
         var keyAttr = FindAttribute(prop, AttributeNames.EnvKey);
@@ -714,6 +720,7 @@ internal static partial class SymbolAnalyzer
         }
 
         var fallbackKeys = ImmutableArray.CreateBuilder<string>();
+        var explicitFallbacks = new List<(string Name, bool IgnorePrefix)>();
         foreach (var attr in prop.GetAttributes())
         {
             if (
@@ -752,6 +759,33 @@ internal static partial class SymbolAnalyzer
                 return null;
             }
             fallbackKeys.Add(fallbackKey);
+            explicitFallbacks.Add((name!, fallbackIgnorePrefix));
+        }
+
+        // A member declared on a polymorphic base, bound in a scoped case, falls
+        // back to the same keys at the section level: B_SHARED, then SHARED.
+        string? sectionKey = null;
+        if (cascadePrefix is not null)
+        {
+            sectionKey = CombineKey(ignorePrefix ? null : cascadePrefix, baseName, separator);
+            var cascaded = new List<string> { sectionKey };
+            foreach (var (name, fallbackIgnorePrefix) in explicitFallbacks)
+            {
+                cascaded.Add(
+                    CombineKey(fallbackIgnorePrefix ? null : cascadePrefix, name, separator)
+                );
+            }
+            foreach (var key in cascaded)
+            {
+                if (key != resolvedKey && !fallbackKeys.Contains(key))
+                {
+                    fallbackKeys.Add(key);
+                }
+            }
+            if (sectionKey == resolvedKey)
+            {
+                sectionKey = null;
+            }
         }
 
         var underlyingType = prop.Type.UnwrapNullable();
@@ -864,6 +898,7 @@ internal static partial class SymbolAnalyzer
             MemberName: prop.Name,
             ResolvedKey: resolvedKey,
             FallbackKeys: new(fallbackKeys.ToImmutable()),
+            SectionKey: sectionKey,
             TypeFullyQualifiedName: prop.Type.ToDisplayString(
                 SymbolDisplayFormat.FullyQualifiedFormat
             ),
@@ -1509,6 +1544,7 @@ internal static partial class SymbolAnalyzer
         AnalysisScope scope,
         EnvKeyNamingConvention parentNaming,
         string parentEffectivePrefix,
+        string? cascadePrefix,
         string? initializer,
         out bool reported
     )
@@ -1529,6 +1565,7 @@ internal static partial class SymbolAnalyzer
         // bind isn't a config object, so it's reported as an unsupported member type
         // (by the caller) rather than with diagnostics about its insides.
         var nestedDiags = ImmutableArray.CreateBuilder<DiagnosticInfo>();
+        var segment = explicitName ?? KeyNameTransformer.Transform(prop.Name, naming);
         var target = AnalyzeTarget(
             nestedType,
             hostSymbol,
@@ -1537,11 +1574,12 @@ internal static partial class SymbolAnalyzer
             helperIds,
             scope,
             naming,
-            accumulatedPrefix: scope.Combine(
-                ignorePrefix ? null : parentEffectivePrefix,
-                explicitName ?? KeyNameTransformer.Transform(prop.Name, naming)
-            ),
-            isSubSection: true
+            accumulatedPrefix: scope.Combine(ignorePrefix ? null : parentEffectivePrefix, segment),
+            isSubSection: true,
+            // Everything beneath a cascading subsection cascades too.
+            cascade: cascadePrefix is null
+                ? null
+                : new Cascade(scope.Combine(ignorePrefix ? null : cascadePrefix, segment), null)
         );
         if (allowNonEnvironment)
         {

@@ -70,6 +70,18 @@ internal static class KeyConstants
     private static List<Node> PolymorphicChildren(PolymorphicMember poly)
     {
         var nodes = new List<Node> { new(TypeKeyName, poly.Key, []) };
+
+        // Scoped cases: members declared on the base also have a section-level key
+        // (their cascading fallback), listed at the section level next to Type, as
+        // the keys themselves are.
+        foreach (var c in poly.Cases.AsImmutableArray())
+        {
+            if (c.Target is not null)
+            {
+                Merge(nodes, SectionChildren(c.Target));
+            }
+        }
+
         foreach (var c in poly.Cases.AsImmutableArray())
         {
             if (c.Target is not null)
@@ -80,6 +92,40 @@ internal static class KeyConstants
             }
         }
         return nodes;
+    }
+
+    /// <summary>Section-level keys of a target's cascading members and subsections.</summary>
+    private static List<Node> SectionChildren(BindingTarget target)
+    {
+        var nodes = new List<Node>();
+        foreach (var m in target.Members.AsImmutableArray())
+        {
+            if (m.SectionKey is { } key)
+            {
+                nodes.Add(new Node(m.MemberName, key, []));
+            }
+        }
+        foreach (var sub in target.SubSections.AsImmutableArray())
+        {
+            var children = SectionChildren(sub.Target);
+            if (children.Count > 0)
+            {
+                nodes.Add(new Node(sub.MemberName, null, children));
+            }
+        }
+        return nodes;
+    }
+
+    /// <summary>Adds the nodes of <paramref name="more"/> not already in <paramref name="into"/>.</summary>
+    private static void Merge(List<Node> into, List<Node> more)
+    {
+        foreach (var node in more)
+        {
+            if (!into.Exists(n => n.Name == node.Name))
+            {
+                into.Add(node);
+            }
+        }
     }
 
     private static void Resolve(
