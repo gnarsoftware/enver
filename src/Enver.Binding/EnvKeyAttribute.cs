@@ -57,4 +57,14 @@ public sealed class EnvKeyAttribute(string? name = null) : Attribute
     /// <see cref="EnvKeyNamingConvention.Inherit"/>, the enclosing convention.
     /// </summary>
     public EnvKeyNamingConvention KeyNaming { get; init; }
+
+    /// <summary>
+    /// Accepts a key that isn't a valid environment variable name, such as a
+    /// configuration path (<c>App:Db:Host</c>), without reporting it (ENVR0038 for a
+    /// member's key, ENVR0039 for a fallback). Such a key can't come from a
+    /// <c>.env</c> file or an environment variable, only from another
+    /// configuration source. On a subsection or polymorphic member it also covers
+    /// every key beneath it.
+    /// </summary>
+    public bool AllowNonEnvironmentKey { get; init; }
 }

@@ -37,6 +37,18 @@ internal static partial class SymbolAnalyzer
 
         public string Combine(string? left, string? right) => CombineKey(left, right, separator);
 
+        private int _allowNonEnvironmentKeys;
+
+        /// <summary>
+        /// True while analyzing beneath a subsection or polymorphic member whose
+        /// [EnvKey] sets AllowNonEnvironmentKey: its segment is in every key below.
+        /// </summary>
+        public bool AllowsNonEnvironmentKeys => _allowNonEnvironmentKeys > 0;
+
+        public void BeginAllowNonEnvironmentKeys() => _allowNonEnvironmentKeys++;
+
+        public void EndAllowNonEnvironmentKeys() => _allowNonEnvironmentKeys--;
+
         public bool TryEnter(INamedTypeSymbol type) => _types.Add(type);
 
         public void Exit(INamedTypeSymbol type) => _types.Remove(type);
@@ -487,9 +499,10 @@ internal static partial class SymbolAnalyzer
             return null;
         }
 
-        var (explicitName, ignorePrefix, requirement, keyNaming) = ReadKey(
+        var (explicitName, ignorePrefix, requirement, keyNaming, allowNonEnvironment) = ReadKey(
             site.Find(AttributeNames.EnvKey)
         );
+        allowNonEnvironment |= scope.AllowsNonEnvironmentKeys;
         if (site.IsRoot)
         {
             // The root's keys sit directly under its prefix.
@@ -518,7 +531,15 @@ internal static partial class SymbolAnalyzer
             // Keyed exactly like a leaf member.
             var baseName = explicitName ?? KeyNameTransformer.Transform(site.Name, naming);
             key = scope.Combine(ignorePrefix ? null : parentEffectivePrefix, baseName);
-            if (!ValidateKey(site.Name, location, key, diags))
+            if (
+                !ValidateKey(
+                    site.Name,
+                    location,
+                    key,
+                    diags,
+                    allowNonEnvironmentKey: allowNonEnvironment
+                )
+            )
             {
                 return null;
             }
@@ -554,11 +575,23 @@ internal static partial class SymbolAnalyzer
                 sectionPrefix,
                 propTypeKey ?? typeTypeKey ?? KeyNameTransformer.Transform("Type", naming)
             );
-            if (!ValidateKey(site.Name, location, key, diags))
+            if (
+                !ValidateKey(
+                    site.Name,
+                    location,
+                    key,
+                    diags,
+                    allowNonEnvironmentKey: allowNonEnvironment
+                )
+            )
             {
                 return null;
             }
 
+            if (allowNonEnvironment)
+            {
+                scope.BeginAllowNonEnvironmentKeys();
+            }
             var objectCases = AnalyzeObjectCases(
                 polyType,
                 cases,
@@ -572,6 +605,10 @@ internal static partial class SymbolAnalyzer
                 style,
                 location
             );
+            if (allowNonEnvironment)
+            {
+                scope.EndAllowNonEnvironmentKeys();
+            }
             if (objectCases is null)
             {
                 return null;
@@ -1023,25 +1060,69 @@ internal static partial class SymbolAnalyzer
         return caseName;
     }
 
+    /// <summary>
+    /// Checks a resolved key. One that can't be embedded in generated code (empty,
+    /// or with whitespace, control characters, quotes or backslashes) is an error
+    /// (ENVR0012) and the member is dropped. One that works but isn't a valid
+    /// environment variable name, such as a configuration path (<c>App:Db:Host</c>),
+    /// is reported (ENVR0038, or ENVR0039 for a fallback) unless the attribute sets
+    /// AllowNonEnvironmentKey, and kept either way: it can still be read from
+    /// <c>IConfiguration</c>.
+    /// </summary>
     private static bool ValidateKey(
         string memberName,
         Location? location,
         string key,
-        ImmutableArray<DiagnosticInfo>.Builder diags
+        ImmutableArray<DiagnosticInfo>.Builder diags,
+        bool isFallback = false,
+        bool allowNonEnvironmentKey = false
     )
     {
         if (s_validKeyPattern.IsMatch(key))
         {
             return true;
         }
+        if (!IsUsableKey(key))
+        {
+            diags.Add(
+                DiagnosticInfo.Create(
+                    DiagnosticDescriptors.InvalidResolvedKey,
+                    location,
+                    new([memberName, key])
+                )
+            );
+            return false;
+        }
+        if (allowNonEnvironmentKey)
+        {
+            return true;
+        }
         diags.Add(
             DiagnosticInfo.Create(
-                DiagnosticDescriptors.InvalidResolvedKey,
+                isFallback
+                    ? DiagnosticDescriptors.NonEnvironmentFallbackKey
+                    : DiagnosticDescriptors.NonEnvironmentKey,
                 location,
                 new([memberName, key])
             )
         );
-        return false;
+        return true;
+    }
+
+    private static bool IsUsableKey(string key)
+    {
+        if (key.Length == 0)
+        {
+            return false;
+        }
+        foreach (var c in key)
+        {
+            if (char.IsWhiteSpace(c) || char.IsControl(c) || c is '"' or '\\')
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static void ReportCaseUnsupported(

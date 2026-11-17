@@ -385,9 +385,25 @@ public class GeneratorDriverTests
     }
 
     [Test]
-    public void ReportsEnvr0012WhenPrefixProducesInvalidKey()
+    public void ReportsEnvr0012WhenPrefixProducesUnusableKey()
     {
-        // A prefix with a hyphen yields an invalid env-var key.
+        // A prefix with a space can't be embedded in generated code.
+        var result = GeneratorTestHarness.Run(
+            """
+            namespace Test;
+
+            [Enver.Binding.EnvBindable("BAD PREFIX")]
+            public partial record InvalidKeyConfig(int Port);
+            """
+        );
+
+        Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Contain("ENVR0012"));
+    }
+
+    [Test]
+    public void ReportsEnvr0038WhenPrefixProducesNonEnvironmentKey()
+    {
+        // A hyphen works as a key but not as an environment variable name.
         var result = GeneratorTestHarness.Run(
             """
             namespace Test;
@@ -397,7 +413,7 @@ public class GeneratorDriverTests
             """
         );
 
-        Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Contain("ENVR0012"));
+        Assert.That(result.GeneratorDiagnostics.Select(d => d.Id), Does.Contain("ENVR0038"));
     }
 
     [Test]

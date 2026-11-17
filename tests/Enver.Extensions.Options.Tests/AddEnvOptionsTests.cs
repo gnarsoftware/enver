@@ -34,6 +34,16 @@ public static partial class ExternalBindings;
 [EnvBindable("APP", Visibility = EnvVisibility.Internal)]
 public partial record InternalOptions(string Host);
 
+// Name reads APP_NAME (env) or App:Name (appsettings.json); Region only App:Region.
+// AllowNonEnvironmentKey declares that the configuration-style keys are intended.
+[EnvBindable("APP")]
+public partial record DualKeyOptions(
+    [property: EnvFallbackKey("App:Name", IgnorePrefix = true, AllowNonEnvironmentKey = true)]
+        string Name,
+    [property: EnvKey("App:Region", IgnorePrefix = true, AllowNonEnvironmentKey = true)]
+        string Region = "default"
+);
+
 [TestFixture]
 public class AddEnvOptionsTests
 {
@@ -94,6 +104,20 @@ public class AddEnvOptionsTests
         Assert.That(
             provider.GetRequiredService<IOptions<NestedOptions>>().Value,
             Is.EqualTo(new NestedOptions("n", new PoolOptions(5)))
+        );
+    }
+
+    [TestCase("APP_NAME")]
+    [TestCase("App:Name")]
+    public void EitherKeySchemeBinds(string nameKey)
+    {
+        using var provider = Services(Config((nameKey, "n"), ("App:Region", "eu")), s =>
+            s.AddEnvOptions<DualKeyOptions>()
+        );
+
+        Assert.That(
+            provider.GetRequiredService<IOptions<DualKeyOptions>>().Value,
+            Is.EqualTo(new DualKeyOptions("n", "eu"))
         );
     }
 

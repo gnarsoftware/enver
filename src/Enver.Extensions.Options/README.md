@@ -51,6 +51,10 @@ source work.
   With `Separator = EnvKeySeparator.DoubleUnderscore`, `APP__DB__HOST` reads the
   section path `APP:DB:HOST`. That's where the environment-variable and `.env`
   providers put it.
+- **`appsettings.json` keys.** Give a member a second key in configuration style,
+  such as `[EnvFallbackKey("App:Name", IgnorePrefix = true, AllowNonEnvironmentKey = true)]`,
+  or use the ASP.NET Core naming in `.env` files as well. See
+  [keys for other configuration sources](../Enver.Binding/README.md#keys-for-other-configuration-sources).
 - **Another configuration.** Pass one to bind from it instead of the
   `IConfiguration` service, such as a section:
   `AddEnvOptions<AppOptions>(configuration.GetSection("Enver"))`.

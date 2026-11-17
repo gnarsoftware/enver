@@ -17,6 +17,10 @@ together.
 
 ### Changed
 
+- `Enver.Binding`: ENVR0012 now only reports keys that can't be used at all (empty,
+  or containing whitespace, control characters, quotes or backslashes). Other
+  invalid environment variable names report ENVR0038 or ENVR0039 instead.
+
 - **Breaking:** `Enver.Binding`: `[EnvConfig]` is replaced by settings on
   `[EnvBindable]` and `[EnvBindable<T>]`: `[EnvBindable("DB", KeyNaming = ...,
   GeneratePopulate = true)]`. `[EnvConfig]` is now an obsolete-as-error attribute
@@ -41,6 +45,11 @@ together.
 ### Added
 
 - `net11.0` target for all packages.
+- `Enver.Binding`: keys that aren't valid environment variable names, such as
+  configuration paths (`App:Db:Host`), are now generated so they can be read from
+  other configuration sources. A member's key like this reports ENVR0038 (error)
+  and a fallback ENVR0039 (info), unless `[EnvKey]` or `[EnvFallbackKey]` sets
+  `AllowNonEnvironmentKey = true`.
 - `Enver.Extensions.Options`: new package. `services.AddEnvOptions<T>()` registers an
   `[EnvBindable]` type as options bound from `IConfiguration` by the generated
   binder, so records and `required` members work. Validation runs at startup by

@@ -474,7 +474,8 @@ internal static partial class SymbolAnalyzer
                 compilation,
                 diags,
                 InitializerFor(prop, ctorDefaults),
-                scope.Separator
+                scope.Separator,
+                scope.AllowsNonEnvironmentKeys
             );
             if (member is null)
             {
@@ -626,7 +627,8 @@ internal static partial class SymbolAnalyzer
         Compilation compilation,
         ImmutableArray<DiagnosticInfo>.Builder diags,
         string? initializer,
-        string separator
+        string separator,
+        bool inheritedAllowNonEnvironmentKeys
     )
     {
         var keyAttr = FindAttribute(prop, AttributeNames.EnvKey);
@@ -654,7 +656,9 @@ internal static partial class SymbolAnalyzer
             return null;
         }
 
-        var (explicitName, ignorePrefix, requirement, memberNaming) = ReadKey(keyAttr);
+        var (explicitName, ignorePrefix, requirement, memberNaming, allowNonEnvironment) = ReadKey(
+            keyAttr
+        );
 
         // Key resolution: explicit name from [EnvKey] beats naming convention.
         // Prefix prepended unless IgnorePrefix.
@@ -666,18 +670,18 @@ internal static partial class SymbolAnalyzer
 
         var resolvedKey = CombineKey(ignorePrefix ? null : prefix, baseName, separator);
 
-        // The resolved key must be a valid env-var identifier. An invalid key
-        // means the prefix, the explicit [EnvKey] name, or the member name
-        // contributed a bad character
-        if (!s_validKeyPattern.IsMatch(resolvedKey))
+        // A bad character comes from the prefix, the explicit [EnvKey] name, or the
+        // member name.
+        if (
+            !ValidateKey(
+                prop.Name,
+                prop.Locations.FirstOrDefault(),
+                resolvedKey,
+                diags,
+                allowNonEnvironmentKey: allowNonEnvironment || inheritedAllowNonEnvironmentKeys
+            )
+        )
         {
-            diags.Add(
-                DiagnosticInfo.Create(
-                    DiagnosticDescriptors.InvalidResolvedKey,
-                    prop.Locations.FirstOrDefault(),
-                    new([prop.Name, resolvedKey])
-                )
-            );
             return null;
         }
 
@@ -698,19 +702,25 @@ internal static partial class SymbolAnalyzer
             var fallbackIgnorePrefix = attr.NamedArguments.Any(n =>
                 n.Key == "IgnorePrefix" && n.Value.Value is true
             );
+            var fallbackAllowNonEnvironment = attr.NamedArguments.Any(n =>
+                n.Key == "AllowNonEnvironmentKey" && n.Value.Value is true
+            );
             // An empty name would otherwise resolve to the bare prefix.
             var fallbackKey = string.IsNullOrEmpty(name)
                 ? ""
                 : CombineKey(fallbackIgnorePrefix ? null : prefix, name, separator);
-            if (!s_validKeyPattern.IsMatch(fallbackKey))
+            if (
+                !ValidateKey(
+                    prop.Name,
+                    AttributeLocation(attr, prop),
+                    fallbackKey,
+                    diags,
+                    isFallback: true,
+                    allowNonEnvironmentKey: fallbackAllowNonEnvironment
+                        || inheritedAllowNonEnvironmentKeys
+                )
+            )
             {
-                diags.Add(
-                    DiagnosticInfo.Create(
-                        DiagnosticDescriptors.InvalidResolvedKey,
-                        AttributeLocation(attr, prop),
-                        new([prop.Name, fallbackKey])
-                    )
-                );
                 return null;
             }
             fallbackKeys.Add(fallbackKey);
@@ -1368,12 +1378,13 @@ internal static partial class SymbolAnalyzer
         string? Name,
         bool IgnorePrefix,
         EnvRequirement Requirement,
-        EnvKeyNamingConvention KeyNaming
+        EnvKeyNamingConvention KeyNaming,
+        bool AllowNonEnvironmentKey
     ) ReadKey(AttributeData? attr)
     {
         if (attr is null)
         {
-            return (null, false, EnvRequirement.Inferred, EnvKeyNamingConvention.Inherit);
+            return (null, false, EnvRequirement.Inferred, EnvKeyNamingConvention.Inherit, false);
         }
         string? name =
             attr.ConstructorArguments.Length > 0
@@ -1382,10 +1393,14 @@ internal static partial class SymbolAnalyzer
         bool ignorePrefix = false;
         var requirement = EnvRequirement.Inferred;
         var naming = EnvKeyNamingConvention.Inherit;
+        bool allowNonEnvironment = false;
         foreach (var named in attr.NamedArguments)
         {
             switch (named.Key)
             {
+                case "AllowNonEnvironmentKey" when named.Value.Value is bool allow:
+                    allowNonEnvironment = allow;
+                    break;
                 case "IgnorePrefix" when named.Value.Value is bool ig:
                     ignorePrefix = ig;
                     break;
@@ -1397,7 +1412,7 @@ internal static partial class SymbolAnalyzer
                     break;
             }
         }
-        return (name, ignorePrefix, requirement, naming);
+        return (name, ignorePrefix, requirement, naming, allowNonEnvironment);
     }
 
     private static string CombineKey(string? left, string? right, string separator)
@@ -1471,10 +1486,16 @@ internal static partial class SymbolAnalyzer
     )
     {
         reported = false;
-        var (explicitName, ignorePrefix, requirement, keyNaming) = ReadKey(
+        var (explicitName, ignorePrefix, requirement, keyNaming, allowNonEnvironment) = ReadKey(
             FindAttribute(prop, AttributeNames.EnvKey)
         );
         var naming = keyNaming == EnvKeyNamingConvention.Inherit ? parentNaming : keyNaming;
+
+        // The subsection's segment is in every key beneath it.
+        if (allowNonEnvironment)
+        {
+            scope.BeginAllowNonEnvironmentKeys();
+        }
 
         // Analyze into a scratch list first: a type that turns out to have nothing to
         // bind isn't a config object, so it's reported as an unsupported member type
@@ -1494,6 +1515,10 @@ internal static partial class SymbolAnalyzer
             ),
             isSubSection: true
         );
+        if (allowNonEnvironment)
+        {
+            scope.EndAllowNonEnvironmentKeys();
+        }
 
         bool hasMembers =
             target is not null

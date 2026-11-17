@@ -32,4 +32,12 @@ public sealed class EnvFallbackKeyAttribute(string name) : Attribute
     /// the enclosing prefix.
     /// </summary>
     public bool IgnorePrefix { get; init; }
+
+    /// <summary>
+    /// Accepts a fallback that isn't a valid environment variable name, such as a
+    /// configuration path (<c>App:Db:Host</c>), without reporting it (ENVR0039).
+    /// Such a key can only come from a configuration source other than <c>.env</c>
+    /// files and environment variables.
+    /// </summary>
+    public bool AllowNonEnvironmentKey { get; init; }
 }

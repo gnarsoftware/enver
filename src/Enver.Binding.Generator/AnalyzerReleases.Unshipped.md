@@ -18,3 +18,5 @@ ENVR0034 | EnverBinding | Error | A scalar union cannot be bound as the root
 ENVR0035 | EnverBinding | Warning | Populate is not generated for a polymorphic root
 ENVR0036 | EnverBinding | Warning | [EnvFallbackKey] applies only to scalar members
 ENVR0037 | EnverBinding | Info | Key constant renamed
+ENVR0038 | EnverBinding | Error | Key is not a valid environment variable name
+ENVR0039 | EnverBinding | Info | Fallback key is not a valid environment variable name

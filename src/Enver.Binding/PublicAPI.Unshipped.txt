@@ -57,3 +57,7 @@ Enver.Binding.EnvBindableAttribute<T>.GenerateKeys.init -> void
 Enver.Binding.IEnvBinding<T>
 Enver.Binding.IEnvBinding<T>.Bind(Enver.IEnvReader! reader, bool validate = true) -> T
 Enver.Binding.IEnvBinding<T>.Validate(T instance) -> void
+Enver.Binding.EnvKeyAttribute.AllowNonEnvironmentKey.get -> bool
+Enver.Binding.EnvKeyAttribute.AllowNonEnvironmentKey.init -> void
+Enver.Binding.EnvFallbackKeyAttribute.AllowNonEnvironmentKey.get -> bool
+Enver.Binding.EnvFallbackKeyAttribute.AllowNonEnvironmentKey.init -> void
