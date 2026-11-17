@@ -10,6 +10,8 @@ together.
 
 ## Unreleased
 
+## [2.0.0] - 2026-11-16
+
 ### Upgrading from 1.x
 
 - Target `net10.0` or later.
