@@ -159,6 +159,37 @@ public partial class AppConfig
 > `[property: EnvKey(...)]` target so the attribute lands on the generated
 > property rather than the parameter.
 
+### Fallback keys: `[EnvFallbackKey]`
+
+Accept older or alternative names for a member with `[EnvFallbackKey]`. Apply it
+once per name. Keys are tried after the primary key, in declaration order, and
+the first one present wins:
+
+```csharp
+[EnvBindable("APP")]
+public partial class AppConfig
+{
+    // Reads APP_DATABASE_URL, then APP_DB_URL, then DATABASE_URL.
+    [EnvFallbackKey("DB_URL")]
+    [EnvFallbackKey("DATABASE_URL", IgnorePrefix = true)]
+    public required string DatabaseUrl { get; init; }
+}
+```
+
+- **Names are used as written.** The naming convention doesn't apply, but the
+  prefix (and its separator) does unless `IgnorePrefix = true`.
+- **Ranking doesn't depend on order.** The streaming binder keeps the
+  highest-ranked key it has seen, so `APP_DATABASE_URL` wins even when it appears
+  before `DATABASE_URL` in the file. Repeating the same key still overrides
+  as usual.
+- **Missing keys are listed.** When a required member has none of its keys, the
+  `EnvMissingVariableException` names the primary key and lists the fallbacks
+  it tried.
+- **Scalar members only.** On a subsection or polymorphic member the attribute is
+  ignored with warning **ENVR0036**. An empty or invalid name reports
+  **ENVR0012**, and a fallback that matches another key in the same type reports
+  **ENVR0021**.
+
 ## Subsections
 
 A property whose type is another config object is bound as a **subsection**: its
@@ -393,6 +424,7 @@ scalar key) was seen.
 | Attribute | Effect |
 |---|---|
 | `[EnvIgnore]` | Skip a member that would otherwise be bound. |
+| `[EnvFallbackKey(name)]` | Try another key when the primary one is missing. See [Fallback keys](#fallback-keys-envfallbackkey). |
 | `[EnvUri(UriKind)]` | Specify `UriKind` for `Uri` members (default `Absolute`). |
 | `[EnvDerivedType<T>(name?)]` | List a concrete case of a polymorphic base type. See [Polymorphic binding](#polymorphic-binding). |
 | `[EnvPolymorphic]` | Type key name and key layout for a polymorphic member. |

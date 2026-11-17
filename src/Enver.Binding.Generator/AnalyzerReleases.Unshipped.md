@@ -16,3 +16,4 @@ ENVR0032 | EnverBinding | Error | Closed types and unions need the .NET 11 SDK g
 ENVR0033 | EnverBinding | Error | Config type contains itself
 ENVR0034 | EnverBinding | Error | A scalar union cannot be bound as the root
 ENVR0035 | EnverBinding | Warning | Populate is not generated for a polymorphic root
+ENVR0036 | EnverBinding | Warning | [EnvFallbackKey] applies only to scalar members
