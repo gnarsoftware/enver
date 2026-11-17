@@ -54,3 +54,6 @@ Enver.Binding.EnvBindableAttribute<T>.Visibility.get -> Enver.Binding.EnvVisibil
 Enver.Binding.EnvBindableAttribute<T>.Visibility.init -> void
 Enver.Binding.EnvBindableAttribute<T>.GenerateKeys.get -> bool
 Enver.Binding.EnvBindableAttribute<T>.GenerateKeys.init -> void
+Enver.Binding.IEnvBinding<T>
+Enver.Binding.IEnvBinding<T>.Bind(Enver.IEnvReader! reader, bool validate = true) -> T
+Enver.Binding.IEnvBinding<T>.Validate(T instance) -> void

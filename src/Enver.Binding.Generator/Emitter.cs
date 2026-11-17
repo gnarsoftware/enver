@@ -38,8 +38,14 @@ internal static partial class Emitter
             enclosingDepth++;
         }
 
-        // Open the host partial.
-        w.WriteLine($"partial {host.HostKeyword} {host.HostName}");
+        // Open the host partial. A public self-bound type implements IEnvBinding<T>
+        // itself; everything else gets a nested binding class (EmitBindingClass).
+        var implementsBinding = ImplementsBindingInterface(host);
+        w.WriteLine(
+            implementsBinding
+                ? $"partial {host.HostKeyword} {host.HostName} : {BindingInterface(host.Target)}"
+                : $"partial {host.HostKeyword} {host.HostName}"
+        );
         w.WriteLine("{");
         w.Indent++;
 
@@ -55,6 +61,15 @@ internal static partial class Emitter
         if (host.GenerateKeys)
         {
             EmitKeyClasses(w, host, access);
+        }
+        w.WriteLine();
+        if (implementsBinding)
+        {
+            EmitBindingMembers(w, target, methodInfix);
+        }
+        else
+        {
+            EmitBindingClass(w, host, methodInfix, access);
         }
         EmitValidateHelpers(w, target);
         EmitPolymorphicHelpers(w, target);
@@ -935,6 +950,13 @@ internal static partial class Emitter
                 // Unwrap to T; the _set guard guarantees it is non-null on that
                 // branch.
                 return $"_set_{fieldPrefix}{memberName} ? {field}!.Value : {defaultExpr}";
+            }
+            if (!m.TypeIsNullable)
+            {
+                // Optional non-nullable references are stored as T? too; without the
+                // '!' the conditional is T?, which as a constructor argument warns
+                // CS8604. The _set guard guarantees a value on that branch.
+                return $"_set_{fieldPrefix}{memberName} ? {field}! : {defaultExpr}";
             }
             return $"_set_{fieldPrefix}{memberName} ? {field} : {defaultExpr}";
         }

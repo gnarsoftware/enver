@@ -41,6 +41,8 @@ The base package contains the core parser. Pick an integration package based on 
 | **`Enver.InMemory`** | Load `.env` files into an `EnvCollection` (a `Dictionary<string, string>` subclass with platform-appropriate key comparison). |
 | **`Enver.SystemEnvironment`** | Load `.env` files into the process environment block via `Environment.SetEnvironmentVariable`. Useful when downstream code already uses `Environment.GetEnvironmentVariable(...)` and you want to keep that flow. |
 | **`Enver.Extensions.Configuration`** | `IConfigurationSource` integration for ASP.NET Core / `Microsoft.Extensions.Configuration`. Plus `IConfiguration.AsEnvReader()` so Enver's typed accessors apply to any configuration source, not just `.env` files. |
+| **`Enver.Extensions.Options`** | Register `[EnvBindable]` types (records included) as options bound from any `IConfiguration` and validated at startup. |
+| **`Enver.Extensions`** | Metapackage: `Enver.Extensions.Configuration` + `Enver.Extensions.Options`. |
 
 ## Quick start
 
@@ -124,6 +126,28 @@ Polymorphic properties bind with the case selected by a type key
 (`STORAGE_TYPE=REMOTE`). List the cases with `[EnvDerivedType<T>]` on any SDK, or use
 C# 15 `closed` types and `union`s with the .NET 11 SDK.
 See [polymorphic binding](src/Enver.Binding/README.md#polymorphic-binding).
+
+### Bind configuration to options
+
+```sh
+dotnet add package Gnar.Enver.Extensions
+```
+
+```csharp
+using Enver.Binding;
+using Enver.Extensions.Configuration;
+using Enver.Extensions.Options;
+
+builder.Configuration.AddDotEnvFiles();
+builder.Services.AddEnvOptions<AppOptions>(); // validated when the host starts
+
+[EnvBindable("APP")]
+public partial record AppOptions(string Name, int Workers = 4);
+```
+
+Unlike the built-in options binder, records and `required` members work. Options
+bind from any configuration source, so `.env` files are optional. See the
+[options readme](src/Enver.Extensions.Options/README.md).
 
 ## Typed accessors
 

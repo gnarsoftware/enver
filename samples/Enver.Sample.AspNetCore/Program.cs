@@ -1,5 +1,9 @@
+using System.ComponentModel.DataAnnotations;
 using Enver;
+using Enver.Binding;
 using Enver.Extensions.Configuration;
+using Enver.Extensions.Options;
+using Microsoft.Extensions.Options;
 #pragma warning disable CA1050 // Declare types in namespaces
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,6 +20,11 @@ var builder = WebApplication.CreateBuilder(args);
 //
 // The environment name is inferred from ASPNETCORE_ENVIRONMENT (default: production).
 builder.Configuration.AddDotEnvFiles();
+
+// Bind SampleConfig (below) from configuration as options. Its generated binder
+// builds the records, so no parameterless constructors or setters are needed. A
+// missing key or a failed [Range] stops the app at startup.
+builder.Services.AddEnvOptions<SampleConfig>();
 
 var app = builder.Build();
 
@@ -44,37 +53,42 @@ app.MapGet("/", (IConfiguration config) => new Dictionary<string, Dictionary<str
         },
     });
 
-// AsEnvReader() bridges IConfiguration to IEnvReader, giving access to the full
-// typed-accessor surface (GetInt32, GetBoolean, GetUri, …) over any config source,
-// not just .env files.
-app.MapGet("/typed", (IConfiguration config) =>
+// Typed binding through the options package: inject IOptions<SampleConfig> (or
+// IOptionsMonitor, which rebinds when configuration reloads).
+app.MapGet("/typed", (IOptions<SampleConfig> options) => options.Value);
+
+// AsEnvReader() bridges IConfiguration to IEnvReader for one-off typed reads
+// (GetInt32, GetBoolean, GetUri, ...) over any config source.
+app.MapGet("/reader", (IConfiguration config) =>
 {
     var env = config.AsEnvReader();
-
-    string appName = env.GetString("APP_NAME");
-    string appEnv = env.GetString("APP_ENV", "production");
-    bool debug = env.GetBoolean("APP_DEBUG", false);
-    string dbHost = env.GetString("DB_HOST");
-    int dbPort = env.GetInt32("DB_PORT", 5432);
-    string dbName = env.GetString("DB_NAME");
-    Uri apiUrl = env.GetUri("API_URL");
-    int apiTimeout = env.GetInt32("API_TIMEOUT_SECONDS", 30);
-    int maxRetries = env.GetInt32("API_MAX_RETRIES", 3);
-
-    return new TypedConfig(
-        new TypedApp(appName, appEnv, debug),
-        new TypedDb(dbHost, dbPort, dbName),
-        new TypedApi(apiUrl, apiTimeout, maxRetries)
+    return new ReaderValues(
+        env.GetBoolean("APP_DEBUG", false),
+        env.GetInt32("API_TIMEOUT_SECONDS", 30)
     );
 });
 
 app.Run();
 
-// "/typed" returns values parsed through IEnvReader.
-public sealed record TypedConfig(TypedApp App, TypedDb Db, TypedApi Api);
+// [EnvBindable] generates the binder. Members typed as other records bind as
+// subsections keyed by the property name: App.Name reads APP_NAME, Db.Port reads
+// DB_PORT. Parameters with defaults are optional.
+[EnvBindable]
+public partial record SampleConfig(AppSettings App, DbSettings Db, ApiSettings Api);
 
-public sealed record TypedApp(string Name, string Env, bool Debug);
+public sealed record AppSettings(string Name, string Env = "production", bool Debug = false);
 
-public sealed record TypedDb(string Host, int Port, string Name);
+public sealed record DbSettings(
+    string Host,
+    string Name,
+    [property: Range(1, 65535)] int Port = 5432
+);
 
-public sealed record TypedApi(Uri Url, int Timeout, int Retries);
+public sealed record ApiSettings(
+    Uri Url,
+    [property: Range(1, 300)] int TimeoutSeconds = 30,
+    int MaxRetries = 3
+);
+
+// "/reader" returns values read one at a time through IEnvReader.
+public sealed record ReaderValues(bool Debug, int ApiTimeoutSeconds);

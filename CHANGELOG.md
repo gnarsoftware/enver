@@ -41,6 +41,17 @@ together.
 ### Added
 
 - `net11.0` target for all packages.
+- `Enver.Extensions.Options`: new package. `services.AddEnvOptions<T>()` registers an
+  `[EnvBindable]` type as options bound from `IConfiguration` by the generated
+  binder, so records and `required` members work. Validation runs at startup by
+  default (`validateOnStart: false` defers it, `validate: false` skips the generated
+  validation), configure steps and other validators still apply, and options rebind
+  on configuration reload.
+- `Enver.Extensions`: new metapackage referencing `Enver.Extensions.Configuration`
+  and `Enver.Extensions.Options`.
+- `Enver.Binding`: `IEnvBinding<T>` with static `Bind` and `Validate`, matching the
+  generated methods, implemented by public `[EnvBindable]` types and by a nested
+  `EnvBinding` class for external hosts and internal bindings.
 - `Enver.Binding`: generated `EnvKeys` and `EnvKeysUtf8` classes (`{Type}EnvKeys` on
   an external host) expose every bound key as a `const string` or UTF-8 span,
   nested like the config: `AppConfig.EnvKeys.Db.Pool.MaxSize`. Set

@@ -99,6 +99,35 @@ public class ConstructorDefaultTests
     }
 
     [Test]
+    public void OptionalReferenceParametersCompileWithoutNullableWarnings()
+    {
+        // The Binder stores an optional string as string?; passing it to a
+        // non-nullable constructor parameter must not warn (CS8604).
+        var compilation = GeneratorTestHarness.CreateCompilation(
+            """
+            namespace Test;
+
+            public record Db(string Host, string Name = "app");
+
+            [Enver.Binding.EnvBindable]
+            public partial record AppConfig(Db Db, string Env = "production", string? Tag = null);
+            """
+        );
+
+        CSharpGeneratorDriver
+            .Create(new EnvConfigGenerator())
+            .RunGeneratorsAndUpdateCompilation(compilation, out var output, out _);
+
+        Assert.That(
+            output
+                .GetDiagnostics()
+                .Where(d => d.Severity >= DiagnosticSeverity.Warning)
+                .Select(d => d.ToString()),
+            Is.Empty
+        );
+    }
+
+    [Test]
     public void DefaultsWorkForRecordsFromAnotherAssembly()
     {
         var library = GeneratorTestHarness.CreateCompilation(

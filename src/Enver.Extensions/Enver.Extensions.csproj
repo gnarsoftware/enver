@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../build/Library.props" />
+
+  <!--
+    Metapackage: no code of its own, only dependencies on the configuration source
+    (.env files into IConfiguration) and the options integration (IConfiguration
+    into [EnvBindable] options), which also brings Enver.Binding and its generator.
+  -->
+  <PropertyGroup>
+    <PackageId>Gnar.Enver.Extensions</PackageId>
+    <Description>Everything for using Enver in an app built on Microsoft.Extensions: load .env files into IConfiguration (Gnar.Enver.Extensions.Configuration) and bind strongly-typed, validated options from it (Gnar.Enver.Extensions.Options).</Description>
+    <PackageTags>$(PackageTags);options;binding;aspnetcore;hosting;metapackage</PackageTags>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IncludeSymbols>false</IncludeSymbols>
+    <!-- NU5128: the dependency groups have no matching lib folder, by design. -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Enver.Extensions.Configuration/Enver.Extensions.Configuration.csproj" />
+    <ProjectReference Include="../Enver.Extensions.Options/Enver.Extensions.Options.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

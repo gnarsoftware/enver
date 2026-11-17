@@ -29,6 +29,13 @@
       Version="10.0.0"
     />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Physical" Version="10.0.0" />
+
+    <!-- Enver.Extensions.Options (net10.0 only; .NET 11 ships these in-box) -->
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.0" />
+
+    <!-- Enver.Extensions.Options.Tests -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
   </ItemGroup>
 
   <!-- Enver.Extensions.Configuration (net11.0) -->
@@ -39,5 +46,8 @@
       Version="11.0.0"
     />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Physical" Version="11.0.0" />
+
+    <!-- Enver.Extensions.Options.Tests -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
   </ItemGroup>
 </Project>

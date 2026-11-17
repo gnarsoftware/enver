@@ -1,0 +1,4 @@
+#nullable enable
+Enver.Extensions.Options.EnvOptionsServiceCollectionExtensions
+static Enver.Extensions.Options.EnvOptionsServiceCollectionExtensions.AddEnvOptions<T, TBinding>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration? configuration = null, bool validate = true, bool validateOnStart = true) -> Microsoft.Extensions.Options.OptionsBuilder<T!>!
+static Enver.Extensions.Options.EnvOptionsServiceCollectionExtensions.AddEnvOptions<T>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration? configuration = null, bool validate = true, bool validateOnStart = true) -> Microsoft.Extensions.Options.OptionsBuilder<T!>!

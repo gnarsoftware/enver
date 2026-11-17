@@ -86,6 +86,18 @@ with method names suffixed by the target's simple type name
 (`Configs.BindCacheConfig(...)` / `Configs.CacheConfigBinder`). See
 [External host](#external-host-enverbindablet) below.
 
+### `IEnvBinding<T>`
+
+For generic code such as [`Enver.Extensions.Options`](../Enver.Extensions.Options/README.md),
+a public self-bound type implements `IEnvBinding<T>`. Its static
+`Bind(reader, validate = true)` and `Validate(instance)` behave like the generated
+methods; for a type without rules, `validate` has no effect and `Validate` does
+nothing. The members
+are implemented explicitly, so they don't add to the type's own surface. An
+external host gets a nested `{T}EnvBinding` class instead, and so does a type
+generated with `Visibility = EnvVisibility.Internal` (`EnvBinding`), which keeps
+the interface off its public surface.
+
 ### Key constants
 
 `EnvKeys` holds every key the type binds from as a `const string`, nested the
