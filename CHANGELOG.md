@@ -16,8 +16,16 @@ together.
   polymorphic base type fall back to the section-level key after the case's own:
   `STORAGE_REMOTE_REGION`, then `STORAGE_REGION`. Subsections declared on the base
   and `[EnvFallbackKey]`s cascade the same way, and `EnvKeys` lists the
-  section-level keys next to the type key (`EnvKeys.Storage.Region`). Configs that set only the scoped
-  key bind as before.
+  section-level keys next to the type key (`EnvKeys.Storage.Region`). Configs that
+  set only the scoped key bind as before.
+
+### Fixed
+
+- `Enver.Binding`: invalid-value messages from generated code now name the key, not
+  only `EnvInvalidValueException.Variable`: an unknown type value
+  (`unknown EmailTransport type 'Smtp' in 'EMAIL_KIND'; expected one of: ...`), a
+  scalar union value matching no case, and a value the streaming `Binder` can't
+  parse (`invalid int value for 'APP_PORT'`).
 
 ## [2.0.0] - 2026-11-16
 

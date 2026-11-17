@@ -741,7 +741,7 @@ internal static partial class Emitter
         w.WriteLine("{");
         w.Indent++;
         w.WriteLine(
-            $"throw new global::Enver.EnvInvalidValueException(\"{key}\", \"invalid {m.UnderlyingTypeDisplayName} value\", __ex);"
+            $"throw new global::Enver.EnvInvalidValueException(\"{key}\", \"invalid {m.UnderlyingTypeDisplayName} value for '{key}'\", __ex);"
         );
         w.Indent--;
         w.WriteLine("}");

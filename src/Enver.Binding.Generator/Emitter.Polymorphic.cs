@@ -321,7 +321,7 @@ internal static partial class Emitter
         w.WriteLine(
             $"throw new global::Enver.EnvInvalidValueException(\"{p.Key}\", "
                 + $"{Literal($"unknown {p.UnderlyingTypeDisplayName} type '")} + __type + "
-                + $"{Literal($"'; expected one of: {expected}")});"
+                + $"{Literal($"' in '{p.Key}'; expected one of: {expected}")});"
         );
     }
 
@@ -345,7 +345,7 @@ internal static partial class Emitter
         var tried = string.Join(", ", cases.Select(c => c.TypeDisplayName));
         w.WriteLine(
             $"throw new global::Enver.EnvInvalidValueException(\"{p.Key}\", "
-                + $"{Literal($"value does not match any case of {p.UnderlyingTypeDisplayName} ({tried})")});"
+                + $"{Literal($"value of '{p.Key}' does not match any case of {p.UnderlyingTypeDisplayName} ({tried})")});"
         );
     }
 

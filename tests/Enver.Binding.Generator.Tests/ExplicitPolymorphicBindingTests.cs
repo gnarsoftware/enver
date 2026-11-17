@@ -57,7 +57,7 @@ public class ExplicitPolymorphicBindingTests
 
         AssertBoth(
             Exec(body, "c.Storage.ToString()", ("STORAGE_TYPE", "NOPE")),
-            "EnvInvalidValueException: unknown Test.Storage type 'NOPE'; expected one of: CLOUD, DISK, MEMORY"
+            "EnvInvalidValueException: unknown Test.Storage type 'NOPE' in 'STORAGE_TYPE'; expected one of: CLOUD, DISK, MEMORY"
         );
     }
 
@@ -77,7 +77,7 @@ public class ExplicitPolymorphicBindingTests
                 ("STORAGE_TYPE", "SECRET"),
                 ("STORAGE_VAULT", "v")
             ),
-            "EnvInvalidValueException: unknown Test.Storage type 'SECRET'; expected one of: REMOTE, LOCAL"
+            "EnvInvalidValueException: unknown Test.Storage type 'SECRET' in 'STORAGE_TYPE'; expected one of: REMOTE, LOCAL"
         );
     }
 
