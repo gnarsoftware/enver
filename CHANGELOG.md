@@ -10,16 +10,27 @@ together.
 
 ## Unreleased
 
+### Upgrading from 1.x
+
+- Target `net10.0` or later.
+- Replace `[EnvConfig("DB", ...)]` with the same settings on `[EnvBindable("DB", ...)]`
+  (or `[EnvBindable<T>("DB", ...)]`). `[EnvConfig]` now fails to compile with a
+  message that shows the new form.
+- Subsection keys are named by the property, without the subsection type's own
+  prefix: `SUB_VAL` rather than `SUB_<prefix>_VAL`. To keep the old keys, set the
+  segment explicitly: `[EnvKey("SUB_<prefix>")]` on the property.
+- `[EnvKey]` and `[EnvConfig]` are no longer needed to mark subsections. Remove
+  them, or keep `[EnvKey]` where it renames the segment.
+- An optional subsection (nullable or with an initializer) is now `null` or its
+  initializer when none of its keys are set, instead of an instance with defaults.
+- `Populate` now validates the whole instance. Pass `validate: false` to skip it.
+
 ### Removed
 
 - **Breaking:** dropped the `net8.0` and `net9.0` targets, which are no longer
   supported by Microsoft. All packages now target `net10.0` and `net11.0`.
 
 ### Changed
-
-- `Enver.Binding`: ENVR0012 now only reports keys that can't be used at all (empty,
-  or containing whitespace, control characters, quotes or backslashes). Other
-  invalid environment variable names report ENVR0038 or ENVR0039 instead.
 
 - **Breaking:** `Enver.Binding`: `[EnvConfig]` is replaced by settings on
   `[EnvBindable]` and `[EnvBindable<T>]`: `[EnvBindable("DB", KeyNaming = ...,
@@ -41,15 +52,13 @@ together.
   of as each nested object is constructed. A missing required key is now always
   reported before any validation failure. `Populate` now validates the whole
   instance after assigning; previously only the subsections it built were checked.
+- `Enver.Binding`: ENVR0012 now only reports keys that can't be used at all (empty,
+  or containing whitespace, control characters, quotes or backslashes). Other
+  invalid environment variable names report ENVR0038 or ENVR0039 instead.
 
 ### Added
 
 - `net11.0` target for all packages.
-- `Enver.Binding`: keys that aren't valid environment variable names, such as
-  configuration paths (`App:Db:Host`), are now generated so they can be read from
-  other configuration sources. A member's key like this reports ENVR0038 (error)
-  and a fallback ENVR0039 (info), unless `[EnvKey]` or `[EnvFallbackKey]` sets
-  `AllowNonEnvironmentKey = true`.
 - `Enver.Extensions.Options`: new package. `services.AddEnvOptions<T>()` registers an
   `[EnvBindable]` type as options bound from `IConfiguration` by the generated
   binder, so records and `required` members work. Validation runs at startup by
@@ -58,32 +67,6 @@ together.
   on configuration reload.
 - `Enver.Extensions`: new metapackage referencing `Enver.Extensions.Configuration`
   and `Enver.Extensions.Options`.
-- `Enver.Binding`: `IEnvBinding<T>` with static `Bind` and `Validate`, matching the
-  generated methods, implemented by public `[EnvBindable]` types and by a nested
-  `EnvBinding` class for external hosts and internal bindings.
-- `Enver.Binding`: generated `EnvKeys` and `EnvKeysUtf8` classes (`{Type}EnvKeys` on
-  an external host) expose every bound key as a `const string` or UTF-8 span,
-  nested like the config: `AppConfig.EnvKeys.Db.Pool.MaxSize`. Set
-  `GenerateKeys = false` to skip them. ENVR0037 reports a constant renamed to
-  avoid clashing with its enclosing class.
-- `Enver.Binding`: `Visibility = EnvVisibility.Internal` on `[EnvBindable]` and
-  `[EnvBindable<T>]` makes all generated members `internal`.
-- `Enver.Binding`: `[EnvFallbackKey(name, IgnorePrefix = ...)]` adds keys tried
-  after a member's primary key, in declaration order. The first present key wins
-  regardless of the order keys appear in, and a missing required member lists
-  every key it tried. ENVR0036 warns when it is placed on a subsection or
-  polymorphic member.
-- `Enver.Binding`: a generated `Validate(instance)` (`Validate{Type}` on an external
-  host) checks an instance and everything beneath it on demand. `Bind`, `Build`
-  and `Populate` take `validate: false` to skip validation. Both are generated
-  only for types with validation rules somewhere in their tree.
-- `Enver.Binding`: `Separator = EnvKeySeparator.DoubleUnderscore` on `[EnvBindable]`
-  and `[EnvBindable<T>]` joins key segments with `__` (`APP__DB__POOL__MAX_SIZE`),
-  the ASP.NET Core convention. Underscores inside a name stay single.
-- `Enver.Binding`: `[EnvKey(KeyNaming = ...)]` overrides the naming convention for
-  a member's derived key and, on a subsection, everything beneath it.
-- `Enver.Binding`: ENVR0033 reports a config type that contains itself, which
-  previously overflowed the generator's stack.
 - `Enver.Binding`: polymorphic binding. List a base type's cases with
   `[EnvDerivedType<T>]` (any SDK), or use C# 15 `closed` types and `union`s, detected
   automatically with the .NET 11 SDK. Object cases are selected by a type key
@@ -93,6 +76,37 @@ together.
   `TYPE` under the root prefix. New `[EnvDerivedType<T>]`, `[EnvPolymorphic]` and
   `[EnvCase]` attributes, the `EnvCaseKeyStyle` enum, and diagnostics
   ENVR0025-ENVR0032, ENVR0034 and ENVR0035.
+- `Enver.Binding`: `[EnvFallbackKey(name, IgnorePrefix = ...)]` adds keys tried
+  after a member's primary key, in declaration order. The first present key wins
+  regardless of the order keys appear in, and a missing required member lists
+  every key it tried. ENVR0036 warns when it is placed on a subsection or
+  polymorphic member.
+- `Enver.Binding`: generated `EnvKeys` and `EnvKeysUtf8` classes (`{Type}EnvKeys` on
+  an external host) expose every bound key as a `const string` or UTF-8 span,
+  nested like the config: `AppConfig.EnvKeys.Db.Pool.MaxSize`. Set
+  `GenerateKeys = false` to skip them. ENVR0037 reports a constant renamed to
+  avoid clashing with its enclosing class.
+- `Enver.Binding`: a generated `Validate(instance)` (`Validate{Type}` on an external
+  host) checks an instance and everything beneath it on demand. `Bind`, `Build`
+  and `Populate` take `validate: false` to skip validation. Both are generated
+  only for types with validation rules somewhere in their tree.
+- `Enver.Binding`: `Separator = EnvKeySeparator.DoubleUnderscore` on `[EnvBindable]`
+  and `[EnvBindable<T>]` joins key segments with `__` (`APP__DB__POOL__MAX_SIZE`),
+  the ASP.NET Core convention. Underscores inside a name stay single.
+- `Enver.Binding`: keys that aren't valid environment variable names, such as
+  configuration paths (`App:Db:Host`), are now generated so they can be read from
+  other configuration sources. A member's key like this reports ENVR0038 (error)
+  and a fallback ENVR0039 (info), unless `[EnvKey]` or `[EnvFallbackKey]` sets
+  `AllowNonEnvironmentKey = true`.
+- `Enver.Binding`: `Visibility = EnvVisibility.Internal` on `[EnvBindable]` and
+  `[EnvBindable<T>]` makes all generated members `internal`.
+- `Enver.Binding`: `IEnvBinding<T>` with static `Bind` and `Validate`, matching the
+  generated methods, implemented by public `[EnvBindable]` types and by a nested
+  `EnvBinding` class for external hosts and internal bindings.
+- `Enver.Binding`: `[EnvKey(KeyNaming = ...)]` overrides the naming convention for
+  a member's derived key and, on a subsection, everything beneath it.
+- `Enver.Binding`: ENVR0033 reports a config type that contains itself, which
+  previously overflowed the generator's stack.
 - `Enver.Binding`: the package now ships one generator build per Roslyn version
   (`analyzers/dotnet/roslyn5.0` and `roslyn5.12`). The baseline build now
   requires Roslyn 5.0, the compiler in every .NET 10 SDK; older SDKs could not
@@ -100,6 +114,9 @@ together.
 
 ### Fixed
 
+- `Enver.Binding`: a default on a record's primary-constructor parameter
+  (`record Db(string Host, int Port = 5432)`) now makes the member optional with that
+  default, like a property initializer. Previously the key was required.
 - `Enver.Binding`: members whose names are C# keywords (`public string @event`) no
   longer produce generated code that fails to compile.
 - `Enver.Binding`: a bindable type deriving from another bindable type no longer
@@ -107,9 +124,6 @@ together.
 - `Enver.Binding`: a member whose name clashes with generated code (`Binder`,
   `EnvKeys`, `EnvKeysUtf8`, `EnvBinding`, or a non-method `Bind`, `Validate` or
   `Populate`) reports ENVR0040 instead of compile errors in generated code.
-- `Enver.Binding`: a default on a record's primary-constructor parameter
-  (`record Db(string Host, int Port = 5432)`) now makes the member optional with that
-  default, like a property initializer. Previously the key was required.
 - `Enver.Binding`: the Binder's `Populate` no longer fails to compile for an
   optional non-nullable value-type member (`public int Port { get; set; } = 1`).
 

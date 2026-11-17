@@ -83,12 +83,8 @@ public class SystemEnvParserTests
             $"{K1}=${{ENVER_NOT_SET_999}}",
             new EnvParseOptions { AllowMissingInterpolation = true }
         );
-        // SystemEnvParser calls Environment.SetEnvironmentVariable(K1, "").
-        // .NET 8 documents and implements that as "delete the variable" (Get
-        // returns null). .NET 9+ preserves it as an empty string. Both
-        // outcomes satisfy the contract that a missing interpolation reference
-        // produces no usable value.
-        var value = Environment.GetEnvironmentVariable(K1);
-        Assert.That(value, Is.Null.Or.Empty);
+        // SystemEnvParser calls Environment.SetEnvironmentVariable(K1, ""), which
+        // .NET 9 and later preserve as an empty string.
+        Assert.That(Environment.GetEnvironmentVariable(K1), Is.Empty);
     }
 }
