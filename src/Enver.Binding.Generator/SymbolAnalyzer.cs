@@ -166,7 +166,7 @@ internal static partial class SymbolAnalyzer
                 compilation,
                 diags,
                 helperIds,
-                new AnalysisScope(root.SeparatorText),
+                new AnalysisScope(root.SeparatorText, root.ValidationName == EnvValidationName.Key),
                 root.KeyNaming,
                 generatePopulate: root.GeneratePopulate,
                 accumulatedPrefix: root.Prefix,
@@ -508,6 +508,7 @@ internal static partial class SymbolAnalyzer
                 InitializerFor(prop, ctorDefaults),
                 scope.Separator,
                 scope.AllowsNonEnvironmentKeys,
+                scope.KeyAsValidationName,
                 cascade?.PrefixFor(prop)
             );
             if (member is null)
@@ -662,6 +663,7 @@ internal static partial class SymbolAnalyzer
         string? initializer,
         string separator,
         bool inheritedAllowNonEnvironmentKeys,
+        bool keyAsValidationName,
         string? cascadePrefix
     )
     {
@@ -915,7 +917,17 @@ internal static partial class SymbolAnalyzer
             HasRequiredKeyword: hasRequiredKw,
             IsInitOnly: prop.SetMethod?.IsInitOnly ?? false,
             Validators: ReadValidators(prop, hostSymbol, compilation, diags),
-            DisplayNameExpression: ReadDisplayNameExpression(prop, hostSymbol, compilation),
+            // [Display] always wins; otherwise ValidationName = Key names the member
+            // by its key in validation messages ({0}).
+            DisplayNameExpression: ReadDisplayNameExpression(prop, hostSymbol, compilation)
+                ?? (
+                    keyAsValidationName
+                        ? Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(
+                            resolvedKey,
+                            quote: true
+                        )
+                        : null
+                ),
             SectionKey: sectionKey
         );
     }
@@ -1472,7 +1484,8 @@ internal static partial class SymbolAnalyzer
         EnvKeySeparator Separator,
         bool GeneratePopulate,
         EnvVisibility Visibility,
-        bool GenerateKeys
+        bool GenerateKeys,
+        EnvValidationName ValidationName
     )
     {
         public string SeparatorText => Separator == EnvKeySeparator.DoubleUnderscore ? "__" : "_";
@@ -1489,6 +1502,7 @@ internal static partial class SymbolAnalyzer
         var separator = EnvKeySeparator.Underscore;
         var visibility = EnvVisibility.Public;
         var generateKeys = true;
+        var validationName = EnvValidationName.MemberName;
         foreach (var named in attr.NamedArguments)
         {
             switch (named.Key)
@@ -1498,6 +1512,9 @@ internal static partial class SymbolAnalyzer
                     break;
                 case "GenerateKeys" when named.Value.Value is bool keys:
                     generateKeys = keys;
+                    break;
+                case "ValidationName" when named.Value.Value is int vn:
+                    validationName = (EnvValidationName)vn;
                     break;
                 case "KeyNaming" when named.Value.Value is int v:
                     naming = (EnvKeyNamingConvention)v;
@@ -1514,7 +1531,15 @@ internal static partial class SymbolAnalyzer
         {
             naming = EnvKeyNamingConvention.UpperSnakeCase;
         }
-        return new RootSettings(prefix, naming, separator, populate, visibility, generateKeys);
+        return new RootSettings(
+            prefix,
+            naming,
+            separator,
+            populate,
+            visibility,
+            generateKeys,
+            validationName
+        );
     }
 
     private static void ReportFallbackKeyIgnored(

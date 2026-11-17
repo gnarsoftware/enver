@@ -76,7 +76,7 @@ internal static partial class Emitter
         {
             EmitBindingClass(w, host, methodInfix, access);
         }
-        EmitValidateHelpers(w, target);
+        EmitValidateHelpers(w, target, methodInfix);
         EmitPolymorphicHelpers(w, target);
 
         // Close host partial + enclosing types.
@@ -1067,11 +1067,11 @@ internal static partial class Emitter
         w.WriteLine("global::System.ArgumentNullException.ThrowIfNull(instance);");
         if (target.Self is { } self)
         {
-            EmitPolymorphicValidation(w, self, "instance");
+            EmitPolymorphicValidation(w, self, "instance", methodInfix);
         }
         else
         {
-            w.WriteLine("__Validate(instance);");
+            w.WriteLine($"__Validate{methodInfix}(instance);");
         }
         w.Indent--;
         w.WriteLine("}");
@@ -1085,7 +1085,8 @@ internal static partial class Emitter
     private static void EmitPolymorphicValidation(
         IndentedTextWriter w,
         PolymorphicMember poly,
-        string valueExpr
+        string valueExpr,
+        string infix
     )
     {
         var local = $"__p_{poly.MemberName}";
@@ -1105,33 +1106,36 @@ internal static partial class Emitter
             if (poly.IsUnion)
             {
                 w.WriteLine(
-                    $"{keyword} ({local} is {caseType} __c_{poly.MemberName}_{i}) __Validate(__c_{poly.MemberName}_{i});"
+                    $"{keyword} ({local} is {caseType} __c_{poly.MemberName}_{i}) __Validate{infix}(__c_{poly.MemberName}_{i});"
                 );
             }
             else
             {
                 w.WriteLine(
-                    $"{keyword} ({local} is not null && {local}.GetType() == typeof({caseType})) __Validate(({caseType}){local});"
+                    $"{keyword} ({local} is not null && {local}.GetType() == typeof({caseType})) __Validate{infix}(({caseType}){local});"
                 );
             }
         }
     }
 
-    private static void EmitValidateHelpers(IndentedTextWriter w, BindingTarget root)
+    private static void EmitValidateHelpers(IndentedTextWriter w, BindingTarget root, string infix)
     {
         // One __Validate(T) overload per distinct target whose tree validates (root,
         // subsections, polymorphic cases). Each validates its subsections and
-        // polymorphic members first, then itself.
+        // polymorphic members first, then itself. On an external host the helpers
+        // and their cached validators carry the target's name, since every target's
+        // generated file adds to the same partial class.
         var emitted = new HashSet<string>(StringComparer.Ordinal);
         int validatorFieldCounter = 0;
-        CollectAndEmit(w, root, emitted, ref validatorFieldCounter);
+        CollectAndEmit(w, root, emitted, ref validatorFieldCounter, infix);
     }
 
     private static void CollectAndEmit(
         IndentedTextWriter w,
         BindingTarget target,
         HashSet<string> emitted,
-        ref int fieldCounter
+        ref int fieldCounter,
+        string infix
     )
     {
         if (target.Self is null)
@@ -1141,11 +1145,11 @@ internal static partial class Emitter
                 return;
             }
             w.WriteLine();
-            EmitValidateMethod(w, target, ref fieldCounter);
+            EmitValidateMethod(w, target, ref fieldCounter, infix);
         }
         foreach (var sub in target.SubSections.AsImmutableArray())
         {
-            CollectAndEmit(w, sub.Target, emitted, ref fieldCounter);
+            CollectAndEmit(w, sub.Target, emitted, ref fieldCounter, infix);
         }
         foreach (var poly in target.Polymorphics.AsImmutableArray())
         {
@@ -1153,7 +1157,7 @@ internal static partial class Emitter
             {
                 if (c.Target is not null)
                 {
-                    CollectAndEmit(w, c.Target, emitted, ref fieldCounter);
+                    CollectAndEmit(w, c.Target, emitted, ref fieldCounter, infix);
                 }
             }
         }
@@ -1162,7 +1166,8 @@ internal static partial class Emitter
     private static void EmitValidateMethod(
         IndentedTextWriter w,
         BindingTarget target,
-        ref int fieldCounter
+        ref int fieldCounter,
+        string infix
     )
     {
         const string ctxType = "global::System.ComponentModel.DataAnnotations.ValidationContext";
@@ -1201,7 +1206,7 @@ internal static partial class Emitter
                         : " { "
                             + string.Join(", ", named.Select(n => $"{n.Name} = {n.Expression}"))
                             + " }";
-                var field = $"__validator{fieldCounter++}";
+                var field = $"__validator{infix}{fieldCounter++}";
                 fieldNames[mi][vi] = field;
                 var decl =
                     $"private static readonly {v.AttributeTypeFullyQualifiedName} {field} = "
@@ -1245,7 +1250,7 @@ internal static partial class Emitter
                     + "Justification = \"DisplayName is supplied explicitly; no member metadata is reflected at runtime.\")]"
             );
         }
-        w.WriteLine($"private static void __Validate({t} instance)");
+        w.WriteLine($"private static void __Validate{infix}({t} instance)");
         w.WriteLine("{");
         w.Indent++;
 
@@ -1255,7 +1260,7 @@ internal static partial class Emitter
             if (TreeRequiresValidation(sub.Target))
             {
                 w.WriteLine(
-                    $"if (instance.{Id(sub.MemberName)} is {{ }} __s_{sub.MemberName}) __Validate(__s_{sub.MemberName});"
+                    $"if (instance.{Id(sub.MemberName)} is {{ }} __s_{sub.MemberName}) __Validate{infix}(__s_{sub.MemberName});"
                 );
             }
         }
@@ -1263,7 +1268,7 @@ internal static partial class Emitter
         {
             if (PolymorphicRequiresValidation(poly))
             {
-                EmitPolymorphicValidation(w, poly, $"instance.{Id(poly.MemberName)}");
+                EmitPolymorphicValidation(w, poly, $"instance.{Id(poly.MemberName)}", infix);
             }
         }
 

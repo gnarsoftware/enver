@@ -66,6 +66,13 @@ public sealed class EnvBindableAttribute(string? prefix = null) : Attribute
     /// like the config: <c>EnvKeys.Db.Pool.MaxSize</c>.
     /// </summary>
     public bool GenerateKeys { get; init; } = true;
+
+    /// <summary>
+    /// How members are named in validation messages (<c>{0}</c>). Defaults to
+    /// <see cref="EnvValidationName.MemberName"/>; use
+    /// <see cref="EnvValidationName.Key"/> to name the key instead.
+    /// </summary>
+    public EnvValidationName ValidationName { get; init; }
 }
 
 /// <summary>
@@ -109,4 +116,7 @@ public sealed class EnvBindableAttribute<T>(string? prefix = null) : Attribute
     /// constant, laid out like the config.
     /// </summary>
     public bool GenerateKeys { get; init; } = true;
+
+    /// <inheritdoc cref="EnvBindableAttribute.ValidationName"/>
+    public EnvValidationName ValidationName { get; init; }
 }

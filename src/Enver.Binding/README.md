@@ -624,6 +624,27 @@ var cfg = ServerConfig.Bind(DotEnvPaths.AppDirectory());
   objects (subsections and the selected polymorphic case) are checked before
   their parent, and the first object that fails is reported.
 
+### Naming keys in messages
+
+Validation messages name a member with the DataAnnotations `{0}` placeholder,
+the member name by default. Set `ValidationName = EnvValidationName.Key` to name
+its key instead, the setting someone has to fix:
+
+```csharp
+[EnvBindable("APP", ValidationName = EnvValidationName.Key)]
+public partial record AppConfig(
+    // "The field APP_PORT must be between 1 and 65535."
+    [property: Range(1, 65535)] int Port,
+    // "APP_WORKERS must be from 1 to 64"
+    [property: Range(1, 64, ErrorMessage = "{0} must be from {1} to {2}")] int Workers
+);
+```
+
+- A `[Display(Name = ...)]` on a member still takes precedence.
+- Nested members use their full key (`APP_DB_POOL_SIZE`), and a member with
+  fallback keys is named by its primary key.
+- Custom attributes see the key as `ValidationContext.DisplayName`.
+
 ### Validating separately
 
 Pass `validate: false` to `Bind`, `Build` or `Populate` to get the bound instance

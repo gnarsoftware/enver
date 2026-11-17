@@ -28,8 +28,14 @@ internal static partial class SymbolAnalyzer
     /// types currently being analyzed. A type that reappears in its own members
     /// (directly, through a subsection, or through a polymorphic case) can't be bound.
     /// </summary>
-    internal sealed class AnalysisScope(string separator)
+    internal sealed class AnalysisScope(string separator, bool keyAsValidationName = false)
     {
+        /// <summary>
+        /// Whether validation messages name members by their key (APP_PORT) rather
+        /// than the member name when there's no [Display].
+        /// </summary>
+        public bool KeyAsValidationName => keyAsValidationName;
+
         private readonly HashSet<INamedTypeSymbol> _types = new(SymbolEqualityComparer.Default);
 
         /// <summary>Joins key segments: "_" or "__".</summary>
@@ -167,7 +173,10 @@ internal static partial class SymbolAnalyzer
             );
         }
 
-        var scope = new AnalysisScope(root.SeparatorText);
+        var scope = new AnalysisScope(
+            root.SeparatorText,
+            root.ValidationName == EnvValidationName.Key
+        );
         scope.TryEnter(target);
         var self = AnalyzePolymorphic(
             new PolySite(

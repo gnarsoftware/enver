@@ -32,6 +32,13 @@ internal enum EnvVisibility
     Internal = 1,
 }
 
+// copy of ../Enver.Binding/EnvValidationName.cs
+internal enum EnvValidationName
+{
+    MemberName = 0,
+    Key = 1,
+}
+
 // copy of ../Enver.Binding/EnvKeySeparator.cs
 internal enum EnvKeySeparator
 {

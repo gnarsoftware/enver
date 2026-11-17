@@ -12,6 +12,10 @@ together.
 
 ### Added
 
+- `Enver.Binding`: `ValidationName = EnvValidationName.Key` on `[EnvBindable]` and
+  `[EnvBindable<T>]` names members by their key in validation messages (the
+  DataAnnotations `{0}`): "The field APP_PORT must be between 1 and 10.". A
+  `[Display]` on the member still takes precedence.
 - `Enver.Binding`: with `CaseKeys = EnvCaseKeyStyle.Scoped`, members declared on the
   polymorphic base type fall back to the section-level key after the case's own:
   `STORAGE_REMOTE_REGION`, then `STORAGE_REGION`. Subsections declared on the base
@@ -21,6 +25,9 @@ together.
 
 ### Fixed
 
+- `Enver.Binding`: an external host (`[EnvBindable<T>]`) with more than one target
+  that has validation rules no longer fails to compile (CS0102) from duplicate
+  generated validator fields and validation helpers.
 - `Enver.Binding`: invalid-value messages from generated code now name the key, not
   only `EnvInvalidValueException.Variable`: an unknown type value
   (`unknown EmailTransport type 'Smtp' in 'EMAIL_KIND'; expected one of: ...`), a
